@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 min-h-screen antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@keyframes scanLine {
+  0% { top: 0; opacity: 0.8; }
+  50% { top: 100%; opacity: 1; }
+  100% { top: 0; opacity: 0.8; }
+}
+
+@media print {
+  body {
+    background: #FFF !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+}
