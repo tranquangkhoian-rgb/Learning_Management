@@ -12,12 +12,16 @@ class LMSApp {
     this.isTeacherLocked = false;
     this.kioskScanner = null;
     this.gradeScanner = null;
+    this.studentLoginScanner = null;
     this.activeTrackingFilter = "ALL";
     this.trackingMatrix = [];
     this.currentlyGradingStudent = null;
     this.selectedGradeStatus = "Đã đạt";
     this.cameraFacing = "environment";
     this.serverAvailable = true;
+    this.currentUserRole = null;
+    this.currentStudent = null;
+    this.kioskEnteredFromLogin = false;
   }
 
   async checkServer() {
@@ -37,8 +41,11 @@ class LMSApp {
     await this.loadStudents();
     await this.loadAssignments();
 
-    // Render A4 Printable Sheet of 30 QR cards
+    // Render A4 Printable Sheet of 29 QR cards
     this.renderA4PrintSheet();
+
+    // Render quick student login chips
+    this.renderLoginStudentPicker();
 
     // Init UI dropdowns and listeners
     this.populateDropdowns();
@@ -50,6 +57,9 @@ class LMSApp {
     }
     this.loadAnalytics();
     this.loadStudentProfile();
+
+    // Check authentication session
+    await this.checkAuthSession();
 
     // Keyboard listener for barcode scanner gun (e.g. USB/Bluetooth scanner typing "HS01" + Enter)
     this.initBarcodeGunListener();
@@ -234,6 +244,503 @@ class LMSApp {
     }
   }
 
+  // --- AUTHENTICATION & PORTAL CONTROLLER ---
+  async checkAuthSession() {
+    try {
+      const sessStr = localStorage.getItem("lms_session") || sessionStorage.getItem("lms_session");
+      if (!sessStr) {
+        this.showLoginView();
+        return;
+      }
+      const sess = JSON.parse(sessStr);
+      if (sess.role === "teacher") {
+        this.showTeacherApp(false);
+      } else if (sess.role === "student" && sess.studentId) {
+        const st = this.students.find(s => s.id == sess.studentId || s.code == sess.code);
+        if (st) {
+          await this.showStudentPortal(st, false);
+        } else {
+          this.showLoginView();
+        }
+      } else {
+        this.showLoginView();
+      }
+    } catch {
+      this.showLoginView();
+    }
+  }
+
+  showLoginView() {
+    if (this.kioskScanner) this.kioskScanner.stop();
+    if (this.gradeScanner) this.gradeScanner.stop();
+    if (this.studentLoginScanner) this.studentLoginScanner.stop();
+
+    const viewLogin = document.getElementById("view-login");
+    const viewStudent = document.getElementById("view-student-portal");
+    const viewTeacher = document.getElementById("view-teacher-app");
+
+    if (viewLogin) viewLogin.style.display = "flex";
+    if (viewStudent) viewStudent.style.display = "none";
+    if (viewTeacher) viewTeacher.style.display = "none";
+
+    this.currentUserRole = null;
+    this.currentStudent = null;
+
+    const tErr = document.getElementById("teacher-login-error");
+    if (tErr) tErr.style.display = "none";
+    const sErr = document.getElementById("student-login-error");
+    if (sErr) sErr.style.display = "none";
+    const sCode = document.getElementById("student-login-code");
+    if (sCode) sCode.value = "";
+    const tPin = document.getElementById("teacher-login-pin");
+    if (tPin) tPin.value = "";
+
+    this.renderLoginStudentPicker();
+  }
+
+  switchLoginRole(role) {
+    const tabTeacher = document.getElementById("tab-btn-teacher");
+    const tabStudent = document.getElementById("tab-btn-student");
+    const paneTeacher = document.getElementById("login-pane-teacher");
+    const paneStudent = document.getElementById("login-pane-student");
+
+    if (role === "teacher") {
+      if (tabTeacher) tabTeacher.classList.add("active");
+      if (tabStudent) tabStudent.classList.remove("active");
+      if (paneTeacher) paneTeacher.style.display = "block";
+      if (paneStudent) paneStudent.style.display = "none";
+      setTimeout(() => document.getElementById("teacher-login-pin")?.focus(), 100);
+    } else {
+      if (tabStudent) tabStudent.classList.add("active");
+      if (tabTeacher) tabTeacher.classList.remove("active");
+      if (paneStudent) paneStudent.style.display = "block";
+      if (paneTeacher) paneTeacher.style.display = "none";
+      this.renderLoginStudentPicker();
+    }
+  }
+
+  togglePasswordVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    field.type = field.type === "password" ? "text" : "password";
+  }
+
+  loginTeacher() {
+    const pin = (document.getElementById("teacher-login-pin").value || "").trim();
+    const correctPin = this.settings.teacher_pin || "1234";
+    const errEl = document.getElementById("teacher-login-error");
+
+    if (pin === correctPin) {
+      if (errEl) errEl.style.display = "none";
+      const remember = document.getElementById("teacher-remember-me")?.checked;
+      const sess = JSON.stringify({ role: "teacher", loginTime: new Date().toISOString() });
+      if (remember) {
+        localStorage.setItem("lms_session", sess);
+      } else {
+        sessionStorage.setItem("lms_session", sess);
+      }
+      this.showTeacherApp(true);
+    } else {
+      if (errEl) errEl.style.display = "block";
+      const pinField = document.getElementById("teacher-login-pin");
+      if (pinField) {
+        pinField.value = "";
+        pinField.focus();
+      }
+    }
+  }
+
+  showTeacherApp(isNewLogin = false) {
+    this.currentUserRole = "teacher";
+    this.currentStudent = null;
+    this.isTeacherLocked = false;
+
+    const viewLogin = document.getElementById("view-login");
+    const viewStudent = document.getElementById("view-student-portal");
+    const viewTeacher = document.getElementById("view-teacher-app");
+    if (viewLogin) viewLogin.style.display = "none";
+    if (viewStudent) viewStudent.style.display = "none";
+    if (viewTeacher) viewTeacher.style.display = "block";
+
+    const header = document.querySelector(".app-header");
+    if (header) header.style.display = "block";
+    const nav = document.getElementById("teacher-nav");
+    if (nav) nav.style.display = "block";
+
+    const standaloneBar = document.getElementById("kiosk-standalone-bar");
+    if (standaloneBar) standaloneBar.style.display = "none";
+
+    const btnKiosk = document.getElementById("btn-switch-kiosk");
+    if (btnKiosk) btnKiosk.style.display = "inline-flex";
+    const btnLock = document.getElementById("btn-lock-mode");
+    if (btnLock) btnLock.innerText = "🔒 Khóa Kiosk";
+
+    if (isNewLogin) {
+      this.switchTab("pane-grade");
+    }
+  }
+
+  loginStudentByInput() {
+    const code = (document.getElementById("student-login-code").value || "").trim().toUpperCase();
+    const errEl = document.getElementById("student-login-error");
+
+    if (!code) {
+      if (errEl) {
+        errEl.innerText = "Vui lòng nhập mã học sinh (ví dụ: HS01)";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+
+    const st = this.students.find(s => s.code.toUpperCase() === code);
+    if (st) {
+      if (errEl) errEl.style.display = "none";
+      this.loginStudent(st);
+    } else {
+      if (errEl) {
+        errEl.innerText = `❌ Không tìm thấy học sinh với mã "${code}" trong Lớp 3A7!`;
+        errEl.style.display = "block";
+      }
+    }
+  }
+
+  loginStudentById(studentId) {
+    const st = this.students.find(s => s.id == studentId);
+    if (st) {
+      this.loginStudent(st);
+    }
+  }
+
+  loginStudent(st) {
+    const sess = JSON.stringify({
+      role: "student",
+      studentId: st.id,
+      code: st.code,
+      name: st.full_name,
+      loginTime: new Date().toISOString()
+    });
+    localStorage.setItem("lms_session", sess);
+    this.showStudentPortal(st, true);
+  }
+
+  async showStudentPortal(st, isNewLogin = false) {
+    this.currentUserRole = "student";
+    this.currentStudent = st;
+
+    if (this.kioskScanner) this.kioskScanner.stop();
+    if (this.gradeScanner) this.gradeScanner.stop();
+
+    const viewLogin = document.getElementById("view-login");
+    const viewTeacher = document.getElementById("view-teacher-app");
+    const viewStudent = document.getElementById("view-student-portal");
+    if (viewLogin) viewLogin.style.display = "none";
+    if (viewTeacher) viewTeacher.style.display = "none";
+    if (viewStudent) viewStudent.style.display = "block";
+
+    await this.renderStudentPortal(st);
+
+    if (isNewLogin && window.QRCameraScanner) {
+      const audio = new QRCameraScanner(document.createElement("video"), () => {});
+      audio.playSuccessBeep();
+    }
+  }
+
+  logout() {
+    localStorage.removeItem("lms_session");
+    sessionStorage.removeItem("lms_session");
+    this.showLoginView();
+  }
+
+  renderLoginStudentPicker() {
+    const grid = document.getElementById("login-student-picker-grid");
+    if (!grid) return;
+    grid.innerHTML = this.students.map(s => `
+      <button type="button" class="login-student-chip" onclick="app.loginStudentById(${s.id})">
+        <span class="student-chip-order">${s.order_num}</span>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.full_name}</span>
+      </button>
+    `).join("");
+  }
+
+  async openStudentLoginScanner() {
+    const modal = document.getElementById("student-login-camera-modal");
+    if (!modal) return;
+    modal.style.display = "flex";
+
+    const video = document.getElementById("student-login-video");
+    if (!this.studentLoginScanner) {
+      this.studentLoginScanner = new QRCameraScanner(video, (code) => this.handleStudentLoginScan(code), {
+        facingMode: this.cameraFacing
+      });
+    }
+    try {
+      await this.studentLoginScanner.start();
+    } catch (e) {
+      console.warn("Could not start student login camera:", e);
+    }
+  }
+
+  closeStudentLoginScanner() {
+    const modal = document.getElementById("student-login-camera-modal");
+    if (modal) modal.style.display = "none";
+    if (this.studentLoginScanner) {
+      this.studentLoginScanner.stop();
+    }
+  }
+
+  async switchStudentCameraFacing() {
+    this.cameraFacing = this.cameraFacing === "environment" ? "user" : "environment";
+    if (this.studentLoginScanner) {
+      this.studentLoginScanner.stop();
+      this.studentLoginScanner = null;
+      await this.openStudentLoginScanner();
+    }
+  }
+
+  handleStudentLoginScan(scannedCode) {
+    if (!scannedCode) return;
+    const cleanCode = scannedCode.trim().toUpperCase();
+    const match = cleanCode.match(/HS\d+/);
+    const code = match ? match[0] : cleanCode;
+
+    const st = this.students.find(s => s.code.toUpperCase() === code);
+    if (st) {
+      if (this.studentLoginScanner) {
+        this.studentLoginScanner.playSuccessBeep();
+      }
+      this.closeStudentLoginScanner();
+      this.loginStudent(st);
+    } else {
+      if (this.studentLoginScanner) {
+        this.studentLoginScanner.playErrorBeep();
+      }
+      alert(`Mã QR "${scannedCode}" không thuộc danh sách học sinh Lớp 3A7!`);
+    }
+  }
+
+  async renderStudentPortal(st) {
+    if (!st) return;
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/student-profile/${st.id}`);
+        if (res.ok) data = await res.json();
+        else data = window.ClientDB.getStudentProfile(st.id);
+      } else {
+        data = window.ClientDB.getStudentProfile(st.id);
+      }
+      if (!data) return;
+
+      const student = data.student || st;
+      const assignments = data.assignments || [];
+
+      // Update Hero card
+      const nameParts = (student.full_name || "").trim().split(" ");
+      const lastName = nameParts[nameParts.length - 1] || "A";
+      const initial = lastName.charAt(0).toUpperCase();
+
+      const avEl = document.getElementById("sp-avatar");
+      if (avEl) avEl.innerText = initial;
+      const fnEl = document.getElementById("sp-full-name");
+      if (fnEl) fnEl.innerText = `${student.order_num}. ${student.full_name}`;
+      const codeEl = document.getElementById("sp-code");
+      if (codeEl) codeEl.innerText = student.code;
+      const ordEl = document.getElementById("sp-order-num");
+      if (ordEl) ordEl.innerText = student.order_num;
+
+      // QR Code preview
+      const qrBox = document.getElementById("sp-qr-box");
+      if (qrBox) {
+        if (window.QRCode && window.QRCode.generateSVG) {
+          qrBox.innerHTML = window.QRCode.generateSVG(student.code, { margin: 2 });
+        } else {
+          qrBox.innerHTML = `<img src="/api/qr?text=${encodeURIComponent(student.code)}" alt="${student.code}" />`;
+        }
+      }
+
+      // Calculate Stats
+      const totalAsg = assignments.length;
+      const submittedList = assignments.filter(a => (a.submit_count || 0) > 0);
+      const passedList = assignments.filter(a => (a.status || a.latest_status) === "Đã đạt" || (a.latest_score !== null && a.latest_score >= 8));
+      
+      const gradedList = assignments.filter(a => a.latest_score !== null && a.latest_score !== undefined);
+      const avgScore = gradedList.length > 0 
+        ? (gradedList.reduce((acc, a) => acc + Number(a.latest_score), 0) / gradedList.length).toFixed(1)
+        : "-";
+
+      const statTot = document.getElementById("sp-stat-total");
+      if (statTot) statTot.innerText = totalAsg;
+      const statSub = document.getElementById("sp-stat-submitted");
+      if (statSub) statSub.innerText = submittedList.length;
+      const statAvg = document.getElementById("sp-stat-avg");
+      if (statAvg) statAvg.innerText = avgScore;
+      const statPas = document.getElementById("sp-stat-passed");
+      if (statPas) statPas.innerText = passedList.length;
+
+      // Populate Quick Submit dropdown
+      const selectEl = document.getElementById("sp-quick-asg-select");
+      if (selectEl) {
+        selectEl.innerHTML = this.assignments.map(a => `
+          <option value="${a.id}">${a.subject ? `[${a.subject}] ` : ""}${a.title}</option>
+        `).join("");
+      }
+
+      // Populate Assignments Table
+      const tbody = document.getElementById("sp-assignments-tbody");
+      if (tbody) {
+        if (assignments.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Hiện tại chưa có bài tập nào được giao.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = assignments.map(a => {
+          const aid = a.assignment_id || a.id;
+          const status = a.status || a.latest_status || "Chưa nộp";
+          let badgeColor = "blue";
+          if (status === "Đã đạt") badgeColor = "green";
+          else if (status === "Cần sửa" || status === "Cần nộp lại") badgeColor = "yellow";
+          else if (status === "Chưa nộp") badgeColor = "red";
+          else if (status === "Nộp trễ") badgeColor = "orange";
+          else if (status === "Đã nộp đúng hạn" || status === "Đã nộp lại") badgeColor = "blue";
+
+          const scoreText = (a.latest_score !== null && a.latest_score !== undefined)
+            ? `<strong style="font-size: 16px; color: var(--primary);">${a.latest_score}</strong>/10`
+            : `<span style="color: var(--text-muted); font-size: 13px;">Chưa chấm</span>`;
+
+          const teacherNoteHtml = a.teacher_note
+            ? `<div class="teacher-note-pill">💬 <strong>Cô Linh:</strong> "${a.teacher_note}"</div>`
+            : `<span style="color: var(--text-muted); font-size: 13px;">Chưa có nhận xét</span>`;
+
+          const canSubmit = status === "Chưa nộp" || status === "Cần sửa" || status === "Cần nộp lại";
+          const submitBtn = canSubmit
+            ? `<button class="btn btn-primary btn-sm" onclick="app.studentSubmitSelf(${aid})" style="font-size: 12px; padding: 4px 10px; margin-left: 6px;">📤 Nộp</button>`
+            : "";
+
+          return `
+            <tr>
+              <td>
+                <strong>${a.title || a.assignment_title}</strong>
+                ${submitBtn}
+              </td>
+              <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
+              <td style="font-size: 13px;">${a.due_date ? a.due_date.replace("T", " ") : "-"}</td>
+              <td><span class="badge badge-${badgeColor}">${status}</span></td>
+              <td style="text-align: center;">${scoreText}</td>
+              <td>${teacherNoteHtml}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+    } catch (e) {
+      console.error("Error rendering student portal:", e);
+    }
+  }
+
+  async studentSubmitCurrentAssignment() {
+    const asgId = document.getElementById("sp-quick-asg-select")?.value;
+    if (!asgId) {
+      alert("Vui lòng chọn bài tập muốn nộp!");
+      return;
+    }
+    await this.studentSubmitSelf(asgId);
+  }
+
+  async studentSubmitSelf(assignmentId) {
+    if (!this.currentStudent) return;
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/scan-submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_code: this.currentStudent.code,
+            assignment_id: assignmentId,
+            operator: "Học sinh"
+          })
+        });
+        data = await res.json();
+      } else {
+        data = window.ClientDB.recordSubmission(this.currentStudent.code, assignmentId, "Học sinh");
+      }
+
+      if (!data || data.error || data.success === false) {
+        alert((data && data.error) || "Không thể nộp bài tập!");
+        return;
+      }
+
+      // Success chime
+      if (window.QRCameraScanner) {
+        const audio = new QRCameraScanner(document.createElement("video"), () => {});
+        audio.playSuccessBeep();
+      }
+
+      alert(`🎉 Tuyệt vời! Em đã nộp bài thành công cho Cô Linh.\nLần nộp: ${data.event?.submit_count || 1} • ${data.event?.is_late ? "Nộp trễ" : "Đúng hạn"}`);
+
+      await this.renderStudentPortal(this.currentStudent);
+      this.loadTrackingMatrix();
+    } catch (e) {
+      alert("Lỗi khi nộp bài: " + e.message);
+    }
+  }
+
+  enterKioskFromLogin() {
+    this.kioskEnteredFromLogin = true;
+    this.isTeacherLocked = false;
+    const vLogin = document.getElementById("view-login");
+    const vStudent = document.getElementById("view-student-portal");
+    const vTeacher = document.getElementById("view-teacher-app");
+    if (vLogin) vLogin.style.display = "none";
+    if (vStudent) vStudent.style.display = "none";
+    if (vTeacher) vTeacher.style.display = "block";
+
+    const header = document.querySelector(".app-header");
+    if (header) header.style.display = "none";
+    const nav = document.getElementById("teacher-nav");
+    if (nav) nav.style.display = "none";
+
+    const standaloneBar = document.getElementById("kiosk-standalone-bar");
+    if (standaloneBar) standaloneBar.style.display = "flex";
+
+    this.switchTab("pane-kiosk");
+  }
+
+  exitKiosk() {
+    if (this.isTeacherLocked) {
+      this.openPinModal(() => {
+        this.isTeacherLocked = false;
+        this.performKioskExit();
+      });
+    } else {
+      this.performKioskExit();
+    }
+  }
+
+  performKioskExit() {
+    if (this.kioskScanner) this.kioskScanner.stop();
+    const standaloneBar = document.getElementById("kiosk-standalone-bar");
+    if (standaloneBar) standaloneBar.style.display = "none";
+
+    if (this.kioskEnteredFromLogin) {
+      this.kioskEnteredFromLogin = false;
+      this.showLoginView();
+    } else if (this.currentUserRole === "teacher") {
+      const header = document.querySelector(".app-header");
+      if (header) header.style.display = "block";
+      const nav = document.getElementById("teacher-nav");
+      if (nav) nav.style.display = "block";
+      const btnKiosk = document.getElementById("btn-switch-kiosk");
+      if (btnKiosk) btnKiosk.style.display = "inline-flex";
+      const btnLock = document.getElementById("btn-lock-mode");
+      if (btnLock) btnLock.innerText = "🔒 Khóa Kiosk";
+      this.switchTab("pane-grade");
+    } else {
+      this.showLoginView();
+    }
+  }
+
   // --- Tab Navigation & Kiosk Lockdown ---
   switchTab(paneId) {
     if (this.isTeacherLocked && paneId !== "pane-kiosk") {
@@ -273,9 +780,12 @@ class LMSApp {
 
   enterKioskMode() {
     this.isTeacherLocked = true;
+    this.kioskEnteredFromLogin = false;
     document.getElementById("teacher-nav").style.display = "none";
     document.getElementById("btn-switch-kiosk").style.display = "none";
     document.getElementById("btn-lock-mode").innerText = "🔒 Mở Khóa Giáo Viên";
+    const standaloneBar = document.getElementById("kiosk-standalone-bar");
+    if (standaloneBar) standaloneBar.style.display = "none";
     this.switchTab("pane-kiosk");
   }
 
@@ -1010,11 +1520,22 @@ class LMSApp {
         if (buffer.length >= 3) {
           const scannedCode = buffer.trim().toUpperCase();
           console.log("[Barcode Gun Scanned]:", scannedCode);
-          const activePane = document.querySelector(".tab-pane.active");
-          if (activePane && activePane.id === "pane-grade") {
-            this.handleGradeScan(scannedCode);
+
+          const viewLogin = document.getElementById("view-login");
+          if (viewLogin && viewLogin.style.display !== "none") {
+            const match = scannedCode.match(/HS\d+/);
+            const code = match ? match[0] : scannedCode;
+            const st = this.students.find(s => s.code.toUpperCase() === code);
+            if (st) {
+              this.loginStudent(st);
+            }
           } else {
-            this.handleKioskScan(scannedCode);
+            const activePane = document.querySelector(".tab-pane.active");
+            if (activePane && activePane.id === "pane-grade") {
+              this.handleGradeScan(scannedCode);
+            } else {
+              this.handleKioskScan(scannedCode);
+            }
           }
           buffer = "";
         }

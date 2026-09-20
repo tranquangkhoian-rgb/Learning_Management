@@ -10,6 +10,7 @@ interface NavbarProps {
   onSelectTab: (tab: string) => void;
   onEnterKiosk: () => void;
   onUnlockTeacher: () => void;
+  onLogout?: () => void;
 }
 
 export default function Navbar({
@@ -19,6 +20,7 @@ export default function Navbar({
   onSelectTab,
   onEnterKiosk,
   onUnlockTeacher,
+  onLogout,
 }: NavbarProps) {
   const tabs = [
     { id: "kiosk", label: "🎯 Góc Nộp Bài" },
@@ -49,12 +51,22 @@ export default function Navbar({
 
         <div className="flex items-center gap-2">
           {!isKioskLocked ? (
-            <button
-              onClick={onEnterKiosk}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
-            >
-              🎯 Góc Nộp Bài (Học Sinh)
-            </button>
+            <>
+              <button
+                onClick={onEnterKiosk}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-1.5"
+              >
+                🎯 Góc Nộp Bài
+              </button>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm transition-all flex items-center gap-1"
+                >
+                  🚪 Đăng Xuất
+                </button>
+              )}
+            </>
           ) : (
             <button
               onClick={onUnlockTeacher}

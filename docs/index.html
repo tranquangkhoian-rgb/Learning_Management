@@ -8,26 +8,277 @@
 </head>
 <body>
 
-  <!-- Top App Header -->
-  <header class="app-header">
-    <div class="header-container">
-      <div class="brand">
-        <div class="brand-icon">📚</div>
-        <div class="brand-info">
-          <h1 id="header-class-title">Lớp 3A7 • Cô Linh</h1>
-          <p id="header-school-name">Hệ Thống Theo Dõi Nộp Bài & Chấm Điểm Học Sinh</p>
+  <!-- ====================================================================
+       VIEW 1: TRANG ĐĂNG NHẬP CHÍNH (LOGIN GATEWAY)
+       ==================================================================== -->
+  <div id="view-login" class="login-screen">
+    <div class="login-wrapper">
+      
+      <!-- Brand Header -->
+      <div class="login-brand-header">
+        <div class="login-logo-badge">🏫</div>
+        <h1 class="login-title">Hệ Thống Theo Dõi Nộp Bài & Điểm Số</h1>
+        <p class="login-subtitle">Trường Tiểu Học Ánh Dương • Lớp 3A7 • GVCN: Cô Linh</p>
+      </div>
+
+      <!-- Main Login Card -->
+      <div class="login-card">
+        
+        <!-- Role Tabs Switcher -->
+        <div class="login-tabs">
+          <button id="tab-btn-teacher" class="login-tab active" onclick="app.switchLoginRole('teacher')">
+            👩‍🏫 Dành Cho Giáo Viên
+          </button>
+          <button id="tab-btn-student" class="login-tab" onclick="app.switchLoginRole('student')">
+            🎒 Dành Cho Học Sinh
+          </button>
+        </div>
+
+        <!-- ================= PANE: TEACHER LOGIN ================= -->
+        <div id="login-pane-teacher" class="login-pane active">
+          <div class="login-pane-header">
+            <div class="login-role-avatar">👩‍🏫</div>
+            <h3>Đăng Nhập Cô Linh (GVCN)</h3>
+            <p>Truy cập bảng quản trị chấm bài, theo dõi 11 cột, thống kê và in thẻ QR</p>
+          </div>
+
+          <form id="teacher-login-form" onsubmit="event.preventDefault(); app.loginTeacher();">
+            <div class="form-group">
+              <label class="form-label" for="teacher-login-pin">Mã PIN Bảo Mật:</label>
+              <div class="password-input-wrap">
+                <input type="password" id="teacher-login-pin" class="form-control pin-field" maxlength="10" placeholder="Nhập mã PIN (Mặc định: 1234)" autocomplete="current-password">
+                <button type="button" class="btn-toggle-pin" onclick="app.togglePasswordVisibility('teacher-login-pin')">👁️</button>
+              </div>
+              <div id="teacher-login-error" class="login-error-msg" style="display: none;">❌ Mã PIN không chính xác! Vui lòng thử lại.</div>
+            </div>
+
+            <div class="form-check" style="margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="teacher-remember-me" checked style="width: 16px; height: 16px; cursor: pointer;">
+              <label for="teacher-remember-me" style="font-size: 13px; color: var(--text-muted); cursor: pointer; margin: 0;">Ghi nhớ phiên đăng nhập trên máy này</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" style="font-weight: 700;">
+              Đăng Nhập Quản Trị 🚀
+            </button>
+          </form>
+
+          <div class="login-tip">
+            💡 Gợi ý: Mã PIN mặc định là <strong>1234</strong> (có thể đổi trong Cài đặt).
+          </div>
+        </div>
+
+        <!-- ================= PANE: STUDENT LOGIN ================= -->
+        <div id="login-pane-student" class="login-pane" style="display: none;">
+          <div class="login-pane-header">
+            <div class="login-role-avatar student-avatar-gradient">🎒</div>
+            <h3>Cổng Học Sinh Xem Điểm & Nhận Xét</h3>
+            <p>Xem điểm số của riêng con, lời cô giáo khen ngợi và nộp bài tập</p>
+          </div>
+
+          <!-- Method 1: Camera QR Scan -->
+          <div class="student-login-actions">
+            <button class="btn btn-qr-login btn-block" onclick="app.openStudentLoginScanner()">
+              📷 Quét Thẻ QR Học Sinh Bằng Camera
+            </button>
+          </div>
+
+          <div class="login-divider"><span>HOẶC NHẬP MÃ HỌC SINH</span></div>
+
+          <!-- Method 2: Manual Code Input -->
+          <form id="student-code-form" onsubmit="event.preventDefault(); app.loginStudentByInput();">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="student-login-code" class="form-control" placeholder="Nhập mã: HS01 ... HS29" style="text-transform: uppercase; font-weight: 700; text-align: center; letter-spacing: 2px;">
+              <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0 18px; font-weight: 700;">
+                Vào Xem ➔
+              </button>
+            </div>
+            <div id="student-login-error" class="login-error-msg" style="display: none;">❌ Không tìm thấy mã học sinh này trong Lớp 3A7!</div>
+          </form>
+
+          <div class="login-divider"><span>HOẶC CHẠM VÀO TÊN CỦA CON (29 BẠN 3A7)</span></div>
+
+          <!-- Method 3: Quick 29 Students Badge Grid -->
+          <div class="login-student-grid" id="login-student-picker-grid">
+            <!-- Dynamically populated 29 students -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- KIOSK DIRECT SHORTCUT BOX -->
+      <div class="kiosk-shortcut-card">
+        <div class="kiosk-shortcut-info">
+          <div class="kiosk-shortcut-icon">🎯</div>
+          <div>
+            <h4>Góc Tự Quản Nộp Bài Tại Lớp (Kiosk Mode)</h4>
+            <p>Dành cho học sinh xếp hàng quét mã QR trên vở tại lớp (không cần mật khẩu)</p>
+          </div>
+        </div>
+        <button class="btn btn-kiosk" onclick="app.enterKioskFromLogin()">
+          Vào Nhanh Góc Nộp Bài ➔
+        </button>
+      </div>
+
+      <div class="login-footer">
+        <p>© 2026 Lớp 3A7 • Trường Tiểu Học Ánh Dương • Hệ Thống Nộp Bài & Điểm Số Cô Linh</p>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       VIEW 2: CỔNG THÔNG TIN HỌC SINH (STUDENT PORTAL)
+       ==================================================================== -->
+  <div id="view-student-portal" class="student-portal-screen" style="display: none;">
+    <!-- Student Header -->
+    <header class="app-header student-header">
+      <div class="header-container">
+        <div class="brand">
+          <div class="brand-icon" style="background: linear-gradient(135deg, #10B981, #059669);">🎒</div>
+          <div class="brand-info">
+            <h1>Cổng Thông Tin Học Sinh • Lớp 3A7</h1>
+            <p>Trường Tiểu Học Ánh Dương • GVCN: Cô Linh</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="app.logout()">
+            🚪 Đăng Xuất (Đổi Học Sinh)
+          </button>
         </div>
       </div>
-      <div class="header-actions">
-        <button id="btn-switch-kiosk" class="btn btn-kiosk btn-sm" onclick="app.enterKioskMode()">
-          🎯 Góc Nộp Bài (Học Sinh)
-        </button>
-        <button id="btn-lock-mode" class="btn btn-outline btn-sm" onclick="app.toggleLock()">
-          🔒 Giáo Viên
-        </button>
+    </header>
+
+    <main class="student-portal-main">
+      <div class="student-portal-container">
+
+        <!-- Student Profile Hero Card -->
+        <div class="student-hero-card">
+          <div class="student-hero-left">
+            <div class="student-avatar-lg" id="sp-avatar">A</div>
+            <div class="student-hero-details">
+              <div class="student-role-badge">🎒 HỌC SINH LỚP 3A7</div>
+              <h2 id="sp-full-name">Nguyễn Vỹ An</h2>
+              <div class="student-hero-meta">
+                <span class="meta-item">🏷️ Mã: <strong id="sp-code">HS01</strong></span>
+                <span class="meta-item">🔢 STT: <strong id="sp-order-num">1</strong></span>
+                <span class="meta-item">🏫 Lớp: <strong>3A7</strong></span>
+                <span class="meta-item">👩‍🏫 GVCN: <strong>Cô Linh</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="student-hero-right">
+            <div class="student-card-qr-box" id="sp-qr-box">
+              <!-- Rendered SVG QR -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Student Stats 4-Cards -->
+        <div class="student-stats-row">
+          <div class="sp-stat-card">
+            <div class="sp-stat-icon">📝</div>
+            <div class="sp-stat-num" id="sp-stat-total">0</div>
+            <div class="sp-stat-label">Tổng bài được giao</div>
+          </div>
+          <div class="sp-stat-card">
+            <div class="sp-stat-icon" style="color: var(--status-blue);">📥</div>
+            <div class="sp-stat-num" style="color: var(--status-blue);" id="sp-stat-submitted">0</div>
+            <div class="sp-stat-label">Đã nộp bài</div>
+          </div>
+          <div class="sp-stat-card">
+            <div class="sp-stat-icon" style="color: var(--primary);">⭐</div>
+            <div class="sp-stat-num" style="color: var(--primary);" id="sp-stat-avg">-</div>
+            <div class="sp-stat-label">Điểm trung bình của em</div>
+          </div>
+          <div class="sp-stat-card">
+            <div class="sp-stat-icon" style="color: var(--status-green);">🏆</div>
+            <div class="sp-stat-num" style="color: var(--status-green);" id="sp-stat-passed">0</div>
+            <div class="sp-stat-label">Bài đạt chuẩn / xuất sắc</div>
+          </div>
+        </div>
+
+        <!-- Quick Self-Submit Banner -->
+        <div class="student-submit-banner">
+          <div class="submit-banner-info">
+            <span class="submit-banner-badge">📤 TỰ NỘP BÀI TẬP</span>
+            <h3>Hôm nay con có bài tập muốn nộp cho Cô Linh?</h3>
+            <p>Chọn bài tập bên dưới rồi nhấn "Nộp Bài Ngay" để hoàn thành nhé!</p>
+          </div>
+          <div class="submit-banner-controls">
+            <select id="sp-quick-asg-select" class="form-control" style="min-width: 240px; font-weight: 600;">
+              <!-- Filled dynamically -->
+            </select>
+            <button class="btn btn-primary" onclick="app.studentSubmitCurrentAssignment()" style="font-weight: 700;">
+              🚀 Nộp Bài Ngay
+            </button>
+          </div>
+        </div>
+
+        <!-- Private Assignments & Feedback Section -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📋 Bảng Điểm & Lời Nhận Xét Của Cô Linh Cho Riêng Em</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+                🔒 Điểm số được bảo mật tuyệt đối, chỉ mình con xem được
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="sp-assignments-table">
+              <thead>
+                <tr>
+                  <th style="width: 22%;">Tên Bài Tập</th>
+                  <th style="width: 12%;">Môn Học</th>
+                  <th style="width: 14%;">Hạn Nộp</th>
+                  <th style="width: 14%;">Trạng Thái</th>
+                  <th style="width: 10%; text-align: center;">Điểm Số</th>
+                  <th style="width: 28%;">Lời Nhận Xét Của Cô Linh</th>
+                </tr>
+              </thead>
+              <tbody id="sp-assignments-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
-    </div>
-  </header>
+    </main>
+  </div>
+
+
+  <!-- ====================================================================
+       VIEW 3: BẢNG ĐIỀU KHIỂN GIÁO VIÊN (TEACHER WORKSPACE)
+       ==================================================================== -->
+  <div id="view-teacher-app" style="display: none;">
+
+    <!-- Top App Header -->
+    <header class="app-header">
+      <div class="header-container">
+        <div class="brand">
+          <div class="brand-icon">📚</div>
+          <div class="brand-info">
+            <h1 id="header-class-title">Lớp 3A7 • Cô Linh</h1>
+            <p id="header-school-name">Hệ Thống Theo Dõi Nộp Bài & Chấm Điểm Học Sinh</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="user-role-badge">👩‍🏫 Cô Linh (GVCN)</span>
+          <button id="btn-switch-kiosk" class="btn btn-kiosk btn-sm" onclick="app.enterKioskMode()">
+            🎯 Góc Nộp Bài (Học Sinh)
+          </button>
+          <button id="btn-lock-mode" class="btn btn-outline btn-sm" onclick="app.toggleLock()">
+            🔒 Khóa Kiosk
+          </button>
+          <button id="btn-teacher-logout" class="btn btn-outline btn-sm" onclick="app.logout()" title="Đăng xuất về trang chủ">
+            🚪 Đăng Xuất
+          </button>
+        </div>
+      </div>
+    </header>
 
   <!-- Navigation Bar (Teacher Mode) -->
   <nav class="app-nav" id="teacher-nav">
@@ -50,6 +301,17 @@
          ==================================================================== -->
     <section id="pane-kiosk" class="tab-pane active">
       <div class="kiosk-container">
+        <!-- Standalone Bar when entered directly from Login -->
+        <div id="kiosk-standalone-bar" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 16px; background: white; padding: 12px 18px; border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+          <div style="font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">🎯</span>
+            <span>Góc Nộp Bài Tự Quản Lớp 3A7 • Chế Độ Kiosk Tại Lớp</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="app.exitKiosk()">
+            ⬅️ Về Màn Hình Đăng Nhập
+          </button>
+        </div>
+
         <div class="kiosk-header">
           <span class="kiosk-badge">🌟 Góc Tự Quản Lớp Học</span>
           <h2 class="kiosk-title">Góc Nộp Vở & Phiếu Bài Tập</h2>
@@ -549,6 +811,7 @@
     </section>
 
   </main>
+  </div> <!-- /#view-teacher-app -->
 
 
   <!-- ====================================================================
@@ -649,6 +912,31 @@
       <div style="display: flex; gap: 8px; margin-top: 16px;">
         <button class="btn btn-outline" style="flex: 1;" onclick="app.closePinModal()">Hủy</button>
         <button class="btn btn-primary" style="flex: 1;" onclick="app.verifyPin()">Mở Khóa</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: QUÉT QR ĐĂNG NHẬP HỌC SINH
+       ==================================================================== -->
+  <div id="student-login-camera-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 420px; text-align: center;">
+      <div class="modal-header">
+        <h3 class="modal-title">📸 Quét Thẻ QR Học Sinh</h3>
+        <button class="modal-close" onclick="app.closeStudentLoginScanner()">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+        Đưa mã QR trên thẻ học sinh hoặc trên bìa vở vào giữa khung hình:
+      </p>
+      <div class="camera-box" style="aspect-ratio: 1; max-width: 320px; margin: 0 auto;">
+        <video id="student-login-video" class="camera-video" autoplay playsinline muted></video>
+        <div class="scan-reticle"></div>
+        <div class="scan-hint">Đặt mã QR vào giữa khung hình</div>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 10px; margin-top: 16px;">
+        <button class="btn btn-outline btn-sm" onclick="app.switchStudentCameraFacing()">🔄 Đổi Camera</button>
+        <button class="btn btn-outline btn-sm" onclick="app.closeStudentLoginScanner()">Đóng</button>
       </div>
     </div>
   </div>

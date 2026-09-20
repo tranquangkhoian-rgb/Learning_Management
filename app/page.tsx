@@ -11,10 +11,14 @@ import PrintQrSheet from "@/components/PrintQrSheet";
 import SettingsView from "@/components/SettingsView";
 import NewAssignmentModal from "@/components/NewAssignmentModal";
 import PinModal from "@/components/PinModal";
+import LoginView from "@/components/LoginView";
+import StudentPortal from "@/components/StudentPortal";
 import { Student, Assignment, Settings } from "@/lib/types";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<string>("kiosk");
+  const [userRole, setUserRole] = useState<"login" | "teacher" | "student">("login");
+  const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("grade");
   const [isKioskLocked, setIsKioskLocked] = useState<boolean>(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
   const [isNewAsgOpen, setIsNewAsgOpen] = useState<boolean>(false);
@@ -72,6 +76,39 @@ export default function Home() {
     setIsPinModalOpen(false);
   };
 
+  if (userRole === "login") {
+    return (
+      <LoginView
+        students={students}
+        settings={settings}
+        onTeacherLogin={() => setUserRole("teacher")}
+        onStudentLogin={(st) => {
+          setCurrentStudent(st);
+          setUserRole("student");
+        }}
+        onEnterKiosk={() => {
+          setUserRole("teacher");
+          setIsKioskLocked(true);
+          setActiveTab("kiosk");
+        }}
+      />
+    );
+  }
+
+  if (userRole === "student" && currentStudent) {
+    return (
+      <StudentPortal
+        student={currentStudent}
+        settings={settings}
+        assignments={assignments}
+        onLogout={() => {
+          setCurrentStudent(null);
+          setUserRole("login");
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar
@@ -81,6 +118,7 @@ export default function Home() {
         onSelectTab={handleSelectTab}
         onEnterKiosk={handleEnterKiosk}
         onUnlockTeacher={handleUnlockTeacher}
+        onLogout={() => setUserRole("login")}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
