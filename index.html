@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Quản Lý Nộp Bài & Điểm Học Sinh - Cô Linh</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">📚</div>
+        <div class="brand-info">
+          <h1 id="header-class-title">Lớp 3A7 • Cô Linh</h1>
+          <p id="header-school-name">Hệ Thống Theo Dõi Nộp Bài & Chấm Điểm Học Sinh</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-switch-kiosk" class="btn btn-kiosk btn-sm" onclick="app.enterKioskMode()">
+          🎯 Góc Nộp Bài (Học Sinh)
+        </button>
+        <button id="btn-lock-mode" class="btn btn-outline btn-sm" onclick="app.toggleLock()">
+          🔒 Giáo Viên
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Bar (Teacher Mode) -->
+  <nav class="app-nav" id="teacher-nav">
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="app.switchTab('pane-kiosk')">🎯 Góc Nộp Bài</button>
+      <button class="nav-tab highlight" onclick="app.switchTab('pane-grade')">✍️ Chấm Bài Nhanh</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-tracking')">📋 Bảng Theo Dõi Bài</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-analytics')">📊 Thống Kê 3 Chiều</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-students')">👤 Hồ Sơ Học Sinh</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-print')">🏷️ In Thẻ QR Mini (A4)</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-settings')">⚙️ Cài Đặt & Google Sheets</button>
+    </div>
+  </nav>
+
+  <!-- Main Content Panes -->
+  <main class="app-main">
+
+    <!-- ====================================================================
+         TAB 1: GÓC NỘP BÀI HỌC SINH (KIOSK MODE)
+         ==================================================================== -->
+    <section id="pane-kiosk" class="tab-pane active">
+      <div class="kiosk-container">
+        <div class="kiosk-header">
+          <span class="kiosk-badge">🌟 Góc Tự Quản Lớp Học</span>
+          <h2 class="kiosk-title">Góc Nộp Vở & Phiếu Bài Tập</h2>
+          <p class="kiosk-subtitle">Chọn bài tập và đưa mã QR dán trên vở vào trước camera để nộp bài nhé!</p>
+        </div>
+
+        <div class="kiosk-card">
+          <div class="kiosk-assignment-selector">
+            <label class="form-label" for="kiosk-assignment-select">📝 Đang nộp cho bài tập:</label>
+            <select id="kiosk-assignment-select" class="form-control" onchange="app.onKioskAssignmentChange()">
+              <!-- Filled dynamically -->
+            </select>
+            <div id="kiosk-due-hint" style="font-size: 13px; color: var(--text-muted); margin-top: 6px;"></div>
+          </div>
+
+          <!-- Camera Box -->
+          <div class="camera-box" id="kiosk-camera-wrapper">
+            <video id="kiosk-video" class="camera-video" autoplay playsinline muted></video>
+            <div class="scan-reticle"></div>
+            <div class="scan-hint">Đặt mã QR vào giữa khung hình</div>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+            <button class="btn btn-outline btn-sm" onclick="app.startKioskCamera()">📷 Bật Camera</button>
+            <button class="btn btn-outline btn-sm" onclick="app.switchCameraFacing()">🔄 Đổi Camera Trước/Sau</button>
+            <button class="btn btn-outline btn-sm" onclick="app.toggleKioskQuickPicker()">🔍 Chọn Tên Nhanh (Nếu không có Camera)</button>
+          </div>
+
+          <!-- Fallback Quick Student Picker -->
+          <div id="kiosk-quick-picker" style="display: none; margin-top: 16px;">
+            <p style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
+              Bấm vào tên học sinh để nộp bài nhanh:
+            </p>
+            <div class="quick-student-grid" id="kiosk-student-buttons">
+              <!-- Dynamically populated 30 students -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 2: CHẾ ĐỘ CHẤM BÀI NHANH CHO CÔ LINH (MỤC 4 & 5)
+         ==================================================================== -->
+    <section id="pane-grade" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">✍️ Chấm Bài & Nhập Điểm Nhanh</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" onclick="app.openNewAssignmentModal()">➕ Tạo Bài Tập Mới</button>
+          </div>
+        </div>
+
+        <div style="max-width: 480px; margin-bottom: 16px;">
+          <label class="form-label" for="grade-assignment-select">Chọn bài tập cần chấm:</label>
+          <select id="grade-assignment-select" class="form-control" onchange="app.onGradeAssignmentChange()">
+            <!-- Filled dynamically -->
+          </select>
+        </div>
+
+        <div class="grading-grid">
+          <!-- Left: Camera & Scanner -->
+          <div>
+            <div class="card" style="border: 2px dashed #CBD5E1; padding: 16px;">
+              <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 10px;">📸 Quét mã QR trên vở học sinh</h3>
+              <div class="camera-box" style="aspect-ratio: 4/3; max-width: 360px;">
+                <video id="grade-video" class="camera-video" autoplay playsinline muted></video>
+                <div class="scan-reticle"></div>
+                <div class="scan-hint">Đưa mã QR trên vở vào đây</div>
+              </div>
+              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 8px;">
+                <button class="btn btn-primary btn-sm" onclick="app.startGradeCamera()">Bật Camera Quét</button>
+                <button class="btn btn-outline btn-sm" onclick="app.stopGradeCamera()">Tắt</button>
+              </div>
+
+              <!-- Or Select Student list -->
+              <div style="margin-top: 16px;">
+                <label class="form-label">Hoặc chọn nhanh học sinh trong lớp:</label>
+                <div class="quick-student-grid" id="grade-student-list" style="max-height: 200px;">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Grading Card -->
+          <div>
+            <div class="card" id="grade-input-box" style="display: none; border-color: var(--primary);">
+              <div class="card-header" style="margin-bottom: 12px;">
+                <div>
+                  <h3 id="grade-st-name" style="font-size: 18px; font-weight: 800; color: #0F172A;">Họ Tên Học Sinh</h3>
+                  <p id="grade-st-info" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lần nộp 1 (Đúng hạn)</p>
+                </div>
+                <span id="grade-attempt-badge" class="badge badge-blue">Lần 1</span>
+              </div>
+
+              <!-- Previous history preview -->
+              <div id="grade-prev-history" style="background: #F8FAFC; border-radius: 8px; padding: 10px; margin-bottom: 14px; font-size: 12px; display: none;">
+                <strong>Lịch sử trước đó:</strong>
+                <div id="grade-prev-history-content"></div>
+              </div>
+
+              <!-- Score Input -->
+              <div class="form-group">
+                <label class="form-label">Điểm số (Thang điểm 10):</label>
+                <input type="number" id="grade-score-input" class="form-control" style="font-size: 20px; font-weight: 800; text-align: center; color: var(--primary);" min="0" max="10" step="0.5" placeholder="Nhập điểm...">
+                <div class="quick-scores">
+                  <div class="score-chip" onclick="app.setQuickScore(10)">10</div>
+                  <div class="score-chip" onclick="app.setQuickScore(9.5)">9.5</div>
+                  <div class="score-chip" onclick="app.setQuickScore(9)">9</div>
+                  <div class="score-chip" onclick="app.setQuickScore(8.5)">8.5</div>
+                  <div class="score-chip" onclick="app.setQuickScore(8)">8</div>
+                  <div class="score-chip" onclick="app.setQuickScore(7)">7</div>
+                  <div class="score-chip" onclick="app.setQuickScore(6)">6</div>
+                  <div class="score-chip" onclick="app.setQuickScore(5)">5</div>
+                </div>
+              </div>
+
+              <!-- Result Status Selection (Mục 4) -->
+              <div class="form-group">
+                <label class="form-label">Kết quả đánh giá:</label>
+                <div class="grade-btn-group">
+                  <div class="grade-status-option selected" data-status="Đã đạt" onclick="app.selectGradeStatus(this, 'Đã đạt')">
+                    🟢 Đã đạt
+                  </div>
+                  <div class="grade-status-option" data-status="Cần sửa" onclick="app.selectGradeStatus(this, 'Cần sửa')">
+                    🟡 Cần sửa
+                  </div>
+                  <div class="grade-status-option" data-status="Cần nộp lại" onclick="app.selectGradeStatus(this, 'Cần nộp lại')">
+                    🔵 Cần nộp lại
+                  </div>
+                  <div class="grade-status-option" data-status="Chưa hoàn thành" onclick="app.selectGradeStatus(this, 'Chưa hoàn thành')">
+                    🔴 Chưa hoàn thành
+                  </div>
+                </div>
+              </div>
+
+              <!-- Teacher Note -->
+              <div class="form-group">
+                <label class="form-label">Nhận xét của cô:</label>
+                <input type="text" id="grade-note-input" class="form-control" placeholder="Ghi chú nhận xét ngắn...">
+                <div class="quick-notes">
+                  <span class="note-chip" onclick="app.addQuickNote('Bài làm sạch đẹp, rất tốt!')">✨ Sạch đẹp, tốt</span>
+                  <span class="note-chip" onclick="app.addQuickNote('Cần tính toán cẩn thận hơn.')">⚠️ Cẩn thận tính toán</span>
+                  <span class="note-chip" onclick="app.addQuickNote('Rèn chữ viết ngay ngắn hơn.')">✍️ Rèn chữ viết</span>
+                  <span class="note-chip" onclick="app.addQuickNote('Đã sửa bài đúng, có tiến bộ!')">👏 Đã sửa đúng, tiến bộ</span>
+                  <span class="note-chip" onclick="app.addQuickNote('Xem lại câu cuối nhé.')">🔍 Xem lại câu cuối</span>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 18px;">
+                <button class="btn btn-success btn-lg" style="flex: 1;" onclick="app.submitGrading()">
+                  💾 Lưu Điểm & Chấm Tiếp
+                </button>
+                <button class="btn btn-outline" onclick="app.cancelGrading()">Hủy</button>
+              </div>
+            </div>
+
+            <div id="grade-placeholder" class="card" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+              <div style="font-size: 40px; margin-bottom: 12px;">📑</div>
+              <h4 style="font-size: 16px; color: #334155; margin-bottom: 6px;">Chưa chọn học sinh</h4>
+              <p style="font-size: 13px;">Hãy quét mã QR trên vở hoặc bấm vào tên học sinh ở danh sách bên trái để chấm bài.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 3: BẢNG THEO DÕI NHANH CỦA TỪNG BÀI (MỤC 6)
+         ==================================================================== -->
+    <section id="pane-tracking" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Bảng Theo Dõi Tiến Độ Bài Tập</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" onclick="app.exportCurrentAssignmentCSV()">📥 Xuất File Excel / CSV</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;">
+          <div style="flex: 1; min-width: 240px;">
+            <select id="tracking-assignment-select" class="form-control" onchange="app.loadTrackingMatrix()">
+              <!-- Filled dynamically -->
+            </select>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <input type="text" id="tracking-search-input" class="form-control" placeholder="🔍 Tìm kiếm học sinh..." oninput="app.filterTrackingTable()">
+          </div>
+        </div>
+
+        <!-- Filter Chips (Mục 6) -->
+        <div class="filter-bar" id="tracking-filter-bar">
+          <button class="filter-pill active" onclick="app.setTrackingFilter('ALL', this)">Tất cả (29)</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('CHUA_NOP', this)">🔴 Chưa nộp</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('DUNG_HAN', this)">🔵 Đã nộp đúng hạn</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('NOP_TRE', this)">🟠 Nộp trễ</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('CAN_SUA', this)">🟡 Đang cần sửa</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('DA_NOP_LAI', this)">🔵 Đã nộp lại</button>
+          <button class="filter-pill" onclick="app.setTrackingFilter('HOAN_THANH', this)">🟢 Đã hoàn thành</button>
+        </div>
+
+        <!-- Matrix Data Table -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Mã</th>
+                <th>Họ và Tên</th>
+                <th>Trạng Thái</th>
+                <th>Thời Gian Nộp</th>
+                <th>Hạn</th>
+                <th>Số Lần Nộp</th>
+                <th>Làm Lại</th>
+                <th>Điểm Lần 1</th>
+                <th>Điểm Mới Nhất</th>
+                <th>Nhận Xét</th>
+                <th>Lịch Sử</th>
+              </tr>
+            </thead>
+            <tbody id="tracking-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 4: THỐNG KÊ TỔNG HỢP 3 CHIỀU (MỤC 7)
+         ==================================================================== -->
+    <section id="pane-analytics" class="tab-pane">
+      <!-- Top Overview Numbers -->
+      <div class="stats-cards-grid">
+        <div class="stat-card">
+          <div class="stat-card-title">Sĩ Số Lớp</div>
+          <div class="stat-card-value" id="stat-total-students">29</div>
+          <div class="stat-card-sub">Học sinh lớp 3A7</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Tổng Số Bài Tập</div>
+          <div class="stat-card-value" id="stat-total-assignments">0</div>
+          <div class="stat-card-sub">Đã được giao</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-title">Tỷ Lệ Hoàn Thành Cả Lớp</div>
+          <div class="stat-card-value" id="stat-completion-rate" style="color: var(--status-green);">0%</div>
+          <div class="stat-card-sub">Mức độ hoàn thành đạt chuẩn</div>
+        </div>
+      </div>
+
+      <!-- Highlights of Whole Class (Mục 7.3) -->
+      <div class="highlight-group">
+        <div class="highlight-card">
+          <h4 style="color: #047857;">🌟 Nộp đủ & Đúng hạn</h4>
+          <ul class="highlight-list" id="analytics-top-on-time">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+        <div class="highlight-card">
+          <h4 style="color: #B91C1C;">⚠️ Còn thiếu bài tập</h4>
+          <ul class="highlight-list" id="analytics-top-missing">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+        <div class="highlight-card">
+          <h4 style="color: #B45309;">⏰ Thường nộp trễ hạn</h4>
+          <ul class="highlight-list" id="analytics-top-late">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+        <div class="highlight-card">
+          <h4 style="color: #4338CA;">👏 Có tiến bộ sau khi sửa</h4>
+          <ul class="highlight-list" id="analytics-top-improved">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tabbed tables: By Student vs By Assignment -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <div class="card-title">📊 Bảng Chi Tiết Thống Kê</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm active" id="btn-sub-student" onclick="app.showAnalyticsSubTab('student')">Theo Từng Học Sinh</button>
+            <button class="btn btn-outline btn-sm" id="btn-sub-assignment" onclick="app.showAnalyticsSubTab('assignment')">Theo Từng Bài Tập</button>
+          </div>
+        </div>
+
+        <div id="analytics-student-view" class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Họ Tên</th>
+                <th>Đã Nộp</th>
+                <th>Chưa Nộp</th>
+                <th>Đúng Hạn</th>
+                <th>Nộp Trễ</th>
+                <th>Cần Làm Lại</th>
+                <th>Hoàn Thành</th>
+                <th>ĐTB</th>
+                <th>Tiến Bộ</th>
+              </tr>
+            </thead>
+            <tbody id="analytics-student-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="analytics-assignment-view" class="table-responsive" style="display: none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tên Bài Tập</th>
+                <th>Môn</th>
+                <th>Hạn Nộp</th>
+                <th>Đã Nộp</th>
+                <th>Chưa Nộp</th>
+                <th>Đúng Hạn</th>
+                <th>Trễ Hạn</th>
+                <th>Cần Sửa</th>
+                <th>Đã Nộp Lại</th>
+                <th>Hoàn Thành</th>
+                <th>Điểm TB Lớp</th>
+              </tr>
+            </thead>
+            <tbody id="analytics-assignment-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 5: HỒ SƠ TỪNG HỌC SINH (MỤC 8)
+         ==================================================================== -->
+    <section id="pane-students" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👤 Hồ Sơ Học Tập Học Sinh</div>
+        </div>
+
+        <div style="max-width: 400px; margin-bottom: 20px;">
+          <label class="form-label" for="profile-student-select">Chọn học sinh cần xem hồ sơ:</label>
+          <select id="profile-student-select" class="form-control" onchange="app.loadStudentProfile()">
+            <!-- Filled dynamically -->
+          </select>
+        </div>
+
+        <div id="student-profile-content" style="display: none;">
+          <div style="display: flex; gap: 20px; align-items: center; background: #F8FAFC; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+            <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #4F46E5); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;">
+              <span id="prof-avatar-letter">A</span>
+            </div>
+            <div>
+              <h3 id="prof-name" style="font-size: 20px; font-weight: 800; color: #0F172A;">Nguyễn An Khang</h3>
+              <p id="prof-meta" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lớp 3A • Giới tính: Nam</p>
+            </div>
+          </div>
+
+          <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">📚 Danh sách tất cả bài tập được giao:</h4>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tên Bài Tập</th>
+                  <th>Môn</th>
+                  <th>Hạn Nộp</th>
+                  <th>Trạng Thái</th>
+                  <th>Lần Nộp</th>
+                  <th>Làm Lại</th>
+                  <th>Điểm Lần 1</th>
+                  <th>Điểm Cuối</th>
+                  <th>Nhận Xét Của Cô</th>
+                  <th>Lịch Sử</th>
+                </tr>
+              </thead>
+              <tbody id="prof-assignments-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 6: IN THẺ QR MINI KHỔ A4 (MỤC 1 & YÊU CẦU 4)
+         ==================================================================== -->
+    <section id="pane-print" class="tab-pane">
+      <div class="a4-print-toolbar">
+        <div>
+          <h3 style="font-size: 17px; font-weight: 700; color: #0F172A;">🏷️ Thẻ Tên Kèm Mã QR Mini (29 Học Sinh)</h3>
+          <p style="font-size: 13px; color: var(--text-muted);">Đã định dạng vừa vặn khổ giấy A4. Bấm in và cắt dán vào vở hoặc thẻ đeo.</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-primary" onclick="window.print()">🖨️ In Ngay (Khổ A4)</button>
+        </div>
+      </div>
+
+      <!-- Printable A4 Sheet -->
+      <div class="a4-sheet" id="printable-a4-sheet">
+        <div style="text-align: center; margin-bottom: 8mm; border-bottom: 2px solid #000; padding-bottom: 4mm;">
+          <h2 style="font-size: 16pt; font-weight: 800; text-transform: uppercase;">DANH SÁCH THẺ MÃ QR HỌC SINH</h2>
+          <p style="font-size: 11pt; font-weight: 600;" id="print-sheet-class">LỚP 3A7 • NĂM HỌC 2026 - 2027 • GVCN: CÔ LINH</p>
+        </div>
+        <div class="qr-grid-a4" id="qr-mini-grid">
+          <!-- Dynamically generated 29 cards -->
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 7: CÀI ĐẶT & ĐỒNG BỘ GOOGLE SHEETS (MỤC 9 & YÊU CẦU 5)
+         ==================================================================== -->
+    <section id="pane-settings" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚙️ Cài Đặt Hệ Thống & Tự Động Đồng Bộ Google Sheets</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <!-- Left: Google Sheets Integration -->
+          <div>
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+              <h4 style="color: #166534; font-size: 15px; font-weight: 700; margin-bottom: 6px;">
+                🟢 Phương Án B: Tự Động Cập Nhật Lên Google Sheets
+              </h4>
+              <p style="font-size: 13px; color: #15803D; margin-bottom: 12px;">
+                Mỗi khi học sinh nộp vở tại góc lớp hoặc Cô Linh chấm điểm, dữ liệu sẽ tự động đẩy ngay lập tức lên Google Sheet online của cô theo thời gian thực!
+              </p>
+              
+              <div class="form-group">
+                <label class="form-label" for="setting-sheet-url">Đường dẫn Google Sheets Web App URL:</label>
+                <input type="text" id="setting-sheet-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+              </div>
+
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-success btn-sm" onclick="app.testGoogleSheetConnection()">🔗 Kiểm Tra Kết Nối</button>
+                <button class="btn btn-primary btn-sm" onclick="app.saveSettings()">💾 Lưu Cài Đặt</button>
+              </div>
+              <div id="sheet-test-result" style="font-size: 12px; margin-top: 8px;"></div>
+            </div>
+
+            <!-- Instructions -->
+            <div style="background: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+              <h5 style="font-size: 13px; font-weight: 700; margin-bottom: 8px;">📖 Hướng dẫn thiết lập Google Sheets trong 1 phút:</h5>
+              <ol style="font-size: 12px; color: #475569; padding-left: 18px; line-height: 1.6;">
+                <li>Mở file Google Sheets trên trình duyệt.</li>
+                <li>Chọn menu <strong>Tiện ích mở rộng (Extensions)</strong> $\rightarrow$ <strong>Apps Script</strong>.</li>
+                <li>Dán mã nguồn từ file <code style="background:#E2E8F0; padding:2px 4px; border-radius:4px;">google_sheet_script.js</code> vào.</li>
+                <li>Bấm nút <strong>Triển khai (Deploy)</strong> $\rightarrow$ <strong>Ứng dụng web (Web app)</strong> $\rightarrow$ Chọn ai có quyền truy cập: <em>Bất kỳ ai (Anyone)</em>.</li>
+                <li>Sao chép link Web App dán vào ô bên trên. Xong!</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Right: System & Class Information -->
+          <div>
+            <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 16px;">🏫 Thông Tin Lớp Học</h4>
+            
+            <div class="form-group">
+              <label class="form-label" for="setting-class-name">Tên Lớp:</label>
+              <input type="text" id="setting-class-name" class="form-control" value="Lớp 3A7">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="setting-teacher-name">Tên Giáo Viên:</label>
+              <input type="text" id="setting-teacher-name" class="form-control" value="Cô Linh">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="setting-school-name">Tên Trường:</label>
+              <input type="text" id="setting-school-name" class="form-control" value="Trường Tiểu Học Ánh Dương">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="setting-teacher-pin">Mã PIN Khóa Góc Nộp Bài (Bảo mật):</label>
+              <input type="password" id="setting-teacher-pin" class="form-control" value="1234" maxlength="6">
+              <small style="color: var(--text-muted); font-size: 12px;">Mã PIN dùng khi giáo viên muốn mở khóa thoát khỏi chế độ Kiosk nộp bài của học sinh.</small>
+            </div>
+
+            <button class="btn btn-primary" onclick="app.saveSettings()">💾 Lưu Thay Đổi</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- ====================================================================
+       CELEBRATION POPUP MODAL (KIOSK SUBMIT EVENT)
+       ==================================================================== -->
+  <div id="kiosk-celebrate-modal" class="celebrate-modal" style="display: none;">
+    <div class="celebrate-card">
+      <div class="celebrate-icon">🎉</div>
+      <h3 class="celebrate-name" id="kiosk-celebrate-name">Nguyễn An Khang</h3>
+      <p class="celebrate-detail" id="kiosk-celebrate-detail">Đã ghi nhận nộp bài thành công!</p>
+      <div class="celebrate-badges">
+        <span class="badge badge-blue" id="kiosk-celebrate-attempt">Lần nộp: 1</span>
+        <span class="badge badge-green" id="kiosk-celebrate-deadline">Đúng hạn</span>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted);">Sẵn sàng cho bạn tiếp theo sau <span id="kiosk-countdown">2</span>s...</p>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: LỊCH SỬ CHI TIẾT (AUDIT TIMELINE)
+       ==================================================================== -->
+  <div id="history-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">Lịch Sử Nộp & Chấm Bài</h3>
+        <button class="modal-close" onclick="app.closeHistoryModal()">&times;</button>
+      </div>
+      <div id="history-modal-content">
+        <!-- Dynamically populated timeline -->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: TẠO BÀI TẬP MỚI
+       ==================================================================== -->
+  <div id="new-assignment-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">➕ Giao Bài Tập Mới</h3>
+        <button class="modal-close" onclick="app.closeNewAssignmentModal()">&times;</button>
+      </div>
+      <div>
+        <div class="form-group">
+          <label class="form-label" for="new-asg-title">Tên Bài Tập:</label>
+          <input type="text" id="new-asg-title" class="form-control" placeholder="Ví dụ: Phiếu bài tập Toán tuần 4">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-asg-subject">Môn Học:</label>
+          <select id="new-asg-subject" class="form-control">
+            <option value="Toán">Toán</option>
+            <option value="Tiếng Việt">Tiếng Việt</option>
+            <option value="Tiếng Anh">Tiếng Anh</option>
+            <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
+            <option value="Đạo đức">Đạo đức</option>
+            <option value="Môn khác">Môn khác</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="new-asg-assigned">Ngày Giao:</label>
+            <input type="date" id="new-asg-assigned" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="new-asg-due">Hạn Nộp (Ngày & Giờ):</label>
+            <input type="datetime-local" id="new-asg-due" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-asg-maxscore">Thang Điểm:</label>
+          <input type="number" id="new-asg-maxscore" class="form-control" value="10" min="1" max="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-asg-notes">Ghi Chú Yêu Cầu:</label>
+          <textarea id="new-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeNewAssignmentModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.createAssignment()">Tạo Bài Tập</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: NHẬP MÃ PIN GIÁO VIÊN ĐỂ MỞ KHÓA
+       ==================================================================== -->
+  <div id="pin-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 360px; text-align: center;">
+      <div style="font-size: 36px; margin-bottom: 10px;">🔒</div>
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Bảo Mật Giáo Viên</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Vui lòng nhập mã PIN để vào trang quản lý:</p>
+      <input type="password" id="pin-input" class="form-control" style="font-size: 24px; text-align: center; letter-spacing: 6px; font-weight: 800;" maxlength="6" placeholder="****">
+      <div id="pin-error" style="color: var(--status-red); font-size: 12px; margin-top: 6px; display: none;">Mã PIN không đúng!</div>
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="app.closePinModal()">Hủy</button>
+        <button class="btn btn-primary" style="flex: 1;" onclick="app.verifyPin()">Mở Khóa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Scripts -->
+  <script src="js/vendor/qrcode.js"></script>
+  <script src="js/vendor/scanner.js"></script>
+  <script src="js/client_db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
