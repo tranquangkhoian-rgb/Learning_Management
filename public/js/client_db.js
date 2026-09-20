@@ -5,35 +5,35 @@
  */
 
 const DEFAULT_STUDENTS_3A7 = [
-  { id: 1, code: "HS01", full_name: "Vỹ An", order_num: 1, class_name: "Lớp 3A7" },
-  { id: 2, code: "HS02", full_name: "Tuệ An", order_num: 2, class_name: "Lớp 3A7" },
-  { id: 3, code: "HS03", full_name: "Lam Anh", order_num: 3, class_name: "Lớp 3A7" },
-  { id: 4, code: "HS04", full_name: "Minh Anh", order_num: 4, class_name: "Lớp 3A7" },
-  { id: 5, code: "HS05", full_name: "Hoàng Ân", order_num: 5, class_name: "Lớp 3A7" },
-  { id: 6, code: "HS06", full_name: "Gia Bảo", order_num: 6, class_name: "Lớp 3A7" },
-  { id: 7, code: "HS07", full_name: "Lan Chi", order_num: 7, class_name: "Lớp 3A7" },
-  { id: 8, code: "HS08", full_name: "Thiên Di", order_num: 8, class_name: "Lớp 3A7" },
-  { id: 9, code: "HS09", full_name: "Hải Đăng", order_num: 9, class_name: "Lớp 3A7" },
-  { id: 10, code: "HS10", full_name: "Minh Hoàng", order_num: 10, class_name: "Lớp 3A7" },
-  { id: 11, code: "HS11", full_name: "Phúc Hưng", order_num: 11, class_name: "Lớp 3A7" },
-  { id: 12, code: "HS12", full_name: "Gia Hào", order_num: 12, class_name: "Lớp 3A7" },
-  { id: 13, code: "HS13", full_name: "An Khang", order_num: 13, class_name: "Lớp 3A7" },
-  { id: 14, code: "HS14", full_name: "Đăng Khang", order_num: 14, class_name: "Lớp 3A7" },
-  { id: 15, code: "HS15", full_name: "Chí Khôi", order_num: 15, class_name: "Lớp 3A7" },
-  { id: 16, code: "HS16", full_name: "Phương Lâm", order_num: 16, class_name: "Lớp 3A7" },
-  { id: 17, code: "HS17", full_name: "Phúc Lâm", order_num: 17, class_name: "Lớp 3A7" },
-  { id: 18, code: "HS18", full_name: "Tuệ Linh", order_num: 18, class_name: "Lớp 3A7" },
-  { id: 19, code: "HS19", full_name: "Hà Linh", order_num: 19, class_name: "Lớp 3A7" },
-  { id: 20, code: "HS20", full_name: "Hà My", order_num: 20, class_name: "Lớp 3A7" },
-  { id: 21, code: "HS21", full_name: "Thiện Nhân", order_num: 21, class_name: "Lớp 3A7" },
-  { id: 22, code: "HS22", full_name: "Mộc Nhi", order_num: 22, class_name: "Lớp 3A7" },
-  { id: 23, code: "HS23", full_name: "Hạ Nhiên", order_num: 23, class_name: "Lớp 3A7" },
-  { id: 24, code: "HS24", full_name: "Thanh Phương", order_num: 24, class_name: "Lớp 3A7" },
-  { id: 25, code: "HS25", full_name: "Minh Phương", order_num: 25, class_name: "Lớp 3A7" },
-  { id: 26, code: "HS26", full_name: "Gia Phát", order_num: 26, class_name: "Lớp 3A7" },
-  { id: 27, code: "HS27", full_name: "Minh Tân", order_num: 27, class_name: "Lớp 3A7" },
-  { id: 28, code: "HS28", full_name: "Minh Thư", order_num: 28, class_name: "Lớp 3A7" },
-  { id: 29, code: "HS29", full_name: "Tấn Tài", order_num: 29, class_name: "Lớp 3A7" }
+  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7" },
+  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7" },
+  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7" },
+  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7" },
+  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7" },
+  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7" },
+  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7" },
+  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7" },
+  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7" },
+  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7" },
+  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7" },
+  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7" },
+  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7" },
+  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7" },
+  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7" },
+  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7" },
+  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7" },
+  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7" },
+  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7" },
+  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7" },
+  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7" },
+  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7" },
+  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7" },
+  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7" },
+  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7" },
+  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7" },
+  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7" },
+  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7" },
+  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7" }
 ];
 
 const DEFAULT_SETTINGS = {
@@ -49,6 +49,7 @@ const DEFAULT_ASSIGNMENTS = [
   {
     id: 1,
     title: "Chính tả & Luyện từ và câu: Mùa thu yêu thương",
+    subject: "Tiếng Việt",
     description: "Viết bài chính tả trang 45 và hoàn thành 3 bài tập từ ngữ về mùa thu.",
     assigned_date: "2026-09-18",
     due_date: "2026-09-20 17:00:00",
@@ -58,6 +59,7 @@ const DEFAULT_ASSIGNMENTS = [
   {
     id: 2,
     title: "Toán: Bảng nhân 7 và bài toán giải bằng hai phép tính",
+    subject: "Toán",
     description: "Học thuộc bảng nhân 7, làm bài tập 1, 2, 3 trang 52 Vở bài tập Toán.",
     assigned_date: "2026-09-19",
     due_date: "2026-09-22 17:00:00",
@@ -101,29 +103,97 @@ class ClientDBEngine {
     return { success: true, settings: updated };
   }
 
+  // --- Student CRUD ---
   getStudents() {
     try {
-      return JSON.parse(localStorage.getItem("lms_students")) || DEFAULT_STUDENTS_3A7;
+      const raw = JSON.parse(localStorage.getItem("lms_students"));
+      const list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_STUDENTS_3A7;
+      return list.map((s, idx) => {
+        if (!s.order_num) s.order_num = idx + 1;
+        if (!s.gender) {
+          const match = DEFAULT_STUDENTS_3A7.find(d => d.code === s.code);
+          s.gender = match ? match.gender : "Học sinh";
+        }
+        return s;
+      });
     } catch {
       return DEFAULT_STUDENTS_3A7;
     }
   }
 
+  addStudent(code, fullName, gender = "Nam", orderNum = null) {
+    const list = this.getStudents();
+    const cleanCode = code.trim().toUpperCase();
+    if (list.some(s => s.code.toUpperCase() === cleanCode)) {
+      throw new Error(`Mã học sinh "${cleanCode}" đã tồn tại!`);
+    }
+    const newId = list.length > 0 ? Math.max(...list.map(s => s.id)) + 1 : 1;
+    const maxOrder = list.length > 0 ? Math.max(...list.map(s => s.order_num || 0)) : 0;
+    const st = {
+      id: newId,
+      code: cleanCode,
+      full_name: fullName.trim(),
+      gender: gender || "Học sinh",
+      order_num: orderNum !== null && orderNum !== undefined ? Number(orderNum) : (maxOrder + 1),
+      class_name: this.getSettings().class_name || "Lớp 3A7"
+    };
+    list.push(st);
+    list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return st;
+  }
+
+  updateStudent(id, code, fullName, gender, orderNum) {
+    const list = this.getStudents();
+    const idx = list.findIndex(s => s.id == id);
+    if (idx === -1) return null;
+    list[idx] = Object.assign({}, list[idx], {
+      code: code ? code.trim().toUpperCase() : list[idx].code,
+      full_name: fullName ? fullName.trim() : list[idx].full_name,
+      gender: gender || list[idx].gender,
+      order_num: orderNum !== undefined && orderNum !== null ? Number(orderNum) : list[idx].order_num
+    });
+    list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return list[idx];
+  }
+
+  deleteStudent(id) {
+    const list = this.getStudents().filter(s => s.id != id);
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return true;
+  }
+
+  resetStudentsToDefault() {
+    localStorage.setItem("lms_students", JSON.stringify(DEFAULT_STUDENTS_3A7));
+    return DEFAULT_STUDENTS_3A7;
+  }
+
+  // --- Assignment CRUD ---
   getAssignments() {
     try {
-      return JSON.parse(localStorage.getItem("lms_assignments")) || DEFAULT_ASSIGNMENTS;
+      const raw = JSON.parse(localStorage.getItem("lms_assignments"));
+      const list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_ASSIGNMENTS;
+      return list.map(a => {
+        if (!a.subject || a.subject === "undefined") {
+          a.subject = (a.title && a.title.toLowerCase().includes("toán")) ? "Toán" : "Tiếng Việt";
+        }
+        return a;
+      });
     } catch {
       return DEFAULT_ASSIGNMENTS;
     }
   }
 
-  createAssignment(title, description, assignedDate, dueDate, maxScore = 10) {
+  createAssignment(title, subject, assignedDate, dueDate, maxScore = 10, notes = "") {
     const list = this.getAssignments();
     const newId = list.length > 0 ? Math.max(...list.map(a => a.id)) + 1 : 1;
     const item = {
       id: newId,
       title: title.trim(),
-      description: description ? description.trim() : "",
+      subject: subject ? subject.trim() : "Bài tập",
+      description: notes ? notes.trim() : "",
+      notes: notes ? notes.trim() : "",
       assigned_date: assignedDate,
       due_date: dueDate.length <= 10 ? `${dueDate} 23:59:59` : dueDate,
       max_score: parseFloat(maxScore) || 10,
@@ -132,6 +202,29 @@ class ClientDBEngine {
     list.unshift(item);
     localStorage.setItem("lms_assignments", JSON.stringify(list));
     return item;
+  }
+
+  updateAssignment(id, title, subject, assignedDate, dueDate, maxScore, notes) {
+    const list = this.getAssignments();
+    const idx = list.findIndex(a => a.id == id);
+    if (idx === -1) return null;
+    list[idx] = Object.assign({}, list[idx], {
+      title: title.trim(),
+      subject: subject ? subject.trim() : "Bài tập",
+      assigned_date: assignedDate,
+      due_date: dueDate.length <= 10 ? `${dueDate} 23:59:59` : dueDate,
+      max_score: parseFloat(maxScore) || 10,
+      description: notes ? notes.trim() : "",
+      notes: notes ? notes.trim() : ""
+    });
+    localStorage.setItem("lms_assignments", JSON.stringify(list));
+    return list[idx];
+  }
+
+  deleteAssignment(id) {
+    const list = this.getAssignments().filter(a => a.id != id);
+    localStorage.setItem("lms_assignments", JSON.stringify(list));
+    return true;
   }
 
   getEvents() {
@@ -146,12 +239,10 @@ class ClientDBEngine {
     localStorage.setItem("lms_events", JSON.stringify(events));
   }
 
-  // Format timestamp helper
   nowStr() {
     return new Date().toISOString().replace("T", " ").substring(0, 19);
   }
 
-  // Record student submission
   recordSubmission(studentCode, assignmentId, operator = "Học sinh") {
     const students = this.getStudents();
     const st = students.find(s => s.code.toUpperCase() === studentCode.trim().toUpperCase());
@@ -178,25 +269,26 @@ class ClientDBEngine {
       attempt_number: attemptNumber,
       status: status,
       score: null,
-      score_change_delta: null,
-      is_late: isLate,
-      teacher_note: null,
+      teacher_note: "",
       operator: operator,
+      is_late: isLate,
       timestamp: timestamp
     };
+
     events.push(newEvent);
     this.saveEvents(events);
 
-    // Sync to Google Sheet if configured
-    this.asyncSyncSheet({
-      action: "SUBMIT",
+    this.syncToGoogleSheet({
+      action: "log_event",
+      event_type: "submit",
       student_code: st.code,
       student_name: st.full_name,
       assignment_title: asg.title,
       attempt_number: attemptNumber,
-      status: status,
-      is_late: isLate,
       timestamp: timestamp,
+      status: status,
+      score: "",
+      teacher_note: "",
       operator: operator
     });
 
@@ -204,15 +296,11 @@ class ClientDBEngine {
       success: true,
       student: st,
       assignment: asg,
-      attempt_number: attemptNumber,
-      status: status,
-      is_late: isLate,
-      timestamp: timestamp
+      event: newEvent
     };
   }
 
-  // Record teacher grading
-  recordGrading(studentId, assignmentId, score, status, teacherNote, operator = "Cô Linh") {
+  recordGrading(studentId, assignmentId, score, status, teacherNote = "", operator = "Cô Linh") {
     const students = this.getStudents();
     const st = students.find(s => s.id == studentId);
     if (!st) return { error: "Không tìm thấy học sinh!" };
@@ -222,44 +310,44 @@ class ClientDBEngine {
     if (!asg) return { error: "Không tìm thấy bài tập!" };
 
     const events = this.getEvents();
-    const pastGrades = events.filter(e => e.student_id == studentId && e.assignment_id == assignmentId && e.event_type.startsWith("GRADE_"));
-    const lastGrade = pastGrades.length > 0 ? pastGrades[pastGrades.length - 1] : null;
-
+    const pastGrades = events.filter(e => e.student_id === st.id && e.assignment_id == assignmentId && e.event_type.startsWith("GRADE_"));
     const attemptNumber = pastGrades.length + 1;
-    const prevScore = lastGrade && lastGrade.score !== null ? lastGrade.score : null;
-    const scoreVal = score !== null && score !== "" ? parseFloat(score) : null;
-    const delta = prevScore !== null && scoreVal !== null ? Math.round((scoreVal - prevScore) * 10) / 10 : null;
+
+    const lastScore = pastGrades.length > 0 ? pastGrades[pastGrades.length - 1].score : null;
+    const scoreVal = score !== "" && score !== null && score !== undefined ? parseFloat(score) : null;
+    const delta = (lastScore !== null && scoreVal !== null) ? Math.round((scoreVal - lastScore) * 10) / 10 : null;
+
     const timestamp = this.nowStr();
+    const eventType = `GRADE_ATTEMPT_${attemptNumber}`;
 
     const newEvent = {
       id: Date.now(),
       student_id: st.id,
       assignment_id: asg.id,
-      event_type: `GRADE_ATTEMPT_${attemptNumber}`,
+      event_type: eventType,
       attempt_number: attemptNumber,
       status: status,
       score: scoreVal,
-      score_change_delta: delta,
-      is_late: false,
-      teacher_note: teacherNote ? teacherNote.trim() : null,
+      teacher_note: teacherNote.trim(),
       operator: operator,
+      score_change_delta: delta,
       timestamp: timestamp
     };
+
     events.push(newEvent);
     this.saveEvents(events);
 
-    // Sync to Google Sheet
-    this.asyncSyncSheet({
-      action: "GRADE",
+    this.syncToGoogleSheet({
+      action: "log_event",
+      event_type: "grade",
       student_code: st.code,
       student_name: st.full_name,
       assignment_title: asg.title,
       attempt_number: attemptNumber,
-      score: scoreVal,
-      score_change_delta: delta,
-      status: status,
-      teacher_note: teacherNote,
       timestamp: timestamp,
+      status: status,
+      score: scoreVal !== null ? scoreVal : "",
+      teacher_note: teacherNote.trim(),
       operator: operator
     });
 
@@ -275,7 +363,7 @@ class ClientDBEngine {
     };
   }
 
-  // 11-column Tracking Matrix
+  // --- 11-column Tracking Matrix ---
   getTrackingMatrix(assignmentId) {
     const students = this.getStudents();
     const assignments = this.getAssignments();
@@ -290,49 +378,80 @@ class ClientDBEngine {
       const grades = stEvents.filter(e => e.event_type.startsWith("GRADE_"));
 
       const submitCount = submits.length;
-      const retryCount = submitCount > 1 ? submitCount - 1 : 0;
+      const retryCount = grades.filter(g => g.status === "Cần sửa" || g.status === "Cần nộp lại").length;
       const isLate = submits.length > 0 ? submits[0].is_late : false;
       const firstSubmitTime = submits.length > 0 ? submits[0].timestamp : null;
       const latestSubmitTime = submits.length > 0 ? submits[submits.length - 1].timestamp : null;
 
-      let status = "Chưa nộp";
+      let currentStatus = "Chưa nộp";
+      let colorGroup = "red";
       let latestScore = null;
+      let firstScore = grades.length > 0 && grades[0].score !== null ? grades[0].score : null;
       let teacherNote = null;
       let delta = null;
 
-      if (grades.length > 0) {
-        const lastGrade = grades[grades.length - 1];
-        status = lastGrade.status;
-        latestScore = lastGrade.score;
-        teacherNote = lastGrade.teacher_note;
-        delta = lastGrade.score_change_delta;
-      } else if (submits.length > 0) {
-        status = submits[submits.length - 1].status;
+      if (submitCount === 0) {
+        currentStatus = "Chưa nộp";
+        colorGroup = "red";
+      } else {
+        const lastEv = stEvents[stEvents.length - 1];
+        if (lastEv && lastEv.event_type.startsWith("GRADE_")) {
+          latestScore = lastEv.score;
+          teacherNote = lastEv.teacher_note;
+          delta = lastEv.score_change_delta;
+          if (lastEv.status === "Đã đạt") {
+            currentStatus = "Đã hoàn thành";
+            colorGroup = "green";
+          } else if (lastEv.status === "Cần sửa" || lastEv.status === "Cần nộp lại") {
+            currentStatus = "Đang cần sửa";
+            colorGroup = "yellow";
+          } else if (lastEv.status === "Chưa hoàn thành") {
+            currentStatus = "Chưa đạt yêu cầu";
+            colorGroup = "red";
+          } else {
+            currentStatus = lastEv.status;
+            colorGroup = "yellow";
+          }
+        } else {
+          if (submitCount > 1) {
+            currentStatus = "Đã nộp lại";
+            colorGroup = "blue";
+          } else {
+            currentStatus = isLate ? "Nộp trễ" : "Đã nộp đúng hạn";
+            colorGroup = isLate ? "orange" : "blue";
+          }
+        }
       }
 
       return {
+        stt: st.order_num || (idx + 1),
         order_num: st.order_num || (idx + 1),
         student_id: st.id,
         code: st.code,
         full_name: st.full_name,
+        gender: st.gender || "Học sinh",
+        current_status: currentStatus,
+        status: currentStatus,
+        color_group: colorGroup,
         submit_count: submitCount,
         is_late: isLate,
         first_submit_time: firstSubmitTime,
         latest_submit_time: latestSubmitTime,
-        status: status,
-        latest_score: latestScore,
         retry_count: retryCount,
+        first_score: firstScore,
+        latest_score: latestScore,
         teacher_note: teacherNote,
-        score_change_delta: delta
+        score_change_delta: delta,
+        history: stEvents
       };
     });
 
     const totalStudents = students.length;
     const submittedCount = rows.filter(r => r.submit_count > 0).length;
     const gradedCount = rows.filter(r => r.latest_score !== null).length;
-    const passedCount = rows.filter(r => r.status === "Đã đạt").length;
-    const needFixCount = rows.filter(r => r.status === "Cần sửa").length;
-    const needResubmitCount = rows.filter(r => r.status === "Cần nộp lại").length;
+    const passedCount = rows.filter(r => r.current_status === "Đã hoàn thành" || r.current_status === "Đã đạt").length;
+    const needFixCount = rows.filter(r => r.current_status.includes("sửa")).length;
+    const needResubmitCount = rows.filter(r => r.current_status === "Cần nộp lại").length;
     const notSubmittedCount = totalStudents - submittedCount;
     const lateCount = rows.filter(r => r.is_late).length;
     const scores = rows.filter(r => r.latest_score !== null).map(r => r.latest_score);
@@ -357,45 +476,93 @@ class ClientDBEngine {
     };
   }
 
-  // 3-Way Analytics
+  // --- 3-Way Analytics ---
   getAnalytics() {
     const students = this.getStudents();
     const assignments = this.getAssignments();
     const allEvents = this.getEvents();
 
-    // Assignment Stats
     const asgStats = assignments.map(a => {
       const matrix = this.getTrackingMatrix(a.id);
+      const rows = matrix ? matrix.rows : [];
+      const submitted = rows.filter(r => r.submit_count > 0).length;
+      const onTime = rows.filter(r => r.submit_count > 0 && !r.is_late).length;
+      const late = rows.filter(r => r.is_late).length;
+      const needFix = rows.filter(r => (r.current_status || "").includes("sửa")).length;
+      const resubmitted = rows.filter(r => r.submit_count > 1).length;
+      const completed = rows.filter(r => (r.current_status || "") === "Đã hoàn thành" || (r.current_status || "") === "Đã đạt").length;
+      const scores = rows.filter(r => r.latest_score !== null && r.latest_score !== undefined).map(r => r.latest_score);
+      const classAvg = scores.length > 0 ? Math.round((scores.reduce((acc, v) => acc + v, 0) / scores.length) * 10) / 10 : null;
+
       return {
+        assignment_id: a.id,
         id: a.id,
         title: a.title,
+        subject: a.subject || "Bài tập",
         assigned_date: a.assigned_date,
         due_date: a.due_date,
+        total_students: students.length,
+        num_submitted: submitted,
+        num_missing: students.length - submitted,
+        num_on_time: onTime,
+        num_late: late,
+        num_need_fix: needFix,
+        num_resubmitted: resubmitted,
+        num_completed: completed,
+        class_avg_score: classAvg,
         summary: matrix ? matrix.summary : {}
       };
     });
 
-    // Student Stats
     const studentStats = students.map(st => {
       const stEvents = allEvents.filter(e => e.student_id === st.id);
-      const grades = stEvents.filter(e => e.event_type.startsWith("GRADE_") && e.score !== null);
-      const submits = stEvents.filter(e => e.event_type.startsWith("SUBMIT_"));
-      const avgScore = grades.length > 0 ? Math.round((grades.reduce((a, b) => a + b.score, 0) / grades.length) * 10) / 10 : null;
+      let submittedCount = 0;
+      let onTimeCount = 0;
+      let lateCount = 0;
+      let completedCount = 0;
+      let retryCount = 0;
+      let scores = [];
+
+      assignments.forEach(asg => {
+        const events = stEvents.filter(e => e.assignment_id === asg.id);
+        const submits = events.filter(e => e.event_type.startsWith("SUBMIT_"));
+        const grades = events.filter(e => e.event_type.startsWith("GRADE_"));
+        if (submits.length > 0) {
+          submittedCount++;
+          if (submits[0].is_late) lateCount++;
+          else onTimeCount++;
+        }
+        if (grades.length > 0) {
+          const lastGrade = grades[grades.length - 1];
+          if (lastGrade.score !== null && lastGrade.score !== undefined) scores.push(lastGrade.score);
+          if (lastGrade.status === "Đã đạt" || lastGrade.status === "Đã hoàn thành") completedCount++;
+          if (lastGrade.status === "Cần sửa" || lastGrade.status === "Cần nộp lại") retryCount++;
+        }
+      });
+
+      const avgScore = scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
+
       return {
+        student_id: st.id,
         id: st.id,
         code: st.code,
         full_name: st.full_name,
         order_num: st.order_num,
-        total_submissions: submits.length,
-        graded_count: grades.length,
-        avg_score: avgScore
+        total_assigned: assignments.length,
+        num_submitted: submittedCount,
+        num_missing: assignments.length - submittedCount,
+        on_time_count: onTimeCount,
+        late_count: lateCount,
+        asg_requiring_retry_count: retryCount,
+        num_completed: completedCount,
+        avg_score: avgScore,
+        improved_count: 0
       };
     });
 
-    // Whole Class Summary
     const totalAssignments = assignments.length;
     const totalExpectedSubmissions = students.length * totalAssignments;
-    const totalActualSubmissions = asgStats.reduce((acc, a) => acc + (a.summary.submitted_count || 0), 0);
+    const totalActualSubmissions = asgStats.reduce((acc, a) => acc + a.num_submitted, 0);
     const completionRate = totalExpectedSubmissions > 0 ? Math.round((totalActualSubmissions / totalExpectedSubmissions) * 1000) / 10 : 0;
 
     return {
@@ -403,14 +570,18 @@ class ClientDBEngine {
         total_students: students.length,
         total_assignments: totalAssignments,
         total_submissions: totalActualSubmissions,
-        class_completion_rate: completionRate
+        class_completion_rate: completionRate,
+        top_on_time: studentStats.slice().sort((a, b) => b.on_time_count - a.on_time_count),
+        top_missing: studentStats.slice().sort((a, b) => b.num_missing - a.num_missing),
+        top_late: studentStats.slice().sort((a, b) => b.late_count - a.late_count),
+        top_improved: studentStats.slice().sort((a, b) => (b.avg_score || 0) - (a.avg_score || 0))
       },
       assignment_stats: asgStats,
       student_stats: studentStats
     };
   }
 
-  // Student Profile
+  // --- Student Profile ---
   getStudentProfile(studentId) {
     const students = this.getStudents();
     const st = students.find(s => s.id == studentId);
@@ -424,17 +595,41 @@ class ClientDBEngine {
       const submits = asgEvents.filter(e => e.event_type.startsWith("SUBMIT_"));
       const grades = asgEvents.filter(e => e.event_type.startsWith("GRADE_"));
       const lastGrade = grades.length > 0 ? grades[grades.length - 1] : null;
+      const firstScore = grades.length > 0 && grades[0].score !== null ? grades[0].score : null;
+      const latestScore = lastGrade ? lastGrade.score : null;
+      const retryCount = grades.filter(g => g.status === "Cần sửa" || g.status === "Cần nộp lại").length;
+      const isLate = submits.length > 0 ? submits[0].is_late : false;
+
+      let status = "Chưa nộp";
+      let color = "red";
+      if (submits.length === 0) {
+        status = "Chưa nộp";
+        color = "red";
+      } else if (lastGrade) {
+        status = lastGrade.status === "Đã đạt" ? "Đã đạt" : lastGrade.status;
+        color = status === "Đã đạt" ? "green" : (status.includes("sửa") ? "yellow" : "red");
+      } else {
+        status = submits.length > 1 ? "Đã nộp lại" : (isLate ? "Nộp trễ" : "Đã nộp đúng hạn");
+        color = isLate ? "orange" : "blue";
+      }
 
       return {
         assignment_id: asg.id,
+        id: asg.id,
+        title: asg.title,
         assignment_title: asg.title,
+        subject: asg.subject || "Bài tập",
         due_date: asg.due_date,
         submit_count: submits.length,
-        latest_status: lastGrade ? lastGrade.status : (submits.length > 0 ? submits[submits.length - 1].status : "Chưa nộp"),
-        latest_score: lastGrade ? lastGrade.score : null,
+        retry_count: retryCount,
+        first_score: firstScore,
+        latest_score: latestScore,
+        status: status,
+        latest_status: status,
+        color: color,
         teacher_note: lastGrade ? lastGrade.teacher_note : null,
         score_change_delta: lastGrade ? lastGrade.score_change_delta : null,
-        is_late: submits.length > 0 ? submits[0].is_late : false,
+        is_late: isLate,
         events: asgEvents
       };
     });
@@ -451,29 +646,34 @@ class ClientDBEngine {
     };
   }
 
-  // Submission History
+  // --- Submission History ---
   getSubmissionHistory(studentId, assignmentId) {
     const events = this.getEvents().filter(e => e.student_id == studentId && e.assignment_id == assignmentId);
     return events;
   }
 
-  // Async Google Sheet sync
-  asyncSyncSheet(payload) {
+  // --- Async Google Sheet Sync ---
+  async syncToGoogleSheet(payload) {
     const settings = this.getSettings();
-    const sheetUrl = (settings.google_sheet_url || "").trim();
-    if (!sheetUrl || settings.auto_sync_sheets !== "true") return;
+    const url = settings.google_sheet_url;
+    if (!url || settings.auto_sync_sheets !== "true") return;
 
     try {
-      fetch(sheetUrl, {
+      await fetch(url, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).catch(err => console.warn("[GoogleSheet Sync Warn]:", err));
+        body: JSON.stringify(Object.assign({
+          class_name: settings.class_name,
+          teacher_name: settings.teacher_name
+        }, payload))
+      });
+      console.log("[ClientDB]: Synced event to Google Sheet Web App via webhook.");
     } catch (e) {
-      console.warn("[GoogleSheet Sync Error]:", e);
+      console.warn("[ClientDB]: Could not sync event to Google Sheet:", e);
     }
   }
 }
 
+// Attach globally
 window.ClientDB = new ClientDBEngine();

@@ -215,6 +215,10 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             st = database.add_student(code, name, gender, class_name=class_name)
             return self.send_json(st, 201)
 
+        elif path == "/api/students/reset":
+            st_list = database.reset_students_to_default()
+            return self.send_json(st_list)
+
         elif path == "/api/assignments":
             title = body.get("title", "")
             subject = body.get("subject", "Toán")

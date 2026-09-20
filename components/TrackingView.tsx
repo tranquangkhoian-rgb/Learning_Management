@@ -160,31 +160,31 @@ export default function TrackingView({ assignments }: TrackingViewProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((row) => (
+            {filtered.map((row, idx) => (
               <tr key={row.student_id} className="hover:bg-slate-50/70 transition">
-                <td className="py-3 px-3.5 font-bold text-slate-500">{row.stt}</td>
-                <td className="py-3 px-3.5 font-mono text-xs text-slate-600">{row.code}</td>
-                <td className="py-3 px-3.5 font-bold text-slate-900">{row.full_name}</td>
+                <td className="py-3 px-3.5 font-bold text-slate-500">{row.stt || (row as any).order_num || (idx + 1)}</td>
+                <td className="py-3 px-3.5 font-mono text-xs text-slate-600">{row.code || "-"}</td>
+                <td className="py-3 px-3.5 font-bold text-slate-900">{row.full_name || "-"}</td>
                 <td className="py-3 px-3.5">{getStatusBadge(row)}</td>
                 <td className="py-3 px-3.5 text-xs text-slate-500">
-                  {row.latest_submit_time ? row.latest_submit_time.split(" ")[1] : "-"}
+                  {row.latest_submit_time ? (row.latest_submit_time.includes(" ") ? row.latest_submit_time.split(" ")[1] : row.latest_submit_time) : "-"}
                 </td>
                 <td className="py-3 px-3.5 text-xs">
-                  {row.submit_count === 0 ? "-" : row.is_late ? (
+                  {(row.submit_count ?? 0) === 0 ? "-" : row.is_late ? (
                     <span className="text-orange-600 font-bold">Trễ hạn</span>
                   ) : (
                     <span className="text-emerald-600 font-bold">Đúng hạn</span>
                   )}
                 </td>
-                <td className="py-3 px-3.5 text-center font-bold">{row.submit_count}</td>
-                <td className={`py-3 px-3.5 text-center font-bold ${row.retry_count > 0 ? "text-amber-600" : ""}`}>
-                  {row.retry_count}
+                <td className="py-3 px-3.5 text-center font-bold">{row.submit_count ?? 0}</td>
+                <td className={`py-3 px-3.5 text-center font-bold ${(row.retry_count ?? 0) > 0 ? "text-amber-600" : ""}`}>
+                  {row.retry_count ?? 0}
                 </td>
                 <td className="py-3 px-3.5 text-center font-bold text-indigo-600">
-                  {row.first_score !== null ? row.first_score : "-"}
+                  {row.first_score !== null && row.first_score !== undefined ? row.first_score : "-"}
                 </td>
                 <td className="py-3 px-3.5 text-center font-extrabold text-indigo-600">
-                  {row.latest_score !== null ? row.latest_score : "-"}
+                  {row.latest_score !== null && row.latest_score !== undefined ? row.latest_score : "-"}
                 </td>
                 <td className="py-3 px-3.5 text-xs text-slate-600 max-w-[180px] truncate">
                   {row.teacher_note || "-"}

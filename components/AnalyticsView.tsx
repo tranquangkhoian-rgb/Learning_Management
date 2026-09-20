@@ -153,17 +153,17 @@ export default function AnalyticsView() {
                   <tr key={s.student_id} className="hover:bg-slate-50">
                     <td className="py-2.5 px-3 font-mono">{s.code}</td>
                     <td className="py-2.5 px-3 font-bold text-slate-900">{s.full_name}</td>
-                    <td className="py-2.5 px-3 text-center">{s.num_submitted}/{s.total_assigned}</td>
-                    <td className={`py-2.5 px-3 text-center font-bold ${s.num_missing > 0 ? "text-rose-600" : ""}`}>
-                      {s.num_missing}
+                    <td className="py-2.5 px-3 text-center">{s.num_submitted ?? 0}/{s.total_assigned ?? 0}</td>
+                    <td className={`py-2.5 px-3 text-center font-bold ${(s.num_missing ?? 0) > 0 ? "text-rose-600" : ""}`}>
+                      {s.num_missing ?? 0}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-bold text-emerald-600">{s.on_time_count}</td>
-                    <td className="py-2.5 px-3 text-center text-orange-600">{s.late_count}</td>
-                    <td className="py-2.5 px-3 text-center">{s.asg_requiring_retry_count}</td>
-                    <td className="py-2.5 px-3 text-center font-bold text-emerald-600">{s.num_completed}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-emerald-600">{s.on_time_count ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center text-orange-600">{s.late_count ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center">{s.asg_requiring_retry_count ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-emerald-600">{s.num_completed ?? 0}</td>
                     <td className="py-2.5 px-3 text-center font-extrabold text-indigo-600">{s.avg_score ?? "-"}</td>
                     <td className="py-2.5 px-3 text-center">
-                      {s.improved_count > 0 ? <span className="text-indigo-600 font-bold">👏 +{s.improved_count}</span> : "-"}
+                      {(s.improved_count ?? 0) > 0 ? <span className="text-indigo-600 font-bold">👏 +{s.improved_count}</span> : "-"}
                     </td>
                   </tr>
                 ))}
@@ -194,15 +194,15 @@ export default function AnalyticsView() {
                     <td className="py-2.5 px-3 font-bold text-slate-900">{a.title}</td>
                     <td className="py-2.5 px-3">{a.subject}</td>
                     <td className="py-2.5 px-3 text-slate-500">{a.due_date}</td>
-                    <td className="py-2.5 px-3 text-center">{a.num_submitted}/{a.total_students}</td>
-                    <td className={`py-2.5 px-3 text-center font-bold ${a.num_missing > 0 ? "text-rose-600" : ""}`}>
-                      {a.num_missing}
+                    <td className="py-2.5 px-3 text-center">{a.num_submitted ?? 0}/{a.total_students ?? 0}</td>
+                    <td className={`py-2.5 px-3 text-center font-bold ${(a.num_missing ?? 0) > 0 ? "text-rose-600" : ""}`}>
+                      {a.num_missing ?? 0}
                     </td>
-                    <td className="py-2.5 px-3 text-center text-emerald-600 font-bold">{a.num_on_time}</td>
-                    <td className="py-2.5 px-3 text-center text-orange-600">{a.num_late}</td>
-                    <td className="py-2.5 px-3 text-center text-amber-600 font-bold">{a.num_need_fix}</td>
-                    <td className="py-2.5 px-3 text-center text-blue-600">{a.num_resubmitted}</td>
-                    <td className="py-2.5 px-3 text-center text-emerald-600 font-bold">{a.num_completed}</td>
+                    <td className="py-2.5 px-3 text-center text-emerald-600 font-bold">{a.num_on_time ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center text-orange-600">{a.num_late ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center text-amber-600 font-bold">{a.num_need_fix ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center text-blue-600">{a.num_resubmitted ?? 0}</td>
+                    <td className="py-2.5 px-3 text-center text-emerald-600 font-bold">{a.num_completed ?? 0}</td>
                     <td className="py-2.5 px-3 text-center font-extrabold text-indigo-600">{a.class_avg_score ?? "-"}</td>
                   </tr>
                 ))}

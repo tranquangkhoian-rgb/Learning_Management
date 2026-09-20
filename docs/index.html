@@ -285,9 +285,10 @@
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="app.switchTab('pane-kiosk')">🎯 Góc Nộp Bài</button>
       <button class="nav-tab highlight" onclick="app.switchTab('pane-grade')">✍️ Chấm Bài Nhanh</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-homework')">📚 Quản Lý Bài Tập</button>
       <button class="nav-tab" onclick="app.switchTab('pane-tracking')">📋 Bảng Theo Dõi Bài</button>
       <button class="nav-tab" onclick="app.switchTab('pane-analytics')">📊 Thống Kê 3 Chiều</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-students')">👤 Hồ Sơ Học Sinh</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-students')">👥 Quản Lý Học Sinh</button>
       <button class="nav-tab" onclick="app.switchTab('pane-print')">🏷️ In Thẻ QR Mini (A4)</button>
       <button class="nav-tab" onclick="app.switchTab('pane-settings')">⚙️ Cài Đặt & Google Sheets</button>
     </div>
@@ -483,7 +484,71 @@
 
 
     <!-- ====================================================================
-         TAB 3: BẢNG THEO DÕI NHANH CỦA TỪNG BÀI (MỤC 6)
+         TAB: QUẢN LÝ & GIAO BÀI TẬP (MỤC GIAO BÀI & QUẢN LÝ)
+         ==================================================================== -->
+    <section id="pane-homework" class="tab-pane">
+      <div class="card">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div class="card-title">📚 Quản Lý & Giao Bài Tập Cho Lớp 3A7</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary btn-sm" onclick="app.openNewAssignmentModal()">➕ Giao Bài Tập Mới</button>
+          </div>
+        </div>
+
+        <!-- Homework Summary Cards -->
+        <div class="stats-cards-grid" style="margin-bottom: 20px;">
+          <div class="stat-card">
+            <div class="stat-card-title">Tổng Số Bài Tập</div>
+            <div class="stat-card-value" id="hw-stat-total">0</div>
+            <div class="stat-card-sub">Đã tạo trong hệ thống</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">Bài Đang Mở Nộp</div>
+            <div class="stat-card-value" id="hw-stat-active" style="color: var(--primary);">0</div>
+            <div class="stat-card-sub">Chưa đến hạn chót</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-title">Bài Đã Hết Hạn</div>
+            <div class="stat-card-value" id="hw-stat-closed" style="color: var(--status-orange);">0</div>
+            <div class="stat-card-sub">Đã qua thời gian nộp</div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <div style="max-width: 360px; flex: 1;">
+            <input type="text" id="homework-search-input" class="form-control" placeholder="🔍 Tìm kiếm bài tập theo tên hoặc môn..." oninput="app.filterHomeworkList()">
+          </div>
+          <div style="font-size: 13px; color: var(--text-muted);">
+            Hiển thị: <strong id="homework-filtered-count" style="color: var(--primary);">0</strong> bài tập
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ID</th>
+                <th>Tên Bài Tập</th>
+                <th style="width: 130px;">Môn Học</th>
+                <th style="width: 110px;">Ngày Giao</th>
+                <th style="width: 150px;">Hạn Nộp</th>
+                <th style="width: 80px; text-align: center;">Thang Điểm</th>
+                <th style="width: 110px; text-align: center;">Trạng Thái</th>
+                <th>Ghi Chú Yêu Cầu</th>
+                <th style="width: 220px; text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="homework-management-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 4: BẢNG THEO DÕI NHANH CỦA TỪNG BÀI (MỤC 6)
          ==================================================================== -->
     <section id="pane-tracking" class="tab-pane">
       <div class="card">
@@ -654,55 +719,95 @@
 
 
     <!-- ====================================================================
-         TAB 5: HỒ SƠ TỪNG HỌC SINH (MỤC 8)
+         TAB: QUẢN LÝ HỌC SINH & HỒ SƠ (MỤC 8)
          ==================================================================== -->
     <section id="pane-students" class="tab-pane">
       <div class="card">
-        <div class="card-header">
-          <div class="card-title">👤 Hồ Sơ Học Tập Học Sinh</div>
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div class="card-title">👥 Quản Lý Học Sinh Lớp 3A7</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="app.openAddStudentModal()">➕ Thêm Học Sinh Mới</button>
+            <button class="btn btn-outline btn-sm" onclick="app.resetStudentsToDefault()" title="Khôi phục danh sách chuẩn 29 học sinh Lớp 3A7">🔄 Đặt Lại 29 Học Sinh 3A7</button>
+            <button class="btn btn-outline btn-sm active" id="btn-subtab-students-list" onclick="app.switchStudentSubTab('list')">📋 Danh Sách & Quản Lý</button>
+            <button class="btn btn-outline btn-sm" id="btn-subtab-students-profile" onclick="app.switchStudentSubTab('profile')">👤 Hồ Sơ & Bảng Điểm</button>
+          </div>
         </div>
 
-        <div style="max-width: 400px; margin-bottom: 20px;">
-          <label class="form-label" for="profile-student-select">Chọn học sinh cần xem hồ sơ:</label>
-          <select id="profile-student-select" class="form-control" onchange="app.loadStudentProfile()">
-            <!-- Filled dynamically -->
-          </select>
-        </div>
-
-        <div id="student-profile-content" style="display: none;">
-          <div style="display: flex; gap: 20px; align-items: center; background: #F8FAFC; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
-            <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #4F46E5); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;">
-              <span id="prof-avatar-letter">A</span>
+        <!-- Subtab 1: Danh Sách & Quản Lý Học Sinh -->
+        <div id="student-subtab-list">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+            <div style="max-width: 360px; flex: 1;">
+              <input type="text" id="student-search-input" class="form-control" placeholder="🔍 Tìm kiếm theo tên hoặc mã HS..." oninput="app.filterStudentsList()">
             </div>
-            <div>
-              <h3 id="prof-name" style="font-size: 20px; font-weight: 800; color: #0F172A;">Nguyễn An Khang</h3>
-              <p id="prof-meta" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lớp 3A • Giới tính: Nam</p>
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Sĩ số hiện tại: <strong id="student-roster-count" style="color: var(--primary);">29</strong> học sinh
             </div>
           </div>
 
-          <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">📚 Danh sách tất cả bài tập được giao:</h4>
           <div class="table-responsive">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Tên Bài Tập</th>
-                  <th>Môn</th>
-                  <th>Hạn Nộp</th>
-                  <th>Trạng Thái</th>
-                  <th>Lần Nộp</th>
-                  <th>Làm Lại</th>
-                  <th>Điểm Lần 1</th>
-                  <th>Điểm Cuối</th>
-                  <th>Nhận Xét Của Cô</th>
-                  <th>Lịch Sử</th>
+                  <th style="width: 60px;">STT</th>
+                  <th style="width: 100px;">Mã HS</th>
+                  <th>Họ và Tên</th>
+                  <th style="width: 100px;">Giới Tính</th>
+                  <th style="width: 120px;">Lớp</th>
+                  <th style="width: 220px; text-align: center;">Thao Tác</th>
                 </tr>
               </thead>
-              <tbody id="prof-assignments-tbody">
+              <tbody id="students-management-tbody">
                 <!-- Dynamically populated -->
               </tbody>
             </table>
           </div>
         </div>
+
+        <!-- Subtab 2: Hồ Sơ Cá Nhân Từng Học Sinh -->
+        <div id="student-subtab-profile" style="display: none;">
+          <div style="max-width: 400px; margin-bottom: 20px;">
+            <label class="form-label" for="profile-student-select">Chọn học sinh cần xem hồ sơ:</label>
+            <select id="profile-student-select" class="form-control" onchange="app.loadStudentProfile()">
+              <!-- Filled dynamically -->
+            </select>
+          </div>
+
+          <div id="student-profile-content" style="display: none;">
+            <div style="display: flex; gap: 20px; align-items: center; background: #F8FAFC; border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+              <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #4F46E5); color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;">
+                <span id="prof-avatar-letter">A</span>
+              </div>
+              <div>
+                <h3 id="prof-name" style="font-size: 20px; font-weight: 800; color: #0F172A;">Nguyễn Vỹ An</h3>
+                <p id="prof-meta" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lớp 3A7 • Giới tính: Nam</p>
+              </div>
+            </div>
+
+            <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">📚 Danh sách tất cả bài tập được giao:</h4>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tên Bài Tập</th>
+                    <th>Môn</th>
+                    <th>Hạn Nộp</th>
+                    <th>Trạng Thái</th>
+                    <th>Lần Nộp</th>
+                    <th>Làm Lại</th>
+                    <th>Điểm Lần 1</th>
+                    <th>Điểm Cuối</th>
+                    <th>Nhận Xét Của Cô</th>
+                    <th>Lịch Sử</th>
+                  </tr>
+                </thead>
+                <tbody id="prof-assignments-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -893,6 +998,100 @@
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <button class="btn btn-outline" onclick="app.closeNewAssignmentModal()">Hủy</button>
           <button class="btn btn-primary" onclick="app.createAssignment()">Tạo Bài Tập</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: CHỈNH SỬA BÀI TẬP
+       ==================================================================== -->
+  <div id="edit-assignment-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Chỉnh Sửa Bài Tập</h3>
+        <button class="modal-close" onclick="app.closeEditAssignmentModal()">&times;</button>
+      </div>
+      <div>
+        <input type="hidden" id="edit-asg-id">
+        <div class="form-group">
+          <label class="form-label" for="edit-asg-title">Tên Bài Tập:</label>
+          <input type="text" id="edit-asg-title" class="form-control" placeholder="Ví dụ: Phiếu bài tập Toán tuần 4">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-asg-subject">Môn Học:</label>
+          <select id="edit-asg-subject" class="form-control">
+            <option value="Toán">Toán</option>
+            <option value="Tiếng Việt">Tiếng Việt</option>
+            <option value="Tiếng Anh">Tiếng Anh</option>
+            <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
+            <option value="Đạo đức">Đạo đức</option>
+            <option value="Môn khác">Môn khác</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="edit-asg-assigned">Ngày Giao:</label>
+            <input type="date" id="edit-asg-assigned" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-asg-due">Hạn Nộp (Ngày & Giờ):</label>
+            <input type="datetime-local" id="edit-asg-due" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-asg-maxscore">Thang Điểm:</label>
+          <input type="number" id="edit-asg-maxscore" class="form-control" value="10" min="1" max="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-asg-notes">Ghi Chú Yêu Cầu:</label>
+          <textarea id="edit-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeEditAssignmentModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.saveEditedAssignment()">Lưu Thay Đổi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: THÊM / SỬA HỌC SINH
+       ==================================================================== -->
+  <div id="student-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="student-modal-title">➕ Thêm Học Sinh Mới</h3>
+        <button class="modal-close" onclick="app.closeStudentModal()">&times;</button>
+      </div>
+      <div>
+        <input type="hidden" id="student-modal-id">
+        <div class="form-group">
+          <label class="form-label" for="student-modal-code">Mã Học Sinh (VD: HS30):</label>
+          <input type="text" id="student-modal-code" class="form-control" placeholder="HS30" style="font-weight: 700;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="student-modal-name">Họ và Tên Học Sinh:</label>
+          <input type="text" id="student-modal-name" class="form-control" placeholder="Ví dụ: Hoàng Minh Nhật">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="student-modal-gender">Giới Tính:</label>
+            <select id="student-modal-gender" class="form-control">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="student-modal-ordernum">Số Thứ Tự (STT):</label>
+            <input type="number" id="student-modal-ordernum" class="form-control" min="1" max="100" value="30">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeStudentModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.saveStudentForm()">Lưu Thông Tin</button>
         </div>
       </div>
     </div>

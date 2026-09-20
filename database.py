@@ -282,6 +282,59 @@ def delete_student(student_id):
     conn.close()
     return True
 
+def reset_students_to_default():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE students SET is_active = 0")
+    seed_students = [
+        ("HS01", "Vỹ An", "Nữ", 1),
+        ("HS02", "Tuệ An", "Nữ", 2),
+        ("HS03", "Lam Anh", "Nữ", 3),
+        ("HS04", "Minh Anh", "Nữ", 4),
+        ("HS05", "Hoàng Ân", "Nam", 5),
+        ("HS06", "Gia Bảo", "Nam", 6),
+        ("HS07", "Lan Chi", "Nữ", 7),
+        ("HS08", "Thiên Di", "Nữ", 8),
+        ("HS09", "Hải Đăng", "Nam", 9),
+        ("HS10", "Minh Hoàng", "Nam", 10),
+        ("HS11", "Phúc Hưng", "Nam", 11),
+        ("HS12", "Gia Hào", "Nam", 12),
+        ("HS13", "An Khang", "Nam", 13),
+        ("HS14", "Đăng Khang", "Nam", 14),
+        ("HS15", "Chí Khôi", "Nam", 15),
+        ("HS16", "Phương Lâm", "Nữ", 16),
+        ("HS17", "Phúc Lâm", "Nam", 17),
+        ("HS18", "Tuệ Linh", "Nữ", 18),
+        ("HS19", "Hà Linh", "Nữ", 19),
+        ("HS20", "Hà My", "Nữ", 20),
+        ("HS21", "Thiện Nhân", "Nam", 21),
+        ("HS22", "Mộc Nhi", "Nữ", 22),
+        ("HS23", "Hạ Nhiên", "Nữ", 23),
+        ("HS24", "Thanh Phương", "Nữ", 24),
+        ("HS25", "Minh Phương", "Nữ", 25),
+        ("HS26", "Gia Phát", "Nam", 26),
+        ("HS27", "Minh Tân", "Nam", 27),
+        ("HS28", "Minh Thư", "Nữ", 28),
+        ("HS29", "Tấn Tài", "Nam", 29),
+    ]
+    for code, name, gender, order_num in seed_students:
+        cursor.execute("SELECT id FROM students WHERE code = ?", (code,))
+        row = cursor.fetchone()
+        if row:
+            cursor.execute("""
+                UPDATE students
+                SET full_name = ?, gender = ?, order_num = ?, is_active = 1, class_name = 'Lớp 3A7'
+                WHERE id = ?
+            """, (name, gender, order_num, row[0]))
+        else:
+            cursor.execute("""
+                INSERT INTO students (code, full_name, gender, order_num, class_name, is_active)
+                VALUES (?, ?, ?, ?, 'Lớp 3A7', 1)
+            """, (code, name, gender, order_num))
+    conn.commit()
+    conn.close()
+    return get_students()
+
 # --- Assignments ---
 def get_assignments(include_inactive=False):
     conn = get_db()

@@ -55,6 +55,8 @@ class LMSApp {
       this.currentAssignmentId = this.assignments[0].id;
       this.loadTrackingMatrix();
     }
+    this.loadHomeworkList();
+    this.loadStudentsList();
     this.loadAnalytics();
     this.loadStudentProfile();
 
@@ -198,7 +200,7 @@ class LMSApp {
     const profileSelect = document.getElementById("profile-student-select");
 
     const asgOptions = this.assignments.map(a => 
-      `<option value="${a.id}">[${a.subject}] ${a.title} (Hạn: ${a.due_date})</option>`
+      `<option value="${a.id}">[${a.subject || "Bài tập"}] ${a.title} (Hạn: ${a.due_date || "-"})</option>`
     ).join("");
 
     kioskSelect.innerHTML = asgOptions;
@@ -213,8 +215,8 @@ class LMSApp {
 
     this.updateKioskDueHint();
 
-    profileSelect.innerHTML = this.students.map(s => 
-      `<option value="${s.id}">${s.order_num}. ${s.full_name} (${s.code})</option>`
+    profileSelect.innerHTML = this.students.map((s, idx) => 
+      `<option value="${s.id}">${s.order_num || (idx + 1)}. ${s.full_name} (${s.code})</option>`
     ).join("");
   }
 
@@ -454,9 +456,9 @@ class LMSApp {
   renderLoginStudentPicker() {
     const grid = document.getElementById("login-student-picker-grid");
     if (!grid) return;
-    grid.innerHTML = this.students.map(s => `
+    grid.innerHTML = this.students.map((s, idx) => `
       <button type="button" class="login-student-chip" onclick="app.loginStudentById(${s.id})">
-        <span class="student-chip-order">${s.order_num}</span>
+        <span class="student-chip-order">${s.order_num || (idx + 1)}</span>
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.full_name}</span>
       </button>
     `).join("");
@@ -769,11 +771,14 @@ class LMSApp {
       this.startKioskCamera();
     } else if (paneId === "pane-grade") {
       this.startGradeCamera();
+    } else if (paneId === "pane-homework") {
+      this.loadHomeworkList();
     } else if (paneId === "pane-tracking") {
       this.loadTrackingMatrix();
     } else if (paneId === "pane-analytics") {
       this.loadAnalytics();
     } else if (paneId === "pane-students") {
+      this.loadStudentsList();
       this.loadStudentProfile();
     }
   }
@@ -1172,28 +1177,32 @@ class LMSApp {
       return true;
     });
 
-    tbody.innerHTML = filtered.map(row => {
-      const statusBadge = `<span class="badge badge-${row.color_group}">${row.current_status}</span>`;
-      const deadlineBadge = row.submit_count === 0 ? "-" : (row.is_late ? '<span class="badge badge-orange">Trễ hạn</span>' : '<span class="badge badge-green">Đúng hạn</span>');
+    tbody.innerHTML = filtered.map((row, idx) => {
+      const sttVal = row.stt || row.order_num || (idx + 1);
+      const colorGroup = row.color_group || "blue";
+      const currentStatus = row.current_status || (row.submit_count > 0 ? "Đã nộp" : "Chưa nộp");
+      const statusBadge = `<span class="badge badge-${colorGroup}">${currentStatus}</span>`;
+      const deadlineBadge = (row.submit_count === 0 || !row.submit_count) ? "-" : (row.is_late ? '<span class="badge badge-orange">Trễ hạn</span>' : '<span class="badge badge-green">Đúng hạn</span>');
       
-      const firstScoreStr = row.first_score !== null ? `<span class="score-pill score-high">${row.first_score}</span>` : "-";
-      const latestScoreStr = row.latest_score !== null ? `<span class="score-pill score-high">${row.latest_score}</span>` : "-";
+      const firstScoreStr = (row.first_score !== null && row.first_score !== undefined) ? `<span class="score-pill score-high">${row.first_score}</span>` : "-";
+      const latestScoreStr = (row.latest_score !== null && row.latest_score !== undefined) ? `<span class="score-pill score-high">${row.latest_score}</span>` : "-";
+      const submitTimeStr = row.latest_submit_time ? (row.latest_submit_time.includes(" ") ? row.latest_submit_time.split(" ")[1] : row.latest_submit_time) : "-";
 
       return `
         <tr>
-          <td><strong>${row.stt}</strong></td>
-          <td><code>${row.code}</code></td>
-          <td><strong>${row.full_name}</strong></td>
+          <td><strong>${sttVal}</strong></td>
+          <td><code>${row.code || "-"}</code></td>
+          <td><strong>${row.full_name || "-"}</strong></td>
           <td>${statusBadge}</td>
-          <td>${row.latest_submit_time ? row.latest_submit_time.split(" ")[1] : "-"}</td>
+          <td>${submitTimeStr}</td>
           <td>${deadlineBadge}</td>
-          <td style="text-align: center;"><strong>${row.submit_count}</strong></td>
-          <td style="text-align: center; color: ${row.retry_count > 0 ? '#B45309' : 'inherit'};"><strong>${row.retry_count}</strong></td>
+          <td style="text-align: center;"><strong>${row.submit_count ?? 0}</strong></td>
+          <td style="text-align: center; color: ${(row.retry_count || 0) > 0 ? '#B45309' : 'inherit'};"><strong>${row.retry_count ?? 0}</strong></td>
           <td style="text-align: center;">${firstScoreStr}</td>
           <td style="text-align: center;">${latestScoreStr}</td>
           <td style="font-size: 12px; max-width: 180px;">${row.teacher_note || '<span style="color:var(--text-muted);">-</span>'}</td>
           <td>
-            <button class="btn btn-outline btn-sm" onclick="app.viewStudentHistory(${row.student_id}, '${row.full_name}')">
+            <button class="btn btn-outline btn-sm" onclick="app.viewStudentHistory(${row.student_id}, '${(row.full_name || '').replace(/'/g, "\\'")}')">
               📜 Xem
             </button>
           </td>
@@ -1296,15 +1305,22 @@ class LMSApp {
       }
       const whole = (data && data.whole_class) || {};
 
-      document.getElementById("stat-completion-rate").innerText = `${whole.class_completion_rate || 0}%`;
+      const totalStudentsEl = document.getElementById("stat-total-students");
+      if (totalStudentsEl) totalStudentsEl.innerText = (this.students && this.students.length) || 29;
+
+      const totalAsgEl = document.getElementById("stat-total-assignments");
+      if (totalAsgEl) totalAsgEl.innerText = (this.assignments && this.assignments.length) || (data.assignment_stats ? data.assignment_stats.length : 0);
+
+      const compRateEl = document.getElementById("stat-completion-rate");
+      if (compRateEl) compRateEl.innerText = `${whole.class_completion_rate || 0}%`;
 
       // Top Lists
       const formatTopList = (list, valKey, label) => {
         if (!list || list.length === 0) return "<li style='color:var(--text-muted);'>Chưa có dữ liệu</li>";
         return list.slice(0, 5).map(s => `
           <li>
-            <span><strong>${s.code}</strong> - ${s.full_name}</span>
-            <span style="font-weight: 700;">${s[valKey]} ${label}</span>
+            <span><strong>${s.code || ''}</strong> - ${s.full_name || ''}</span>
+            <span style="font-weight: 700;">${s[valKey] ?? 0} ${label}</span>
           </li>
         `).join("");
       };
@@ -1316,38 +1332,43 @@ class LMSApp {
 
       // Table 1: By Student
       const studentTbody = document.getElementById("analytics-student-tbody");
-      studentTbody.innerHTML = data.student_stats.map(s => `
-        <tr>
-          <td><code>${s.code}</code></td>
-          <td><strong>${s.full_name}</strong></td>
-          <td style="text-align: center;">${s.num_submitted}/${s.total_assigned}</td>
-          <td style="text-align: center; color: ${s.num_missing > 0 ? '#B91C1C' : 'inherit'};"><strong>${s.num_missing}</strong></td>
-          <td style="text-align: center; color: #047857;"><strong>${s.on_time_count}</strong></td>
-          <td style="text-align: center; color: #B45309;">${s.late_count}</td>
-          <td style="text-align: center;">${s.asg_requiring_retry_count}</td>
-          <td style="text-align: center;"><span class="badge badge-green">${s.num_completed}</span></td>
-          <td style="text-align: center; font-weight: 800; color: var(--primary);">${s.avg_score ?? "-"}</td>
-          <td style="text-align: center;">${s.improved_count > 0 ? `👏 +${s.improved_count} bài` : "-"}</td>
-        </tr>
-      `).join("");
+      if (studentTbody) {
+        studentTbody.innerHTML = (data.student_stats || []).map(s => `
+          <tr>
+            <td><code>${s.code || '-'}</code></td>
+            <td><strong>${s.full_name || '-'}</strong></td>
+            <td style="text-align: center;">${s.num_submitted ?? 0}/${s.total_assigned ?? 0}</td>
+            <td style="text-align: center; color: ${(s.num_missing || 0) > 0 ? '#B91C1C' : 'inherit'};"><strong>${s.num_missing ?? 0}</strong></td>
+            <td style="text-align: center; color: #047857;"><strong>${s.on_time_count ?? 0}</strong></td>
+            <td style="text-align: center; color: #B45309;">${s.late_count ?? 0}</td>
+            <td style="text-align: center;">${s.asg_requiring_retry_count ?? 0}</td>
+            <td style="text-align: center;"><span class="badge badge-green">${s.num_completed ?? 0}</span></td>
+            <td style="text-align: center; font-weight: 800; color: var(--primary);">${s.avg_score ?? "-"}</td>
+            <td style="text-align: center;">${(s.improved_count || 0) > 0 ? `👏 +${s.improved_count} bài` : "-"}</td>
+          </tr>
+        `).join("");
+      }
 
       // Table 2: By Assignment
       const asgTbody = document.getElementById("analytics-assignment-tbody");
-      asgTbody.innerHTML = data.assignment_stats.map(a => `
-        <tr>
-          <td><strong>${a.title}</strong></td>
-          <td><span class="badge badge-blue">${a.subject}</span></td>
-          <td>${a.due_date}</td>
-          <td style="text-align: center;">${a.num_submitted}/${a.total_students}</td>
-          <td style="text-align: center; color: #B91C1C;"><strong>${a.num_missing}</strong></td>
-          <td style="text-align: center; color: #047857;">${a.num_on_time}</td>
-          <td style="text-align: center; color: #B45309;">${a.num_late}</td>
-          <td style="text-align: center;">${a.num_need_fix}</td>
-          <td style="text-align: center;">${a.num_resubmitted}</td>
-          <td style="text-align: center;"><span class="badge badge-green">${a.num_completed}</span></td>
-          <td style="text-align: center; font-weight: 800; color: var(--primary);">${a.class_avg_score ?? "-"}</td>
-        </tr>
-      `).join("");
+      if (asgTbody) {
+        const totalStudCount = (this.students && this.students.length) || 29;
+        asgTbody.innerHTML = (data.assignment_stats || []).map(a => `
+          <tr>
+            <td><strong>${a.title || a.assignment_title || "Bài tập"}</strong></td>
+            <td><span class="badge badge-blue">${a.subject || "Toán"}</span></td>
+            <td>${a.due_date || "-"}</td>
+            <td style="text-align: center;">${a.num_submitted ?? 0}/${a.total_students ?? totalStudCount}</td>
+            <td style="text-align: center; color: #B91C1C;"><strong>${a.num_missing ?? 0}</strong></td>
+            <td style="text-align: center; color: #047857;">${a.num_on_time ?? 0}</td>
+            <td style="text-align: center; color: #B45309;">${a.num_late ?? 0}</td>
+            <td style="text-align: center;">${a.num_need_fix ?? 0}</td>
+            <td style="text-align: center;">${a.num_resubmitted ?? 0}</td>
+            <td style="text-align: center;"><span class="badge badge-green">${a.num_completed ?? 0}</span></td>
+            <td style="text-align: center; font-weight: 800; color: var(--primary);">${a.class_avg_score ?? "-"}</td>
+          </tr>
+        `).join("");
+      }
 
     } catch (e) {
       console.error("Error loading analytics", e);
@@ -1370,7 +1391,7 @@ class LMSApp {
 
   // --- SECTION 8: STUDENT PROFILE ---
   async loadStudentProfile() {
-    const sid = document.getElementById("profile-student-select").value;
+    const sid = document.getElementById("profile-student-select")?.value;
     if (!sid) return;
 
     try {
@@ -1383,31 +1404,33 @@ class LMSApp {
       }
       if (!data) return;
 
-      const st = data.student;
+      const st = data.student || {};
       document.getElementById("student-profile-content").style.display = "block";
-      document.getElementById("prof-name").innerText = `${st.order_num}. ${st.full_name}`;
-      document.getElementById("prof-meta").innerText = `Mã: ${st.code} • ${st.class_name} • Giới tính: ${st.gender || "Học sinh"}`;
-      document.getElementById("prof-avatar-letter").innerText = st.full_name.split(" ").pop().charAt(0);
+      document.getElementById("prof-name").innerText = `${st.order_num || "-"}. ${st.full_name || "-"}`;
+      document.getElementById("prof-meta").innerText = `Mã: ${st.code || "-"} • ${st.class_name || "Lớp 3A7"} • Giới tính: ${st.gender || "Học sinh"}`;
+      document.getElementById("prof-avatar-letter").innerText = (st.full_name || "A").split(" ").pop().charAt(0) || "A";
 
       const tbody = document.getElementById("prof-assignments-tbody");
-      tbody.innerHTML = data.assignments.map(a => `
-        <tr>
-          <td><strong>${a.title || a.assignment_title}</strong></td>
-          <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
-          <td>${a.due_date}</td>
-          <td><span class="badge badge-${a.color || 'blue'}">${a.status || a.latest_status}</span></td>
-          <td style="text-align: center;">${a.submit_count}</td>
-          <td style="text-align: center;">${a.retry_count || (a.submit_count > 1 ? a.submit_count - 1 : 0)}</td>
-          <td style="text-align: center;">${a.first_score ?? "-"}</td>
-          <td style="text-align: center; font-weight: 700; color: var(--primary);">${a.latest_score ?? "-"}</td>
-          <td style="font-size: 12px;">${a.teacher_note || "-"}</td>
-          <td>
-            <button class="btn btn-outline btn-sm" onclick="app.viewStudentHistory(${st.id}, '${st.full_name}')">
-              📜 Xem
-            </button>
-          </td>
-        </tr>
-      `).join("");
+      if (tbody) {
+        tbody.innerHTML = (data.assignments || []).map(a => `
+          <tr>
+            <td><strong>${a.title || a.assignment_title || "Bài tập"}</strong></td>
+            <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
+            <td>${a.due_date || "-"}</td>
+            <td><span class="badge badge-${a.color || 'blue'}">${a.status || a.latest_status || "Chưa nộp"}</span></td>
+            <td style="text-align: center;">${a.submit_count ?? 0}</td>
+            <td style="text-align: center;">${a.retry_count ?? (a.submit_count > 1 ? a.submit_count - 1 : 0)}</td>
+            <td style="text-align: center;">${a.first_score ?? "-"}</td>
+            <td style="text-align: center; font-weight: 700; color: var(--primary);">${a.latest_score ?? "-"}</td>
+            <td style="font-size: 12px;">${a.teacher_note || "-"}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="app.viewStudentHistory(${st.id}, '${(st.full_name || '').replace(/'/g, "\\'")}')">
+                📜 Xem
+              </button>
+            </td>
+          </tr>
+        `).join("");
+      }
     } catch (e) {
       console.error("Error loading student profile", e);
     }
@@ -1482,7 +1505,7 @@ class LMSApp {
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.createAssignment(title, notes, assigned_date, due_date, max_score);
+        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes);
       }
       if (!data || data.error) {
         alert((data && data.error) || "Lỗi khi tạo bài tập!");
@@ -1493,9 +1516,412 @@ class LMSApp {
       await this.loadAssignments();
       this.currentAssignmentId = data.id;
       this.populateDropdowns();
+      this.loadHomeworkList();
       this.loadTrackingMatrix();
+      this.loadAnalytics();
     } catch (e) {
       alert("Lỗi: " + e.message);
+    }
+  }
+
+  // --- HOMEWORK MANAGEMENT CONTROLLER ---
+  loadHomeworkList() {
+    const list = this.assignments || [];
+    const now = new Date();
+
+    const totalEl = document.getElementById("hw-stat-total");
+    const activeEl = document.getElementById("hw-stat-active");
+    const closedEl = document.getElementById("hw-stat-closed");
+    const countEl = document.getElementById("homework-filtered-count");
+
+    let activeCount = 0;
+    let closedCount = 0;
+
+    list.forEach(a => {
+      const due = a.due_date ? new Date(a.due_date.replace(" ", "T")) : null;
+      if (!due || due >= now) {
+        activeCount++;
+      } else {
+        closedCount++;
+      }
+    });
+
+    if (totalEl) totalEl.innerText = list.length;
+    if (activeEl) activeEl.innerText = activeCount;
+    if (closedEl) closedEl.innerText = closedCount;
+    if (countEl) countEl.innerText = list.length;
+
+    this.renderHomeworkTable(list);
+  }
+
+  filterHomeworkList() {
+    const query = (document.getElementById("homework-search-input")?.value || "").toLowerCase().trim();
+    const list = this.assignments || [];
+    const filtered = list.filter(a => {
+      return (a.title || "").toLowerCase().includes(query) ||
+             (a.subject || "").toLowerCase().includes(query) ||
+             (a.notes || a.description || "").toLowerCase().includes(query);
+    });
+    const countEl = document.getElementById("homework-filtered-count");
+    if (countEl) countEl.innerText = filtered.length;
+    this.renderHomeworkTable(filtered);
+  }
+
+  renderHomeworkTable(list) {
+    const tbody = document.getElementById("homework-management-tbody");
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy bài tập nào.</td></tr>`;
+      return;
+    }
+
+    const now = new Date();
+    tbody.innerHTML = list.map(a => {
+      const due = a.due_date ? new Date(a.due_date.replace(" ", "T")) : null;
+      const isOpen = !due || due >= now;
+      const statusBadge = isOpen
+        ? `<span class="badge badge-green">Đang mở nộp</span>`
+        : `<span class="badge badge-orange">Đã hết hạn</span>`;
+
+      return `
+        <tr>
+          <td><strong>#${a.id}</strong></td>
+          <td><strong>${a.title}</strong></td>
+          <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
+          <td>${a.assigned_date || "-"}</td>
+          <td><strong style="color: ${isOpen ? 'inherit' : '#B45309'};">${a.due_date ? a.due_date.replace("T", " ") : "-"}</strong></td>
+          <td style="text-align: center;"><strong>${a.max_score ?? 10}</strong></td>
+          <td style="text-align: center;">${statusBadge}</td>
+          <td style="font-size: 13px; max-width: 200px; color: #475569;">${a.notes || a.description || '<span style="color:var(--text-muted);">-</span>'}</td>
+          <td style="text-align: center; white-space: nowrap;">
+            <button class="btn btn-outline btn-sm" onclick="app.quickGradeAssignment(${a.id})" title="Chuyển sang chấm bài này">✍️ Chấm</button>
+            <button class="btn btn-outline btn-sm" onclick="app.openEditAssignmentModal(${a.id})" title="Chỉnh sửa thông tin bài tập">✏️ Sửa</button>
+            <button class="btn btn-danger btn-sm" onclick="app.deleteAssignment(${a.id})" title="Xóa bài tập">🗑️ Xóa</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  quickGradeAssignment(assignmentId) {
+    this.currentAssignmentId = assignmentId;
+    const sel1 = document.getElementById("grade-assignment-select");
+    const sel2 = document.getElementById("tracking-assignment-select");
+    const sel3 = document.getElementById("kiosk-assignment-select");
+    if (sel1) sel1.value = assignmentId;
+    if (sel2) sel2.value = assignmentId;
+    if (sel3) sel3.value = assignmentId;
+    this.switchTab("pane-grade");
+  }
+
+  openEditAssignmentModal(id) {
+    const asg = (this.assignments || []).find(a => a.id == id);
+    if (!asg) return;
+
+    document.getElementById("edit-asg-id").value = asg.id;
+    document.getElementById("edit-asg-title").value = asg.title || "";
+    document.getElementById("edit-asg-subject").value = asg.subject || "Toán";
+    document.getElementById("edit-asg-assigned").value = asg.assigned_date ? asg.assigned_date.split(" ")[0] : "";
+    document.getElementById("edit-asg-due").value = asg.due_date ? asg.due_date.replace(" ", "T").slice(0, 16) : "";
+    document.getElementById("edit-asg-maxscore").value = asg.max_score || 10;
+    document.getElementById("edit-asg-notes").value = asg.notes || asg.description || "";
+
+    document.getElementById("edit-assignment-modal").style.display = "flex";
+  }
+
+  closeEditAssignmentModal() {
+    document.getElementById("edit-assignment-modal").style.display = "none";
+  }
+
+  async saveEditedAssignment() {
+    const id = document.getElementById("edit-asg-id").value;
+    const title = document.getElementById("edit-asg-title").value.trim();
+    const subject = document.getElementById("edit-asg-subject").value;
+    const assigned_date = document.getElementById("edit-asg-assigned").value;
+    const due_date = document.getElementById("edit-asg-due").value.replace("T", " ");
+    const max_score = parseFloat(document.getElementById("edit-asg-maxscore").value) || 10;
+    const notes = document.getElementById("edit-asg-notes").value.trim();
+
+    if (!title || !due_date) {
+      alert("Vui lòng nhập Tên bài tập và Hạn nộp!");
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/assignments/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes })
+        });
+        if (!res.ok) throw new Error("Cập nhật bài tập thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes);
+      }
+
+      alert(`✅ Đã cập nhật bài tập "${title}" thành công!`);
+      this.closeEditAssignmentModal();
+      await this.loadAssignments();
+      this.populateDropdowns();
+      this.loadHomeworkList();
+      if (this.currentAssignmentId == id) {
+        this.loadTrackingMatrix();
+      }
+      this.loadAnalytics();
+    } catch (e) {
+      alert("Lỗi khi sửa bài tập: " + e.message);
+    }
+  }
+
+  async deleteAssignment(id) {
+    const asg = (this.assignments || []).find(a => a.id == id);
+    const title = asg ? asg.title : `Bài tập #${id}`;
+    if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa bài tập "${title}"?\n(Các lượt nộp và điểm của bài này cũng sẽ bị xóa khỏi bảng theo dõi)`)) {
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/assignments/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Xóa bài tập thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.deleteAssignment(id);
+      }
+
+      alert(`✅ Đã xóa bài tập "${title}"!`);
+      await this.loadAssignments();
+      if (this.assignments.length > 0) {
+        if (this.currentAssignmentId == id) {
+          this.currentAssignmentId = this.assignments[0].id;
+        }
+      } else {
+        this.currentAssignmentId = null;
+      }
+      this.populateDropdowns();
+      this.loadHomeworkList();
+      this.loadTrackingMatrix();
+      this.loadAnalytics();
+    } catch (e) {
+      alert("Lỗi khi xóa bài tập: " + e.message);
+    }
+  }
+
+  // --- STUDENT MANAGEMENT CONTROLLER ---
+  switchStudentSubTab(tab) {
+    const listTab = document.getElementById("student-subtab-list");
+    const profTab = document.getElementById("student-subtab-profile");
+    const btnList = document.getElementById("btn-subtab-students-list");
+    const btnProf = document.getElementById("btn-subtab-students-profile");
+
+    if (tab === "list") {
+      if (listTab) listTab.style.display = "block";
+      if (profTab) profTab.style.display = "none";
+      if (btnList) btnList.classList.add("active");
+      if (btnProf) btnProf.classList.remove("active");
+      this.loadStudentsList();
+    } else {
+      if (listTab) listTab.style.display = "none";
+      if (profTab) profTab.style.display = "block";
+      if (btnList) btnList.classList.remove("active");
+      if (btnProf) btnProf.classList.add("active");
+      this.loadStudentProfile();
+    }
+  }
+
+  loadStudentsList() {
+    const list = this.students || [];
+    const countEl = document.getElementById("student-roster-count");
+    if (countEl) countEl.innerText = list.length;
+    this.renderStudentsTable(list);
+  }
+
+  filterStudentsList() {
+    const query = (document.getElementById("student-search-input")?.value || "").toLowerCase().trim();
+    const list = this.students || [];
+    const filtered = list.filter(s => {
+      return (s.full_name || "").toLowerCase().includes(query) ||
+             (s.code || "").toLowerCase().includes(query) ||
+             String(s.order_num || "").includes(query);
+    });
+    this.renderStudentsTable(filtered);
+  }
+
+  renderStudentsTable(list) {
+    const tbody = document.getElementById("students-management-tbody");
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy học sinh nào.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map((s, idx) => `
+      <tr>
+        <td><strong>${s.order_num || (idx + 1)}</strong></td>
+        <td><code>${s.code}</code></td>
+        <td><strong>${s.full_name}</strong></td>
+        <td>${s.gender === "Nữ" ? '👧 Nữ' : '👦 Nam'}</td>
+        <td><span class="badge badge-blue">${s.class_name || "Lớp 3A7"}</span></td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button class="btn btn-outline btn-sm" onclick="app.viewStudentProfileFromList(${s.id})">👤 Hồ Sơ</button>
+          <button class="btn btn-outline btn-sm" onclick="app.openEditStudentModal(${s.id})">✏️ Sửa</button>
+          <button class="btn btn-danger btn-sm" onclick="app.deleteStudent(${s.id})">🗑️ Xóa</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  viewStudentProfileFromList(studentId) {
+    this.switchStudentSubTab("profile");
+    const sel = document.getElementById("profile-student-select");
+    if (sel) {
+      sel.value = studentId;
+      this.loadStudentProfile();
+    }
+  }
+
+  openAddStudentModal() {
+    document.getElementById("student-modal-title").innerText = "➕ Thêm Học Sinh Mới";
+    document.getElementById("student-modal-id").value = "";
+
+    // Calculate next order num and suggest HS code
+    const nextOrder = (this.students && this.students.length > 0)
+      ? Math.max(...this.students.map(s => s.order_num || 0)) + 1
+      : 1;
+    const paddedOrder = nextOrder < 10 ? `0${nextOrder}` : `${nextOrder}`;
+
+    document.getElementById("student-modal-code").value = `HS${paddedOrder}`;
+    document.getElementById("student-modal-name").value = "";
+    document.getElementById("student-modal-gender").value = "Nam";
+    document.getElementById("student-modal-ordernum").value = nextOrder;
+
+    document.getElementById("student-modal").style.display = "flex";
+  }
+
+  openEditStudentModal(id) {
+    const st = (this.students || []).find(s => s.id == id);
+    if (!st) return;
+
+    document.getElementById("student-modal-title").innerText = "✏️ Chỉnh Sửa Học Sinh";
+    document.getElementById("student-modal-id").value = st.id;
+    document.getElementById("student-modal-code").value = st.code || "";
+    document.getElementById("student-modal-name").value = st.full_name || "";
+    document.getElementById("student-modal-gender").value = st.gender || "Nam";
+    document.getElementById("student-modal-ordernum").value = st.order_num || "";
+
+    document.getElementById("student-modal").style.display = "flex";
+  }
+
+  closeStudentModal() {
+    document.getElementById("student-modal").style.display = "none";
+  }
+
+  async saveStudentForm() {
+    const id = document.getElementById("student-modal-id").value;
+    const code = document.getElementById("student-modal-code").value.trim().toUpperCase();
+    const full_name = document.getElementById("student-modal-name").value.trim();
+    const gender = document.getElementById("student-modal-gender").value;
+    const order_num = parseInt(document.getElementById("student-modal-ordernum").value) || 1;
+
+    if (!code || !full_name) {
+      alert("Vui lòng nhập đầy đủ Mã học sinh và Họ tên!");
+      return;
+    }
+
+    try {
+      if (id) {
+        // Edit student
+        if (this.serverAvailable) {
+          const res = await fetch(`/api/students/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, full_name, gender, order_num })
+          });
+          if (!res.ok) throw new Error("Cập nhật thông tin học sinh thất bại.");
+        } else {
+          window.ClientDB.updateStudent(id, code, full_name, gender, order_num);
+        }
+        alert(`✅ Đã cập nhật học sinh "${full_name}" thành công!`);
+      } else {
+        // Add student
+        if (this.serverAvailable) {
+          const res = await fetch(`/api/students`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, full_name, gender, order_num, class_name: this.settings.class_name || "Lớp 3A7" })
+          });
+          if (!res.ok) throw new Error("Thêm học sinh mới thất bại.");
+        } else {
+          window.ClientDB.addStudent(code, full_name, gender, order_num);
+        }
+        alert(`✅ Đã thêm học sinh "${full_name}" (${code}) thành công!`);
+      }
+
+      this.closeStudentModal();
+      await this.loadStudents();
+      this.populateDropdowns();
+      this.renderA4PrintSheet();
+      this.renderLoginStudentPicker();
+      this.loadStudentsList();
+      this.loadTrackingMatrix();
+      this.loadAnalytics();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  async deleteStudent(id) {
+    const st = (this.students || []).find(s => s.id == id);
+    const name = st ? st.full_name : `Học sinh #${id}`;
+    if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa học sinh "${name}"?\n(Các thông tin theo dõi và bài nộp của em sẽ bị xóa)`)) {
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/students/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Xóa học sinh thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.deleteStudent(id);
+      }
+
+      alert(`✅ Đã xóa học sinh "${name}"!`);
+      await this.loadStudents();
+      this.populateDropdowns();
+      this.renderA4PrintSheet();
+      this.renderLoginStudentPicker();
+      this.loadStudentsList();
+      this.loadTrackingMatrix();
+      this.loadAnalytics();
+    } catch (e) {
+      alert("Lỗi khi xóa học sinh: " + e.message);
+    }
+  }
+
+  async resetStudentsToDefault() {
+    if (!confirm("🔄 Bạn có chắc chắn muốn khôi phục danh sách chuẩn 29 học sinh Lớp 3A7?\n(Các học sinh thêm mới sẽ được khôi phục về danh sách 29 em ban đầu)")) {
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch("/api/students/reset", { method: "POST" });
+        if (!res.ok) throw new Error("Khôi phục danh sách thất bại.");
+      } else {
+        window.ClientDB.resetStudentsToDefault();
+      }
+
+      alert("✅ Đã khôi phục thành công danh sách 29 học sinh chuẩn của Lớp 3A7!");
+      await this.loadStudents();
+      this.populateDropdowns();
+      this.renderA4PrintSheet();
+      this.renderLoginStudentPicker();
+      this.loadStudentsList();
+      this.loadTrackingMatrix();
+      this.loadAnalytics();
+    } catch (e) {
+      alert("Lỗi khi khôi phục danh sách: " + e.message);
     }
   }
 
