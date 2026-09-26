@@ -689,35 +689,33 @@ class LMSApp {
   }
 
   enterKioskFromLogin() {
-    this.kioskEnteredFromLogin = true;
-    this.isTeacherLocked = false;
-    const vLogin = document.getElementById("view-login");
-    const vStudent = document.getElementById("view-student-portal");
-    const vTeacher = document.getElementById("view-teacher-app");
-    if (vLogin) vLogin.style.display = "none";
-    if (vStudent) vStudent.style.display = "none";
-    if (vTeacher) vTeacher.style.display = "block";
+    this.openPinModal(() => {
+      this.kioskEnteredFromLogin = true;
+      this.isTeacherLocked = true;
+      const vLogin = document.getElementById("view-login");
+      const vStudent = document.getElementById("view-student-portal");
+      const vTeacher = document.getElementById("view-teacher-app");
+      if (vLogin) vLogin.style.display = "none";
+      if (vStudent) vStudent.style.display = "none";
+      if (vTeacher) vTeacher.style.display = "block";
 
-    const header = document.querySelector(".app-header");
-    if (header) header.style.display = "none";
-    const nav = document.getElementById("teacher-nav");
-    if (nav) nav.style.display = "none";
+      const header = document.querySelector(".app-header");
+      if (header) header.style.display = "none";
+      const nav = document.getElementById("teacher-nav");
+      if (nav) nav.style.display = "none";
 
-    const standaloneBar = document.getElementById("kiosk-standalone-bar");
-    if (standaloneBar) standaloneBar.style.display = "flex";
+      const standaloneBar = document.getElementById("kiosk-standalone-bar");
+      if (standaloneBar) standaloneBar.style.display = "flex";
 
-    this.switchTab("pane-kiosk");
+      this.switchTab("pane-kiosk");
+    }, "🔒 Xác Thực Giáo Viên", "Vui lòng nhập mã PIN giáo viên để mở Góc Nộp Bài / Quét Ảnh Tại Lớp:");
   }
 
   exitKiosk() {
-    if (this.isTeacherLocked) {
-      this.openPinModal(() => {
-        this.isTeacherLocked = false;
-        this.performKioskExit();
-      });
-    } else {
+    this.openPinModal(() => {
+      this.isTeacherLocked = false;
       this.performKioskExit();
-    }
+    }, "🔒 Thoát Góc Nộp Bài", "Vui lòng nhập mã PIN giáo viên để thoát khỏi góc nộp bài:");
   }
 
   performKioskExit() {
@@ -807,8 +805,12 @@ class LMSApp {
     }
   }
 
-  openPinModal(callback) {
+  openPinModal(callback, title = "Bảo Mật Giáo Viên", desc = "Vui lòng nhập mã PIN để xác thực:") {
     this.pinCallback = callback;
+    const titleEl = document.getElementById("pin-modal-title");
+    if (titleEl) titleEl.innerText = title;
+    const descEl = document.getElementById("pin-modal-desc");
+    if (descEl) descEl.innerText = desc;
     document.getElementById("pin-modal").style.display = "flex";
     document.getElementById("pin-input").value = "";
     document.getElementById("pin-error").style.display = "none";
