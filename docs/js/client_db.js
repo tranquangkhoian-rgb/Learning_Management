@@ -270,6 +270,7 @@ class ClientDBEngine {
       assignment_id: asg.id,
       event_type: eventType,
       attempt_number: attemptNumber,
+      submit_count: attemptNumber,
       status: status,
       score: null,
       teacher_note: "",
@@ -299,7 +300,12 @@ class ClientDBEngine {
       success: true,
       student: st,
       assignment: asg,
-      event: newEvent
+      event: newEvent,
+      attempt_number: attemptNumber,
+      submit_count: attemptNumber,
+      is_late: isLate,
+      status: status,
+      submitted_at: timestamp
     };
   }
 
@@ -624,6 +630,7 @@ class ClientDBEngine {
         subject: asg.subject || "Bài tập",
         due_date: asg.due_date,
         submit_count: submits.length,
+        attempt_number: submits.length,
         retry_count: retryCount,
         first_score: firstScore,
         latest_score: latestScore,

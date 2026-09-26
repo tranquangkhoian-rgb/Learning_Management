@@ -638,7 +638,7 @@ class LMSApp {
       const tbody = document.getElementById("sp-assignments-tbody");
       if (tbody) {
         if (assignments.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Hiện tại chưa có bài tập nào được giao.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">Hiện tại chưa có bài tập nào được giao.</td></tr>`;
           return;
         }
 
@@ -665,6 +665,11 @@ class LMSApp {
             ? `<button class="btn btn-primary btn-sm" onclick="app.studentSubmitSelf(${aid})" style="font-size: 12px; padding: 4px 10px; margin-left: 6px;">📤 Nộp</button>`
             : "";
 
+          const submitTimes = a.submit_count ?? a.attempt_number ?? 0;
+          const submitCountHtml = submitTimes > 0
+            ? `<span class="badge badge-blue">Lần ${submitTimes}</span>`
+            : `<span style="color: var(--text-muted); font-size: 13px;">Chưa nộp</span>`;
+
           return `
             <tr>
               <td>
@@ -673,6 +678,7 @@ class LMSApp {
               </td>
               <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
               <td style="font-size: 13px;">${a.due_date ? a.due_date.replace("T", " ") : "-"}</td>
+              <td style="text-align: center;">${submitCountHtml}</td>
               <td><span class="badge badge-${badgeColor}">${status}</span></td>
               <td style="text-align: center;">${scoreText}</td>
               <td>${teacherNoteHtml}</td>
@@ -725,7 +731,9 @@ class LMSApp {
         audio.playSuccessBeep();
       }
 
-      alert(`🎉 Tuyệt vời! Em đã nộp bài thành công cho Cô Linh.\nLần nộp: ${data.event?.submit_count || 1} • ${data.event?.is_late ? "Nộp trễ" : "Đúng hạn"}`);
+      const attemptNum = data.attempt_number ?? data.event?.attempt_number ?? data.submit_count ?? data.event?.submit_count ?? 1;
+      const isLate = data.is_late ?? data.event?.is_late ?? false;
+      alert(`🎉 Tuyệt vời! Em đã nộp bài thành công cho Cô Linh.\nLần nộp: ${attemptNum} • ${isLate ? "Nộp trễ" : "Đúng hạn"}`);
 
       await this.renderStudentPortal(this.currentStudent);
       this.loadTrackingMatrix();
@@ -983,15 +991,20 @@ class LMSApp {
     const deadlineEl = document.getElementById("kiosk-celebrate-deadline");
     const countEl = document.getElementById("kiosk-countdown");
 
-    nameEl.innerText = `${data.student.order_num}. ${data.student.full_name}`;
-    detailEl.innerText = data.attempt_number > 1 
-      ? `Đã ghi nhận Nộp Lại bài tập "${data.assignment.title}"!`
-      : `Đã ghi nhận nộp bài tập "${data.assignment.title}" thành công!`;
+    const student = data.student || {};
+    const asg = data.assignment || {};
+    const attemptNum = data.attempt_number ?? data.event?.attempt_number ?? data.submit_count ?? data.event?.submit_count ?? 1;
+    const isLate = data.is_late ?? data.event?.is_late ?? false;
 
-    attemptEl.innerText = `Lần nộp: ${data.attempt_number}`;
-    attemptEl.className = data.attempt_number > 1 ? "badge badge-blue" : "badge badge-green";
+    nameEl.innerText = `${student.order_num || ""}. ${student.full_name || ""}`;
+    detailEl.innerText = attemptNum > 1 
+      ? `Đã ghi nhận Nộp Lại bài tập "${asg.title || "Bài tập"}"!`
+      : `Đã ghi nhận nộp bài tập "${asg.title || "Bài tập"}" thành công!`;
 
-    if (data.is_late) {
+    attemptEl.innerText = `Lần nộp: ${attemptNum}`;
+    attemptEl.className = attemptNum > 1 ? "badge badge-blue" : "badge badge-green";
+
+    if (isLate) {
       deadlineEl.innerText = "⏰ Nộp trễ hạn";
       deadlineEl.className = "badge badge-orange";
     } else {
