@@ -245,7 +245,10 @@ class ClientDBEngine {
 
   recordSubmission(studentCode, assignmentId, operator = "Học sinh") {
     const students = this.getStudents();
-    const st = students.find(s => s.code.toUpperCase() === studentCode.trim().toUpperCase());
+    const rawClean = String(studentCode).trim().toUpperCase();
+    const match = rawClean.match(/HS\d+/i);
+    const cleanCode = match ? match[0].toUpperCase() : rawClean;
+    const st = students.find(s => s.code.toUpperCase() === cleanCode);
     if (!st) return { error: `Không tìm thấy học sinh với mã "${studentCode}"!` };
 
     const assignments = this.getAssignments();

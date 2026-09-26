@@ -338,7 +338,9 @@
           <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
             <button class="btn btn-outline btn-sm" onclick="app.startKioskCamera()">📷 Bật Camera</button>
             <button class="btn btn-outline btn-sm" onclick="app.switchCameraFacing()">🔄 Đổi Camera Trước/Sau</button>
-            <button class="btn btn-outline btn-sm" onclick="app.toggleKioskQuickPicker()">🔍 Chọn Tên Nhanh (Nếu không có Camera)</button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('kiosk-qr-file-input').click()">📁 Tải Ảnh QR Lên</button>
+            <input type="file" id="kiosk-qr-file-input" accept="image/*" style="display: none;" onchange="app.handleQrFileUpload(event, 'kiosk')">
+            <button class="btn btn-outline btn-sm" onclick="app.toggleKioskQuickPicker()">🔍 Chọn Tên Nhanh</button>
           </div>
 
           <!-- Fallback Quick Student Picker -->
@@ -384,9 +386,11 @@
                 <div class="scan-reticle"></div>
                 <div class="scan-hint">Đưa mã QR trên vở vào đây</div>
               </div>
-              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 8px;">
+              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
                 <button class="btn btn-primary btn-sm" onclick="app.startGradeCamera()">Bật Camera Quét</button>
                 <button class="btn btn-outline btn-sm" onclick="app.stopGradeCamera()">Tắt</button>
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('grade-qr-file-input').click()">📁 Tải Ảnh QR</button>
+                <input type="file" id="grade-qr-file-input" accept="image/*" style="display: none;" onchange="app.handleQrFileUpload(event, 'grade')">
               </div>
 
               <!-- Or Select Student list -->
@@ -1133,14 +1137,17 @@
         <div class="scan-reticle"></div>
         <div class="scan-hint">Đặt mã QR vào giữa khung hình</div>
       </div>
-      <div style="display: flex; justify-content: center; gap: 10px; margin-top: 16px;">
+      <div style="display: flex; justify-content: center; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
         <button class="btn btn-outline btn-sm" onclick="app.switchStudentCameraFacing()">🔄 Đổi Camera</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('student-qr-file-input').click()">📁 Chọn Ảnh QR</button>
+        <input type="file" id="student-qr-file-input" accept="image/*" style="display: none;" onchange="app.handleQrFileUpload(event, 'student-login')">
         <button class="btn btn-outline btn-sm" onclick="app.closeStudentLoginScanner()">Đóng</button>
       </div>
     </div>
   </div>
 
   <!-- Load Scripts -->
+  <script src="js/vendor/jsqr.js"></script>
   <script src="js/vendor/qrcode.js"></script>
   <script src="js/vendor/scanner.js"></script>
   <script src="js/client_db.js"></script>

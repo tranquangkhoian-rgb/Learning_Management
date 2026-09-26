@@ -479,6 +479,7 @@ class LMSApp {
       await this.studentLoginScanner.start();
     } catch (e) {
       console.warn("Could not start student login camera:", e);
+      alert("Không thể bật camera: " + (e.message || e) + "\n\n💡 Gợi ý: Bạn có thể nhấn '📁 Chọn Ảnh QR' để quét từ ảnh có sẵn hoặc bấm vào tên học sinh bên dưới.");
     }
   }
 
@@ -499,11 +500,56 @@ class LMSApp {
     }
   }
 
+  extractStudentCode(rawCode) {
+    if (!rawCode) return "";
+    const clean = String(rawCode).trim().toUpperCase();
+    const match = clean.match(/HS\d+/i);
+    return match ? match[0].toUpperCase() : clean;
+  }
+
+  async handleQrFileUpload(event, target) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const inputEl = event.target;
+
+    let scanner = null;
+    if (target === "student-login") scanner = this.studentLoginScanner;
+    else if (target === "kiosk") scanner = this.kioskScanner;
+    else if (target === "grade") scanner = this.gradeScanner;
+
+    if (!scanner && window.QRCameraScanner) {
+      scanner = new QRCameraScanner(document.createElement("video"), () => {});
+    }
+
+    if (!scanner) {
+      alert("Trình đọc QR chưa sẵn sàng. Vui lòng thử lại sau vài giây.");
+      inputEl.value = "";
+      return;
+    }
+
+    try {
+      const code = await scanner.scanImageFile(file);
+      if (code) {
+        if (target === "student-login") {
+          this.handleStudentLoginScan(code);
+        } else if (target === "kiosk") {
+          this.handleKioskScan(code);
+        } else if (target === "grade") {
+          this.handleGradeScan(code);
+        }
+      } else {
+        alert("Không tìm thấy mã QR trong hình ảnh vừa chọn. Vui lòng chụp ảnh gần hơn, rõ nét và đủ ánh sáng!");
+      }
+    } catch (err) {
+      alert("Lỗi khi đọc file ảnh: " + (err.message || err));
+    } finally {
+      inputEl.value = "";
+    }
+  }
+
   handleStudentLoginScan(scannedCode) {
     if (!scannedCode) return;
-    const cleanCode = scannedCode.trim().toUpperCase();
-    const match = cleanCode.match(/HS\d+/);
-    const code = match ? match[0] : cleanCode;
+    const code = this.extractStudentCode(scannedCode);
 
     const st = this.students.find(s => s.code.toUpperCase() === code);
     if (st) {
@@ -848,6 +894,7 @@ class LMSApp {
       await this.kioskScanner.start();
     } catch (e) {
       console.warn("Could not start kiosk camera:", e);
+      alert("Không thể bật camera: " + (e.message || e) + "\n\n💡 Gợi ý: Bạn có thể nhấn '🔍 Chọn Tên Nhanh' hoặc '📁 Tải Ảnh QR' để nộp bài.");
     }
   }
 
@@ -887,6 +934,8 @@ class LMSApp {
   }
 
   async handleKioskScan(code) {
+    if (!code) return;
+    const studentCode = this.extractStudentCode(code);
     const asgId = document.getElementById("kiosk-assignment-select").value;
     if (!asgId) {
       alert("Vui lòng chọn bài tập trước khi nộp!");
@@ -900,14 +949,14 @@ class LMSApp {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            student_code: code,
+            student_code: studentCode,
             assignment_id: asgId,
             operator: "Học sinh"
           })
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.recordSubmission(code, asgId, "Học sinh");
+        data = window.ClientDB.recordSubmission(studentCode, asgId, "Học sinh");
       }
       if (!data || data.error || data.success === false) {
         if (this.kioskScanner) this.kioskScanner.playErrorBeep();
@@ -977,6 +1026,7 @@ class LMSApp {
       await this.gradeScanner.start();
     } catch (e) {
       console.warn("Could not start grade camera:", e);
+      alert("Không thể bật camera: " + (e.message || e) + "\n\n💡 Gợi ý: Bạn có thể chọn học sinh trực tiếp trong danh sách bên dưới hoặc tải ảnh chụp mã QR lên.");
     }
   }
 
@@ -988,7 +1038,9 @@ class LMSApp {
   }
 
   handleGradeScan(code) {
-    const st = this.students.find(s => s.code.toUpperCase() === code.trim().toUpperCase());
+    if (!code) return;
+    const studentCode = this.extractStudentCode(code);
+    const st = this.students.find(s => s.code.toUpperCase() === studentCode);
     if (!st) {
       if (this.gradeScanner) this.gradeScanner.playErrorBeep();
       alert(`Không tìm thấy học sinh với mã "${code}"!`);

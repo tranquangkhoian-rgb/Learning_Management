@@ -450,6 +450,13 @@ main.app-main {
   animation: scanLaser 2s infinite ease-in-out;
 }
 
+.scan-reticle.reticle-success {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), 0 0 35px #10B981 !important;
+  transform: translate(-50%, -50%) scale(1.04);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 @keyframes scanLaser {
   0% { top: 0; opacity: 0.8; }
   50% { top: 100%; opacity: 1; }
