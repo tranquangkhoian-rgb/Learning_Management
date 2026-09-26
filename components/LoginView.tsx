@@ -246,18 +246,18 @@ export default function LoginView({
               🎯
             </div>
             <div>
-              <h4 className="font-bold text-sm">Góc Nộp Bài Tự Quản Tại Lớp (Kiosk)</h4>
+              <h4 className="font-bold text-sm">Góc Nộp Bài & Quét Ảnh Chụp Tại Lớp (Kiosk)</h4>
               <p className="text-xs text-indigo-200">
-                Xếp hàng quét mã QR trên vở trên máy tính lớp học (không cần mật khẩu)
+                Chụp ảnh / quét mã QR nộp bài tại lớp (Yêu cầu mật khẩu GVCN để mở)
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onEnterKiosk}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs whitespace-nowrap shadow-md"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs whitespace-nowrap shadow-md flex items-center justify-center gap-1.5"
           >
-            Vào Nhanh Góc Nộp Bài ➔
+            <span>🔒</span> Mở Góc Nộp Bài Tại Lớp ➔
           </button>
         </div>
 

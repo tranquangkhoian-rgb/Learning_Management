@@ -110,12 +110,12 @@
         <div class="kiosk-shortcut-info">
           <div class="kiosk-shortcut-icon">🎯</div>
           <div>
-            <h4>Góc Tự Quản Nộp Bài Tại Lớp (Kiosk Mode)</h4>
-            <p>Dành cho học sinh xếp hàng quét mã QR trên vở tại lớp (không cần mật khẩu)</p>
+            <h4>Góc Nộp Bài & Quét Ảnh Chụp Tại Lớp (Kiosk Mode)</h4>
+            <p>Học sinh chụp ảnh / quét mã QR vở bài tập tại lớp (Yêu cầu mật khẩu GVCN để mở)</p>
           </div>
         </div>
         <button class="btn btn-kiosk" onclick="app.enterKioskFromLogin()">
-          Vào Nhanh Góc Nộp Bài ➔
+          🔒 Mở Góc Nộp Bài Tại Lớp ➔
         </button>
       </div>
 
@@ -1104,8 +1104,8 @@
   <div id="pin-modal" class="modal-overlay" style="display: none;">
     <div class="modal-card" style="max-width: 360px; text-align: center;">
       <div style="font-size: 36px; margin-bottom: 10px;">🔒</div>
-      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Bảo Mật Giáo Viên</h3>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Vui lòng nhập mã PIN để vào trang quản lý:</p>
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;" id="pin-modal-title">Bảo Mật Giáo Viên</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;" id="pin-modal-desc">Vui lòng nhập mã PIN để xác thực:</p>
       <input type="password" id="pin-input" class="form-control" style="font-size: 24px; text-align: center; letter-spacing: 6px; font-weight: 800;" maxlength="6" placeholder="****">
       <div id="pin-error" style="color: var(--status-red); font-size: 12px; margin-top: 6px; display: none;">Mã PIN không đúng!</div>
       <div style="display: flex; gap: 8px; margin-top: 16px;">

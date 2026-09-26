@@ -67,13 +67,22 @@ export default function Home() {
     setActiveTab("kiosk");
   };
 
+  const [pendingKioskAction, setPendingKioskAction] = useState<boolean>(false);
+
   const handleUnlockTeacher = () => {
     setIsPinModalOpen(true);
   };
 
   const onPinSuccess = () => {
-    setIsKioskLocked(false);
     setIsPinModalOpen(false);
+    if (pendingKioskAction) {
+      setPendingKioskAction(false);
+      setUserRole("teacher");
+      setIsKioskLocked(true);
+      setActiveTab("kiosk");
+    } else {
+      setIsKioskLocked(false);
+    }
   };
 
   if (userRole === "login") {
@@ -87,9 +96,8 @@ export default function Home() {
           setUserRole("student");
         }}
         onEnterKiosk={() => {
-          setUserRole("teacher");
-          setIsKioskLocked(true);
-          setActiveTab("kiosk");
+          setPendingKioskAction(true);
+          setIsPinModalOpen(true);
         }}
       />
     );
@@ -154,7 +162,10 @@ export default function Home() {
       <PinModal
         isOpen={isPinModalOpen}
         correctPin={settings.teacher_pin || "1234"}
-        onClose={() => setIsPinModalOpen(false)}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingKioskAction(false);
+        }}
         onSuccess={onPinSuccess}
       />
 
