@@ -305,6 +305,7 @@ export function recordSubmission(studentCodeOrId: string | number, assignmentId:
     student,
     assignment,
     attempt_number: attemptNum,
+    submit_count: attemptNum,
     is_late: isLate === 1,
     status: statusLabel,
     submitted_at: nowStr,

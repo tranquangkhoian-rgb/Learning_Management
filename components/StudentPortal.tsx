@@ -249,6 +249,7 @@ export default function StudentPortal({
                   <th className="px-5 py-3">Tên Bài Tập</th>
                   <th className="px-5 py-3">Môn Học</th>
                   <th className="px-5 py-3">Hạn Nộp</th>
+                  <th className="px-5 py-3 text-center">Lần Nộp</th>
                   <th className="px-5 py-3">Trạng Thái</th>
                   <th className="px-5 py-3 text-center">Điểm Số</th>
                   <th className="px-5 py-3">Lời Nhận Xét Của Cô Linh</th>
@@ -257,7 +258,7 @@ export default function StudentPortal({
               <tbody className="divide-y divide-slate-100">
                 {asgList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-slate-400 text-sm">
+                    <td colSpan={7} className="px-5 py-8 text-center text-slate-400 text-sm">
                       Hiện tại chưa có bài tập nào được giao.
                     </td>
                   </tr>
@@ -269,6 +270,8 @@ export default function StudentPortal({
                     else if (status === "Cần sửa" || status === "Cần nộp lại") badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
                     else if (status === "Chưa nộp") badgeClass = "bg-red-50 text-red-700 border-red-200";
                     else if (status === "Nộp trễ") badgeClass = "bg-orange-50 text-orange-700 border-orange-200";
+
+                    const submitTimes = a.submit_count ?? (a as any).attempt_number ?? 0;
 
                     return (
                       <tr key={idx} className="hover:bg-slate-50/50">
@@ -282,6 +285,15 @@ export default function StudentPortal({
                         </td>
                         <td className="px-5 py-4 text-xs text-slate-500">
                           {a.due_date ? a.due_date.replace("T", " ") : "-"}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          {submitTimes > 0 ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                              Lần {submitTimes}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">Chưa nộp</span>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${badgeClass}`}>

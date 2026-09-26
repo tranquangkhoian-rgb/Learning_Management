@@ -378,19 +378,27 @@ export default function KioskView({ assignments, students, onSubmissionSuccess }
             <h3 className="text-xl font-extrabold text-slate-900 mb-1">
               {celebrateData.student.order_num}. {celebrateData.student.full_name}
             </h3>
-            <p className="text-slate-600 text-sm mb-4">
-              {celebrateData.attempt_number > 1
-                ? `Đã ghi nhận Nộp Lại bài tập "${celebrateData.assignment.title}"!`
-                : `Đã ghi nhận nộp bài tập "${celebrateData.assignment.title}" thành công!`}
-            </p>
-            <div className="flex justify-center gap-2 mb-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${celebrateData.attempt_number > 1 ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800"}`}>
-                Lần nộp: {celebrateData.attempt_number}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${celebrateData.is_late ? "bg-orange-100 text-orange-800" : "bg-emerald-100 text-emerald-800"}`}>
-                {celebrateData.is_late ? "⏰ Nộp trễ hạn" : "⭐ Đúng hạn"}
-              </span>
-            </div>
+            {(() => {
+              const attemptNum = celebrateData.attempt_number ?? (celebrateData as any).event?.attempt_number ?? (celebrateData as any).submit_count ?? 1;
+              const isLate = celebrateData.is_late ?? (celebrateData as any).event?.is_late ?? false;
+              return (
+                <>
+                  <p className="text-slate-600 text-sm mb-4">
+                    {attemptNum > 1
+                      ? `Đã ghi nhận Nộp Lại bài tập "${celebrateData.assignment.title}"!`
+                      : `Đã ghi nhận nộp bài tập "${celebrateData.assignment.title}" thành công!`}
+                  </p>
+                  <div className="flex justify-center gap-2 mb-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${attemptNum > 1 ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800"}`}>
+                      Lần nộp: {attemptNum}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${isLate ? "bg-orange-100 text-orange-800" : "bg-emerald-100 text-emerald-800"}`}>
+                      {isLate ? "⏰ Nộp trễ hạn" : "⭐ Đúng hạn"}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
             <p className="text-xs text-slate-400">
               Sẵn sàng cho bạn tiếp theo sau <strong>{countdown}</strong>s...
             </p>

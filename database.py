@@ -459,6 +459,7 @@ def record_submission(student_code_or_id, assignment_id, operator="Học sinh"):
         "student": student,
         "assignment": assignment,
         "attempt_number": attempt_num,
+        "submit_count": attempt_num,
         "is_late": bool(is_late),
         "status": status_label,
         "submitted_at": now_str
