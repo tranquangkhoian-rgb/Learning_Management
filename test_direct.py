@@ -44,7 +44,8 @@ def test_all():
         "public/css/style.css",
         "public/js/app.js",
         "public/js/vendor/qrcode.js",
-        "public/js/vendor/scanner.js"
+        "public/js/vendor/scanner.js",
+        "public/js/vendor/jsqr.js"
     ]
     for rf in required_files:
         assert os.path.exists(rf), f"Missing file: {rf}"

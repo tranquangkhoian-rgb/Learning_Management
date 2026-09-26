@@ -118,24 +118,76 @@ export default function KioskView({ assignments, students, onSubmissionSuccess }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let detector: any = null;
     if ("BarcodeDetector" in window) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+      } catch {}
     }
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    let lastScanCheck = 0;
 
     const checkFrame = async () => {
       if (!videoRef.current || videoRef.current.readyState < 2) {
         animId = requestAnimationFrame(checkFrame);
         return;
       }
-      if (detector) {
-        try {
-          const barcodes = await detector.detect(videoRef.current);
-          if (barcodes.length > 0) {
-            const raw = barcodes[0].rawValue;
-            handleScan(raw);
-          }
-        } catch {}
+
+      const now = performance.now();
+      if (now - lastScanCheck >= 70) {
+        lastScanCheck = now;
+        let detectedRaw: string | null = null;
+
+        if (detector) {
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0 && barcodes[0].rawValue) {
+              detectedRaw = barcodes[0].rawValue;
+            }
+          } catch {}
+        }
+
+        // jsQR fallback
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const jsqr = (window as any).jsQR;
+        if (!detectedRaw && jsqr && ctx && videoRef.current.videoWidth > 0) {
+          try {
+            const vw = videoRef.current.videoWidth;
+            const vh = videoRef.current.videoHeight;
+            const maxDim = 640;
+            let w = vw;
+            let h = vh;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            if (canvas.width !== w || canvas.height !== h) {
+              canvas.width = w;
+              canvas.height = h;
+            }
+            ctx.drawImage(videoRef.current, 0, 0, w, h);
+            const imgData = ctx.getImageData(0, 0, w, h);
+            let code = jsqr(imgData.data, w, h, { inversionAttempts: "dontInvert" });
+            if (!code || !code.data) {
+              code = jsqr(imgData.data, w, h, { inversionAttempts: "attemptBoth" });
+            }
+            if (code && code.data) {
+              detectedRaw = code.data;
+            }
+          } catch {}
+        }
+
+        if (detectedRaw) {
+          handleScan(detectedRaw);
+        }
       }
+
       animId = requestAnimationFrame(checkFrame);
     };
 
@@ -144,6 +196,13 @@ export default function KioskView({ assignments, students, onSubmissionSuccess }
   };
 
   useEffect(() => {
+    // Ensure jsQR script is loaded
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof window !== "undefined" && !(window as any).jsQR) {
+      const s = document.createElement("script");
+      s.src = "js/vendor/jsqr.js";
+      document.head.appendChild(s);
+    }
     startCamera();
     return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,11 +210,13 @@ export default function KioskView({ assignments, students, onSubmissionSuccess }
 
   const handleScan = async (code: string) => {
     if (!code || !selectedAsgId) return;
+    const match = code.trim().toUpperCase().match(/HS\d+/);
+    const cleanCode = match ? match[0] : code.trim().toUpperCase();
     const now = Date.now();
-    if (lastScanCodeRef.current === code && now - lastScanTimeRef.current < 2500) {
+    if (lastScanCodeRef.current === cleanCode && now - lastScanTimeRef.current < 2500) {
       return; // Throttled
     }
-    lastScanCodeRef.current = code;
+    lastScanCodeRef.current = cleanCode;
     lastScanTimeRef.current = now;
 
     try {
@@ -163,7 +224,7 @@ export default function KioskView({ assignments, students, onSubmissionSuccess }
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          student_code: code.trim(),
+          student_code: cleanCode,
           assignment_id: Number(selectedAsgId),
           operator: "Học sinh",
         }),

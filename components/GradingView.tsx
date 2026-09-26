@@ -51,7 +51,9 @@ export default function GradingView({
   };
 
   const handleScanGrade = (code: string) => {
-    const st = students.find((s) => s.code.toUpperCase() === code.trim().toUpperCase());
+    const match = code.trim().toUpperCase().match(/HS\d+/);
+    const cleanCode = match ? match[0] : code.trim().toUpperCase();
+    const st = students.find((s) => s.code.toUpperCase() === cleanCode);
     if (st) {
       selectStudent(st);
     } else {
@@ -60,6 +62,13 @@ export default function GradingView({
   };
 
   const startGradeCamera = async () => {
+    // Ensure jsQR is loaded
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof window !== "undefined" && !(window as any).jsQR) {
+      const s = document.createElement("script");
+      s.src = "js/vendor/jsqr.js";
+      document.head.appendChild(s);
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
@@ -75,19 +84,67 @@ export default function GradingView({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let detector: any = null;
         if ("BarcodeDetector" in window) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
+          } catch {}
         }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        let lastCheck = 0;
 
         const loop = async () => {
           if (!videoRef.current || !streamRef.current) return;
-          if (detector && videoRef.current.readyState >= 2) {
-            try {
-              const barcodes = await detector.detect(videoRef.current);
-              if (barcodes.length > 0) {
-                handleScanGrade(barcodes[0].rawValue);
-              }
-            } catch {}
+          const now = performance.now();
+          if (videoRef.current.readyState >= 2 && now - lastCheck >= 70) {
+            lastCheck = now;
+            let detected: string | null = null;
+            if (detector) {
+              try {
+                const barcodes = await detector.detect(videoRef.current);
+                if (barcodes.length > 0 && barcodes[0].rawValue) {
+                  detected = barcodes[0].rawValue;
+                }
+              } catch {}
+            }
+            // jsQR fallback
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const jsqr = (window as any).jsQR;
+            if (!detected && jsqr && ctx && videoRef.current.videoWidth > 0) {
+              try {
+                const vw = videoRef.current.videoWidth;
+                const vh = videoRef.current.videoHeight;
+                const maxDim = 640;
+                let w = vw;
+                let h = vh;
+                if (w > maxDim || h > maxDim) {
+                  if (w > h) {
+                    h = Math.round((h * maxDim) / w);
+                    w = maxDim;
+                  } else {
+                    w = Math.round((w * maxDim) / h);
+                    h = maxDim;
+                  }
+                }
+                if (canvas.width !== w || canvas.height !== h) {
+                  canvas.width = w;
+                  canvas.height = h;
+                }
+                ctx.drawImage(videoRef.current, 0, 0, w, h);
+                const imgData = ctx.getImageData(0, 0, w, h);
+                let qr = jsqr(imgData.data, w, h, { inversionAttempts: "dontInvert" });
+                if (!qr || !qr.data) {
+                  qr = jsqr(imgData.data, w, h, { inversionAttempts: "attemptBoth" });
+                }
+                if (qr && qr.data) {
+                  detected = qr.data;
+                }
+              } catch {}
+            }
+            if (detected) {
+              handleScanGrade(detected);
+            }
           }
           requestAnimationFrame(loop);
         };

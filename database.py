@@ -9,6 +9,7 @@ Stores:
 """
 
 import os
+import re
 import sqlite3
 from datetime import datetime
 
@@ -233,7 +234,11 @@ def get_students(include_inactive=False):
 def get_student_by_code(code):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM students WHERE code = ? AND is_active = 1", (code.strip().upper(),))
+    clean = str(code).strip().upper()
+    match = re.search(r"HS\d+", clean)
+    if match:
+        clean = match.group(0)
+    cursor.execute("SELECT * FROM students WHERE code = ? AND is_active = 1", (clean,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
