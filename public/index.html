@@ -499,9 +499,66 @@
 
               <!-- Or Select Student list -->
               <div style="margin-top: 16px;">
-                <label class="form-label">Hoặc chọn nhanh học sinh trong lớp:</label>
-                <div class="quick-student-grid" id="grade-student-list" style="max-height: 200px;">
+                <label class="form-label">Hoặc chọn học sinh để chấm:</label>
+
+                <!-- Grade Selection Mode Switcher -->
+                <div class="grade-mode-toggle-bar">
+                  <button type="button" class="grade-mode-btn active" id="btn-grade-mode-single" onclick="app.setGradeSelectionMode('single')">
+                    👤 Chấm 1 Học Sinh
+                  </button>
+                  <button type="button" class="grade-mode-btn" id="btn-grade-mode-multi" onclick="app.setGradeSelectionMode('multi')">
+                    👥 Chấm Nhiều Học Sinh (Nhóm)
+                  </button>
+                </div>
+
+                <!-- Group & Animal Selectors -->
+                <div class="grade-group-selectors" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                  <!-- By Animal Group -->
+                  <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">
+                    🐾 Chọn theo Linh vật (Animal Groups):
+                  </div>
+                  <div class="grade-animal-quick-chips">
+                    <button type="button" class="chip-animal-filter" onclick="app.selectGradeAnimalGroupBulk('dolphin')">🐬 Cá heo (<span id="grade-count-dolphin">0</span>)</button>
+                    <button type="button" class="chip-animal-filter" onclick="app.selectGradeAnimalGroupBulk('monkey')">🐵 Khỉ con (<span id="grade-count-monkey">0</span>)</button>
+                    <button type="button" class="chip-animal-filter" onclick="app.selectGradeAnimalGroupBulk('orange_cat')">🐱 Mèo cam (<span id="grade-count-cat">0</span>)</button>
+                    <button type="button" class="chip-animal-filter" onclick="app.selectGradeAnimalGroupBulk('turtle_snail')">🐢 Rùa/Sên (<span id="grade-count-turtle">0</span>)</button>
+                  </div>
+
+                  <!-- By Teacher Customized Team -->
+                  <div style="font-size: 12px; font-weight: 700; color: #475569; margin-top: 10px; margin-bottom: 6px;">
+                    🏆 Chọn theo Nhóm của cô (Teacher's Teams):
+                  </div>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <select id="grade-team-selector" class="form-control" style="font-size: 12px; padding: 5px 8px; flex: 1;" onchange="app.onGradeTeamSelectorChange()">
+                      <option value="">-- Chọn nhóm tùy chỉnh của cô --</option>
+                      <!-- Dynamically filled with teams -->
+                    </select>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="app.selectGradeTeamBulkCurrent()" style="white-space: nowrap; font-size: 12px; font-weight: 700;">
+                      ⚡ Chọn Nhóm Này
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Search & Quick Selection Row -->
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
+                  <input type="text" id="grade-student-search" class="form-control" style="font-size: 12px; padding: 5px 8px; flex: 1;" placeholder="🔍 Tìm theo tên hoặc mã..." oninput="app.filterGradeStudentsList()">
+                  <button type="button" class="btn btn-outline btn-xs" onclick="app.selectAllGradeStudents()" style="white-space: nowrap; font-size: 11px;">Chọn hết</button>
+                  <button type="button" class="btn btn-outline btn-xs" onclick="app.deselectAllGradeStudents()" style="white-space: nowrap; font-size: 11px;">Bỏ chọn</button>
+                </div>
+
+                <!-- Student List -->
+                <div class="grade-student-selector-list" id="grade-student-list" style="max-height: 240px; overflow-y: auto;">
                   <!-- Dynamically populated -->
+                </div>
+
+                <!-- Batch Action Bar in Multi Mode -->
+                <div id="grade-multi-action-bar" style="display: none; margin-top: 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 8px 12px; align-items: center; justify-content: space-between;">
+                  <div style="font-size: 13px; font-weight: 700; color: #1E40AF;">
+                    Đã chọn: <span id="grade-selected-count">0</span> học sinh
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="app.openGradingForSelectedBatch()" style="font-weight: 700;">
+                    ✍️ Bắt Đầu Chấm Điểm
+                  </button>
                 </div>
               </div>
             </div>
@@ -510,18 +567,40 @@
           <!-- Right: Grading Card -->
           <div>
             <div class="card" id="grade-input-box" style="display: none; border-color: var(--primary);">
-              <div class="card-header" style="margin-bottom: 12px;">
-                <div>
-                  <h3 id="grade-st-name" style="font-size: 18px; font-weight: 800; color: #0F172A;">Họ Tên Học Sinh</h3>
-                  <p id="grade-st-info" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lần nộp 1 (Đúng hạn)</p>
+              <div class="card-header" style="margin-bottom: 12px; flex-direction: column; align-items: stretch; gap: 8px;">
+                <!-- Single Student Header -->
+                <div id="grade-single-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                  <div>
+                    <h3 id="grade-st-name" style="font-size: 18px; font-weight: 800; color: #0F172A;">Họ Tên Học Sinh</h3>
+                    <p id="grade-st-info" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lần nộp 1 (Đúng hạn)</p>
+                  </div>
+                  <span id="grade-attempt-badge" class="badge badge-blue">Lần 1</span>
                 </div>
-                <span id="grade-attempt-badge" class="badge badge-blue">Lần 1</span>
+
+                <!-- Batch Header -->
+                <div id="grade-batch-header" style="display: none; width: 100%;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div>
+                      <h3 id="grade-batch-title" style="font-size: 18px; font-weight: 800; color: #1E40AF;">
+                        👥 Chấm Điểm Hàng Loạt: <span id="grade-batch-count-title">0</span> Học Sinh
+                      </h3>
+                      <p id="grade-batch-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                        Điểm số, đánh giá từng câu và nhận xét sẽ được áp dụng cho tất cả học sinh dưới đây:
+                      </p>
+                    </div>
+                    <span class="badge badge-blue" id="grade-batch-source-badge">Chấm Nhóm</span>
+                  </div>
+                  <!-- Chips of selected students -->
+                  <div id="grade-batch-student-chips" class="grade-batch-chips-container" style="margin-top: 8px; max-height: 80px; overflow-y: auto;">
+                    <!-- Dynamically populated -->
+                  </div>
+                </div>
               </div>
 
               <!-- Animal Mascot Classification (Teacher customization during grading) -->
               <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                  <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
+                  <label id="grade-animal-section-label" class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
                     🐾 Phân loại linh vật học sinh (Bấm để đổi ngay):
                   </label>
                   <span id="grade-selected-animal-label" style="font-size: 12px; font-weight: 700; color: var(--primary);">🐱 Mèo cam chăm chỉ</span>
@@ -552,13 +631,18 @@
 
               <!-- Questions Breakdown (Mục câu hỏi bài tập) -->
               <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
                   <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
                     📝 Đánh giá từng câu hỏi bài tập:
                   </label>
-                  <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsCorrect()" style="font-size: 11px; padding: 2px 8px;">
-                    ✅ Đúng tất cả
-                  </button>
+                  <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsCorrect()" style="font-size: 11px; padding: 2px 8px; color: #059669; border-color: #A7F3D0; background: #ECFDF5; font-weight: 700;">
+                      ✅ Tất cả ĐÚNG
+                    </button>
+                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsWrong()" style="font-size: 11px; padding: 2px 8px; color: #DC2626; border-color: #FECACA; background: #FEF2F2; font-weight: 700;">
+                      ❌ Tất cả SAI
+                    </button>
+                  </div>
                 </div>
                 <div id="grade-questions-container" class="grade-questions-list">
                   <!-- Dynamically rendered: Question 1, Question 2, Question 3, Question 4... -->
@@ -620,7 +704,7 @@
               </div>
 
               <div style="display: flex; gap: 10px; margin-top: 18px;">
-                <button class="btn btn-success btn-lg" style="flex: 1;" onclick="app.submitGrading()">
+                <button id="btn-submit-grading" class="btn btn-success btn-lg" style="flex: 1;" onclick="app.submitGrading()">
                   💾 Lưu Điểm & Chấm Tiếp
                 </button>
                 <button class="btn btn-outline" onclick="app.cancelGrading()">Hủy</button>

@@ -365,7 +365,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             return self.send_json(res)
 
         elif path == "/api/grade":
-            # Teacher grades assignment
+            # Teacher grades assignment (single or batch)
+            student_ids = body.get("student_ids")
             student_id = body.get("student_id")
             assignment_id = body.get("assignment_id")
             score = body.get("score")
@@ -375,10 +376,35 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             question_details = body.get("question_details")
             animal_group = body.get("animal_group")
 
-            if not student_id or not assignment_id:
-                return self.send_json({"error": "Thiếu student_id hoặc assignment_id!"}, 400)
+            if not assignment_id or (not student_id and not student_ids):
+                return self.send_json({"error": "Thiếu student_id/student_ids hoặc assignment_id!"}, 400)
 
-            res = database.record_grading(int(student_id), int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+            if student_ids and isinstance(student_ids, list):
+                res = database.record_grading_batch(student_ids, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+                for item in res.get("results", []):
+                    st = item.get("student")
+                    asg = item.get("assignment")
+                    if st and asg:
+                        sync_payload = {
+                            "action": "log_event",
+                            "event_type": "grade",
+                            "timestamp": item.get("graded_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                            "student_code": st["code"],
+                            "student_name": st["full_name"],
+                            "class_name": st["class_name"],
+                            "assignment_title": asg["title"],
+                            "subject": asg["subject"],
+                            "attempt_number": item.get("attempt_number", 1),
+                            "is_late": "",
+                            "score": item.get("score"),
+                            "status": item.get("status"),
+                            "teacher_note": item.get("teacher_note"),
+                            "operator": operator
+                        }
+                        async_sync_to_google_sheet(sync_payload)
+                return self.send_json(res)
+
+            res = database.record_grading(student_id, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
             if not res.get("success"):
                 return self.send_json(res, 400)
 

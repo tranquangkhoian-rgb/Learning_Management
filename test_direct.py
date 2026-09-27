@@ -666,8 +666,74 @@ def test_all():
     assert "q-btn-correct" in css_c, "Missing q-btn-correct in public/css/style.css"
     print(" -> PASS: Client UI, JS, and CSS contracts for questions, animals, and teams verified.")
 
+    # 24. Test Multi-Student Batch Grading, Team/Animal Groups & Questions Right First
+    print("\n--- 24. Test Multi-Student Batch Grading, Team/Animal Groups & Questions Right First ---")
+    
+    # 24a. Database record_grading_batch
+    batch_sts = ["HS01", "HS02", "HS03"]
+    b_res = database.record_grading_batch(
+        batch_sts,
+        aid,
+        score=10.0,
+        status="Đã đạt",
+        teacher_note="Bài làm cả nhóm rất tốt!",
+        operator="Cô Linh",
+        question_details={"Question 1": "correct", "Question 2": "correct", "Question 3": "correct", "Question 4": "correct"},
+        animal_group="dolphin"
+    )
+    assert b_res["success"] is True, "Batch grading failed"
+    assert b_res["count"] == 3
+    assert len(b_res["results"]) == 3
+    for r in b_res["results"]:
+        assert r["score"] == 10.0
+        assert r["status"] == "Đã đạt"
+    # Restore HS02 back to monkey for test suite idempotency
+    database.update_student_animal_group("HS02", "monkey")
+    print(" -> PASS: Database record_grading_batch successfully graded multiple students.")
+
+    # 24b. Server HTTP POST /api/grade with student_ids (Batch API)
+    batch_payload = json.dumps({
+        "student_ids": ["HS04", "HS05"],
+        "assignment_id": aid,
+        "score": 9.0,
+        "status": "Đã đạt",
+        "teacher_note": "Chấm hàng loạt qua API",
+        "question_details": {"Question 1": "correct", "Question 2": "correct", "Question 3": "correct", "Question 4": "incorrect"},
+        "animal_group": None
+    })
+    req_batch = f"POST /api/grade HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {len(batch_payload.encode('utf-8'))}\r\nConnection: close\r\n\r\n{batch_payload}".encode("utf-8")
+    sock_batch = MockSocket(req_batch)
+    server.LMSRequestHandler(sock_batch, ("127.0.0.1", 12345), None)
+    out_batch = sock_batch.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_batch, f"Batch API failed: {out_batch}"
+    assert '"count": 2' in out_batch or '"count":2' in out_batch
+    print(" -> PASS: Server POST /api/grade batch endpoint successfully handled student_ids list.")
+
+    # 24c. Verify UI and JS contracts for Batch Grading, Group Selectors & Right/Wrong Questions
+    assert "grade-mode-toggle-bar" in html_c, "Missing grade-mode-toggle-bar in public/index.html"
+    assert "btn-grade-mode-single" in html_c, "Missing btn-grade-mode-single in public/index.html"
+    assert "btn-grade-mode-multi" in html_c, "Missing btn-grade-mode-multi in public/index.html"
+    assert "grade-team-selector" in html_c, "Missing grade-team-selector in public/index.html"
+    assert "grade-animal-quick-chips" in html_c, "Missing grade-animal-quick-chips in public/index.html"
+    assert "grade-batch-header" in html_c, "Missing grade-batch-header in public/index.html"
+    assert "markAllGradeQuestionsCorrect" in html_c, "Missing markAllGradeQuestionsCorrect in public/index.html"
+    assert "markAllGradeQuestionsWrong" in html_c, "Missing markAllGradeQuestionsWrong in public/index.html"
+
+    assert "recordGradingBatch" in db_c, "Missing recordGradingBatch in public/js/client_db.js"
+    assert "setGradeSelectionMode" in js_c, "Missing setGradeSelectionMode in public/js/app.js"
+    assert "selectGradeAnimalGroupBulk" in js_c, "Missing selectGradeAnimalGroupBulk in public/js/app.js"
+    assert "selectGradeTeamBulk" in js_c, "Missing selectGradeTeamBulk in public/js/app.js"
+    assert "openGradingForMultipleStudents" in js_c, "Missing openGradingForMultipleStudents in public/js/app.js"
+    assert "markAllGradeQuestionsWrong" in js_c, "Missing markAllGradeQuestionsWrong in public/js/app.js"
+    assert "renderGradeStudentList" in js_c, "Missing renderGradeStudentList in public/js/app.js"
+
+    assert "grade-mode-toggle-bar" in css_c, "Missing grade-mode-toggle-bar in public/css/style.css"
+    assert "grade-student-item" in css_c, "Missing grade-student-item in public/css/style.css"
+    assert "batch-st-chip" in css_c, "Missing batch-st-chip in public/css/style.css"
+    print(" -> PASS: Client UI, JS, and CSS contracts for multi/single grading and right/wrong question toggling verified.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (23/23)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (24/24)")
     print("============================================================")
 
 if __name__ == "__main__":

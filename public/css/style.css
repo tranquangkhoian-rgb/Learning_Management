@@ -3594,3 +3594,153 @@ main.app-main {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ====================================================================
+   BATCH & SINGLE GRADING CONTROLS AND SELECTORS
+   ==================================================================== */
+.grade-mode-toggle-bar {
+  display: flex;
+  gap: 6px;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 8px;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.grade-mode-btn {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.grade-mode-btn.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.grade-animal-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-animal-filter {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #CBD5E1;
+  background: white;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-animal-filter:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.grade-student-selector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grade-student-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.grade-student-item:hover {
+  border-color: #93C5FD;
+  background: #F8FAFC;
+}
+
+.grade-student-item.selected {
+  border-color: var(--primary);
+  background: #EFF6FF;
+  font-weight: 700;
+}
+
+.grade-student-item.active-single {
+  border-color: var(--primary);
+  background: #EEF2FF;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.grade-student-item .st-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade-student-item .st-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grade-student-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+}
+
+.grade-batch-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.batch-st-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+  border-radius: 9999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.batch-st-chip .chip-remove {
+  cursor: pointer;
+  color: #DC2626;
+  font-weight: 800;
+  margin-left: 2px;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.batch-st-chip .chip-remove:hover {
+  background: #FEE2E2;
+}

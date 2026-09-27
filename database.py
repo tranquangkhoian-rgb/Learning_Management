@@ -404,7 +404,11 @@ def get_student_by_code(code):
 def get_student_by_id(student_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
+    val = str(student_id).strip()
+    if val.isdigit():
+        cursor.execute("SELECT * FROM students WHERE id = ?", (int(val),))
+    else:
+        cursor.execute("SELECT * FROM students WHERE code = ?", (val.upper(),))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -833,6 +837,35 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
         "question_details": q_details_str,
         "animal_group": student.get("animal_group"),
         "graded_at": now_str
+    }
+
+def record_grading_batch(student_ids, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None):
+    """
+    Teacher grades multiple students in a single batch operation.
+    Iterates over student_ids (numeric IDs or string codes) and records grading for each student.
+    Returns summary and list of individual grading results.
+    """
+    if not student_ids or not isinstance(student_ids, (list, tuple, set)):
+        return {"success": False, "error": "Danh sách học sinh không hợp lệ!", "results": []}
+
+    results = []
+    errors = []
+    for sid in student_ids:
+        try:
+            res = record_grading(sid, assignment_id, score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+            if res.get("success"):
+                results.append(res)
+            else:
+                errors.append({"student_id": sid, "error": res.get("error")})
+        except Exception as e:
+            errors.append({"student_id": sid, "error": str(e)})
+
+    return {
+        "success": len(results) > 0,
+        "count": len(results),
+        "total_requested": len(student_ids),
+        "results": results,
+        "errors": errors
     }
 
 def get_submission_history(student_id, assignment_id):
