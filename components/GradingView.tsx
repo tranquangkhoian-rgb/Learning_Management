@@ -23,9 +23,17 @@ export default function GradingView({
   const [status, setStatus] = useState<string>("Đã đạt");
   const [teacherNote, setTeacherNote] = useState<string>("");
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [questionStatus, setQuestionStatus] = useState<Record<string, "correct" | "incorrect" | "need_fix">>({});
+  const [questionNotes, setQuestionNotes] = useState<Record<string, string>>({});
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  const currentAsg = assignments.find((a) => a.id === selectedAsgId);
+  const questions =
+    currentAsg && currentAsg.questions && currentAsg.questions.length > 0
+      ? currentAsg.questions
+      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
 
   useEffect(() => {
     if (assignments.length > 0 && !selectedAsgId) {
@@ -35,9 +43,23 @@ export default function GradingView({
 
   const selectStudent = async (st: Student) => {
     setSelectedStudent(st);
-    setScore("");
+    setScore("10");
     setTeacherNote("");
     setStatus("Đã đạt");
+
+    const curAsg = assignments.find((a) => a.id === selectedAsgId);
+    const qList =
+      curAsg && curAsg.questions && curAsg.questions.length > 0
+        ? curAsg.questions
+        : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    const initStatus: Record<string, "correct" | "incorrect" | "need_fix"> = {};
+    const initNotes: Record<string, string> = {};
+    qList.forEach((q) => {
+      initStatus[q] = "correct";
+      initNotes[q] = "";
+    });
+    setQuestionStatus(initStatus);
+    setQuestionNotes(initNotes);
 
     if (selectedAsgId) {
       try {
@@ -173,6 +195,35 @@ export default function GradingView({
     else setStatus("Cần nộp lại");
   };
 
+  const handleToggleQuestion = (q: string, newStatus: "correct" | "incorrect" | "need_fix") => {
+    const updated = { ...questionStatus, [q]: newStatus };
+    setQuestionStatus(updated);
+    let points = 0;
+    questions.forEach((item) => {
+      const st = updated[item] || "correct";
+      if (st === "correct") points += 1.0;
+      else if (st === "need_fix") points += 0.5;
+    });
+    const calcScore = Math.round((points / questions.length) * 10 * 10) / 10;
+    setQuickScore(calcScore);
+  };
+
+  const markAllQuestionsCorrect = () => {
+    const allOk: Record<string, "correct"> = {};
+    questions.forEach((q) => (allOk[q] = "correct"));
+    setQuestionStatus(allOk);
+    setQuickScore(10);
+    setStatus("Đã đạt");
+  };
+
+  const markAllQuestionsWrong = () => {
+    const allWrong: Record<string, "incorrect"> = {};
+    questions.forEach((q) => (allWrong[q] = "incorrect"));
+    setQuestionStatus(allWrong);
+    setQuickScore(0);
+    setStatus("Cần sửa");
+  };
+
   const addQuickNote = (noteText: string) => {
     setTeacherNote((prev) => (prev ? `${prev} ${noteText}` : noteText));
   };
@@ -191,6 +242,8 @@ export default function GradingView({
           status,
           teacher_note: teacherNote,
           operator: "Cô Linh",
+          question_details: questionStatus,
+          question_notes: questionNotes,
         }),
       });
       const data = await res.json();
@@ -330,6 +383,153 @@ export default function GradingView({
                   ))}
                 </div>
               )}
+
+              {/* Goals Banner */}
+              {currentAsg?.goals && (
+                <div className="mb-4 p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs">
+                  <div className="font-bold text-indigo-900 flex items-center gap-1.5 mb-1 uppercase tracking-wide">
+                    <span>🎯</span> Mục Tiêu Bài Học:
+                  </div>
+                  <div className="text-indigo-800 whitespace-pre-wrap font-medium">{currentAsg.goals}</div>
+                </div>
+              )}
+
+              {/* Horizontal 5-Row Matrix Table */}
+              <div className="mb-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                  <label className="text-xs font-bold text-slate-800">
+                    📝 Đánh giá từng câu hỏi bài tập (Bảng ngang):
+                  </label>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={markAllQuestionsCorrect}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition"
+                    >
+                      ✅ Tất cả ĐÚNG
+                    </button>
+                    <button
+                      type="button"
+                      onClick={markAllQuestionsWrong}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100 transition"
+                    >
+                      ❌ Tất cả SAI
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <table className="w-full text-xs text-center border-collapse min-w-[480px]">
+                    <thead>
+                      {/* Line 1: Questions */}
+                      <tr className="bg-slate-100 text-slate-800 border-b border-slate-200">
+                        <th className="p-2.5 text-left font-bold w-28 bg-slate-100 border-r border-slate-200 whitespace-nowrap text-slate-700">
+                          ❓ Câu hỏi
+                        </th>
+                        {questions.map((q) => (
+                          <th key={q} className="p-2.5 font-extrabold text-slate-800 bg-slate-100/90 border-r border-slate-200 last:border-r-0 min-w-[80px]">
+                            {q}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Line 2: Correct */}
+                      <tr className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="p-2 text-left font-bold text-slate-700 bg-slate-50 border-r border-slate-200 whitespace-nowrap">
+                          🟢 Đúng
+                        </td>
+                        {questions.map((q) => {
+                          const isSel = (questionStatus[q] || "correct") === "correct";
+                          return (
+                            <td key={q} className="p-1.5 border-r border-slate-200 last:border-r-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleQuestion(q, "correct")}
+                                className={`w-full py-1.5 px-2 rounded-md font-bold text-xs transition border ${
+                                  isSel
+                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                                    : "bg-white text-slate-600 border-slate-300 hover:bg-emerald-50"
+                                }`}
+                              >
+                                {isSel ? "✓ " : ""}Đúng
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Line 3: Incorrect */}
+                      <tr className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="p-2 text-left font-bold text-slate-700 bg-slate-50 border-r border-slate-200 whitespace-nowrap">
+                          🔴 Sai
+                        </td>
+                        {questions.map((q) => {
+                          const isSel = questionStatus[q] === "incorrect";
+                          return (
+                            <td key={q} className="p-1.5 border-r border-slate-200 last:border-r-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleQuestion(q, "incorrect")}
+                                className={`w-full py-1.5 px-2 rounded-md font-bold text-xs transition border ${
+                                  isSel
+                                    ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                                    : "bg-white text-slate-600 border-slate-300 hover:bg-rose-50"
+                                }`}
+                              >
+                                {isSel ? "✗ " : ""}Sai
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Line 4: Need fix */}
+                      <tr className="border-b border-slate-200 hover:bg-slate-50/50">
+                        <td className="p-2 text-left font-bold text-slate-700 bg-slate-50 border-r border-slate-200 whitespace-nowrap">
+                          🟡 Cần sửa
+                        </td>
+                        {questions.map((q) => {
+                          const isSel = questionStatus[q] === "need_fix";
+                          return (
+                            <td key={q} className="p-1.5 border-r border-slate-200 last:border-r-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleQuestion(q, "need_fix")}
+                                className={`w-full py-1.5 px-2 rounded-md font-bold text-xs transition border ${
+                                  isSel
+                                    ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                                    : "bg-white text-slate-600 border-slate-300 hover:bg-amber-50"
+                                }`}
+                              >
+                                {isSel ? "⚡ " : ""}Cần sửa
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Line 5: Notes */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="p-2 text-left font-bold text-slate-700 bg-slate-50 border-r border-slate-200 whitespace-nowrap">
+                          📝 Ghi chú
+                        </td>
+                        {questions.map((q) => (
+                          <td key={q} className="p-1.5 border-r border-slate-200 last:border-r-0">
+                            <input
+                              type="text"
+                              placeholder="Ghi chú..."
+                              value={questionNotes[q] || ""}
+                              onChange={(e) => setQuestionNotes({ ...questionNotes, [q]: e.target.value })}
+                              className="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               {/* Score input */}
               <div className="mb-4">

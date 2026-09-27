@@ -61,6 +61,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
+    def end_headers(self):
+        if not getattr(self, "_headers_ended", False):
+            if not self.path.startswith("/api/qr"):
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+        super().end_headers()
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -293,6 +301,28 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 return self.send_json({"error": str(e)}, 400)
 
+        elif path.startswith("/api/students/") and path.endswith("/subject-animal"):
+            try:
+                sid = path.split("/")[-2]
+                subject = body.get("subject", "Toán")
+                group = body.get("animal_group", "orange_cat")
+                symbol = body.get("animal_symbol")
+                title = body.get("animal_title")
+                res = database.update_student_subject_animal(sid, subject, group, symbol, title)
+                return self.send_json(res)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path.startswith("/api/students/") and path.endswith("/color-group"):
+            try:
+                sid = path.split("/")[-2]
+                g_name = body.get("group_name", "Nhóm 1")
+                g_color = body.get("group_color", "#3B82F6")
+                res = database.update_student_color_group(sid, g_name, g_color)
+                return self.send_json(res)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
         elif path == "/api/students/verify-password":
             sid = body.get("student_id") or body.get("code")
             pwd = body.get("password", "")
@@ -310,7 +340,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             image = body.get("image", "")
             motto = body.get("motto", "")
             member_ids = body.get("member_ids", [])
-            team = database.create_team(name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids)
+            max_capacity = int(body.get("max_capacity", 0))
+            team = database.create_team(name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids, max_capacity=max_capacity)
             return self.send_json(team, 201)
 
         elif path == "/api/assignments":
@@ -321,11 +352,12 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             max_score = body.get("max_score", 10.0)
             notes = body.get("notes", "")
             questions = body.get("questions")
+            goals = body.get("goals", "")
 
             if not title or not due_date:
                 return self.send_json({"error": "Tên bài tập và Hạn nộp là bắt buộc!"}, 400)
 
-            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes, questions=questions)
+            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes, questions=questions, goals=goals)
             return self.send_json(asg, 201)
 
         elif path == "/api/scan-submit":
@@ -375,12 +407,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             operator = body.get("operator", "Cô Linh")
             question_details = body.get("question_details")
             animal_group = body.get("animal_group")
+            animal_symbol = body.get("animal_symbol")
+            animal_title = body.get("animal_title")
 
             if not assignment_id or (not student_id and not student_ids):
                 return self.send_json({"error": "Thiếu student_id/student_ids hoặc assignment_id!"}, 400)
 
             if student_ids and isinstance(student_ids, list):
-                res = database.record_grading_batch(student_ids, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+                res = database.record_grading_batch(student_ids, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
                 for item in res.get("results", []):
                     st = item.get("student")
                     asg = item.get("assignment")
@@ -404,7 +438,7 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                         async_sync_to_google_sheet(sync_payload)
                 return self.send_json(res)
 
-            res = database.record_grading(student_id, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+            res = database.record_grading(student_id, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
             if not res.get("success"):
                 return self.send_json(res, 400)
 
@@ -588,7 +622,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 image = body.get("image", "")
                 motto = body.get("motto", "")
                 member_ids = body.get("member_ids")
-                updated = database.update_team(tid, name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids)
+                max_capacity = int(body.get("max_capacity", 0)) if "max_capacity" in body else None
+                updated = database.update_team(tid, name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids, max_capacity=max_capacity)
                 return self.send_json(updated)
             except ValueError:
                 return self.send_json({"error": "Invalid team ID"}, 400)
@@ -604,7 +639,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                     body.get("due_date", ""),
                     body.get("max_score", 10.0),
                     body.get("notes", ""),
-                    questions=body.get("questions")
+                    questions=body.get("questions"),
+                    goals=body.get("goals")
                 )
                 return self.send_json(asg)
             except ValueError:

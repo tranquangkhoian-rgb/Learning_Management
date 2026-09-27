@@ -39,6 +39,7 @@ class LMSApp {
     this.gradeStudentSearchQuery = "";
     this.gradeTeamFilter = "";
     this.gradeAnimalFilter = "";
+    this.activeStudentColorFilter = "ALL";
   }
 
   async checkServer() {
@@ -272,8 +273,23 @@ class LMSApp {
 
   onGradeAssignmentChange() {
     this.currentAssignmentId = document.getElementById("grade-assignment-select").value;
+    this.updateGradeAssignmentGoalsBanner();
     if (this.currentlyGradingStudent) {
       this.openGradingForStudent(this.currentlyGradingStudent);
+    }
+  }
+
+  updateGradeAssignmentGoalsBanner() {
+    const asgId = document.getElementById("grade-assignment-select")?.value;
+    const asg = (this.assignments || []).find(a => a.id == asgId);
+    const banner = document.getElementById("grade-assignment-goals-banner");
+    const textEl = document.getElementById("grade-assignment-goals-text");
+    if (!banner || !textEl) return;
+    if (asg && asg.goals && asg.goals.trim()) {
+      textEl.innerText = asg.goals.trim();
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
     }
   }
 
@@ -1377,7 +1393,9 @@ class LMSApp {
     gradeBox.innerHTML = filtered.map(s => {
       const isSelected = this.selectedGradeStudentIds.has(s.id);
       const isSingleActive = this.currentlyGradingStudent && this.currentlyGradingStudent.id === s.id;
-      const sym = s.animal_symbol || animalSymbols[s.animal_group] || "🐱";
+      const genderIcon = s.gender === "Nữ" ? "👧" : "👦";
+      const grpColor = s.group_color || "#3B82F6";
+      const grpName = s.group_name || "Nhóm 1";
 
       // Find teams s belongs to
       const stTeams = (this.teams || []).filter(t => {
@@ -1393,8 +1411,9 @@ class LMSApp {
           <div class="grade-student-item ${isSelected ? 'selected' : ''}" onclick="app.toggleGradeStudentSelect(${s.id}, event)">
             <div class="st-item-left">
               <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleGradeStudentSelect(${s.id}, event)">
-              <span style="font-size: 15px;">${sym}</span>
+              <span style="font-size: 15px;">${genderIcon}</span>
               <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
+              <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
             </div>
             <div class="st-item-right">
               ${teamTags}
@@ -1405,8 +1424,9 @@ class LMSApp {
         return `
           <div class="grade-student-item ${isSingleActive ? 'active-single' : ''}" onclick="app.openGradingForStudentById(${s.id})">
             <div class="st-item-left">
-              <span style="font-size: 15px;">${sym}</span>
+              <span style="font-size: 15px;">${genderIcon}</span>
               <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
+              <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
             </div>
             <div class="st-item-right">
               ${teamTags}
@@ -1464,6 +1484,28 @@ class LMSApp {
     }
   }
 
+  selectGradeColorGroupBulk(colorOrName) {
+    this.setGradeSelectionMode("multi");
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    this.selectedGradeStudentIds.clear();
+    const target = (colorOrName || "").toLowerCase();
+    const matched = (this.students || []).filter(s => {
+      const c = (s.group_color || "").toLowerCase();
+      const n = (s.group_name || "").toLowerCase();
+      return c === target || n === target || (s.animal_group || "").toLowerCase() === target;
+    });
+    matched.forEach(s => this.selectedGradeStudentIds.add(s.id));
+    this.renderGradeStudentList();
+    if (matched.length > 0) {
+      const gName = matched[0].group_name || colorOrName;
+      this.openGradingForMultipleStudents(matched, true, `${gName}`);
+    } else {
+      alert(`Hiện tại chưa có học sinh nào trong nhóm màu này!`);
+    }
+  }
+
   selectGradeAnimalGroupBulk(groupKey) {
     this.setGradeSelectionMode("multi");
     if (!this.selectedGradeStudentIds) {
@@ -1475,12 +1517,12 @@ class LMSApp {
     this.renderGradeStudentList();
     if (matched.length > 0) {
       const groupNames = {
-        "dolphin": "Nhóm Cá heo 🐬",
-        "monkey": "Nhóm Khỉ con 🐵",
-        "orange_cat": "Nhóm Mèo cam 🐱",
-        "turtle_snail": "Nhóm Rùa / Sên 🐢"
+        "dolphin": "🐬",
+        "monkey": "🐵",
+        "orange_cat": "🐱",
+        "turtle_snail": "🐢"
       };
-      this.openGradingForMultipleStudents(matched, true, groupNames[groupKey] || "Nhóm Linh Vật");
+      this.openGradingForMultipleStudents(matched, true, `Nhóm ${groupNames[groupKey] || "🐾"}`);
     } else {
       alert(`Hiện tại chưa có học sinh nào trong nhóm linh vật này!`);
     }
@@ -1556,17 +1598,14 @@ class LMSApp {
   renderBatchHeaderChips(students) {
     const container = document.getElementById("grade-batch-student-chips");
     if (!container) return;
-    const animalSymbols = {
-      "dolphin": "🐬",
-      "monkey": "🐵",
-      "orange_cat": "🐱",
-      "turtle_snail": "🐢"
-    };
     container.innerHTML = students.map(s => {
-      const sym = s.animal_symbol || animalSymbols[s.animal_group] || "🐱";
+      const genderIcon = s.gender === "Nữ" ? "👧" : "👦";
+      const grpColor = s.group_color || "#3B82F6";
       return `
         <span class="batch-st-chip">
-          ${sym} <strong>${s.order_num}.</strong> ${s.full_name}
+          <span style="font-size: 14px;">${genderIcon}</span>
+          <span class="color-bullet" style="background: ${grpColor};"></span>
+          <strong>${s.order_num}.</strong> ${s.full_name}
           <span class="chip-remove" onclick="event.stopPropagation(); app.removeGradeBatchStudent(${s.id})" title="Bỏ học sinh này">✕</span>
         </span>
       `;
@@ -1624,11 +1663,14 @@ class LMSApp {
       : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
     this.gradingQuestions = questions;
     this.gradingQuestionStatus = {};
+    this.gradingQuestionNotes = {};
 
     // USER REQUIREMENT: When checked, mark all the question right first!
     this.gradingQuestions.forEach(q => {
       this.gradingQuestionStatus[q] = "correct";
+      this.gradingQuestionNotes[q] = "";
     });
+    this.updateGradeAssignmentGoalsBanner();
     this.renderGradingQuestions();
     this.setQuickScore(10);
 
@@ -1658,9 +1700,12 @@ class LMSApp {
     document.getElementById("grade-st-name").innerText = `${st.order_num}. ${st.full_name}`;
     document.getElementById("grade-st-info").innerText = `Mã: ${st.code} • Lớp: ${st.class_name}`;
 
+    const asg = (this.assignments || []).find(a => a.id == asgId);
+    const currentSubject = asg ? asg.subject : "Toán";
+
     const animalLabel = document.getElementById("grade-animal-section-label");
     if (animalLabel) {
-      animalLabel.innerText = "🐾 Phân loại linh vật học sinh (Bấm để đổi ngay):";
+      animalLabel.innerText = `🐾 Linh vật môn ${currentSubject} (Bấm để đổi ngay):`;
     }
 
     // Reset inputs
@@ -1668,21 +1713,35 @@ class LMSApp {
     document.getElementById("grade-note-input").value = "";
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
 
-    // Initialize Animal Mascot selection for this student
-    this.selectedGradingAnimalGroup = st.animal_group || "orange_cat";
+    // Initialize Animal Mascot selection: check subject-specific first, fallback to base
+    const subjAnimals = st.subject_animals || {};
+    const curSubjAnimal = subjAnimals[currentSubject];
+    if (curSubjAnimal && curSubjAnimal.group) {
+      this.selectedGradingAnimalGroup = curSubjAnimal.group;
+      this.selectedGradingAnimalSymbol = curSubjAnimal.symbol || "🐱";
+      this.selectedGradingAnimalTitle = curSubjAnimal.title || curSubjAnimal.symbol || "🐱";
+    } else {
+      this.selectedGradingAnimalGroup = st.animal_group || "orange_cat";
+      this.selectedGradingAnimalSymbol = st.animal_symbol || "🐱";
+      this.selectedGradingAnimalTitle = st.animal_title || st.animal_symbol || "🐱";
+    }
     this.renderGradingAnimalSelector();
 
+    // Show goals banner if available
+    this.updateGradeAssignmentGoalsBanner();
+
     // Initialize and render Questions Breakdown for current assignment
-    const asg = (this.assignments || []).find(a => a.id == asgId);
     let questions = asg && asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
       ? asg.questions
       : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
     this.gradingQuestions = questions;
     this.gradingQuestionStatus = {};
+    this.gradingQuestionNotes = {};
 
     // USER REQUIREMENT: When checked, mark all the question right first!
     this.gradingQuestions.forEach(q => {
       this.gradingQuestionStatus[q] = "correct";
+      this.gradingQuestionNotes[q] = "";
     });
     this.renderGradingQuestions();
     this.setQuickScore(10);
@@ -1729,27 +1788,27 @@ class LMSApp {
     document.getElementById("grade-score-input").focus();
   }
 
-  selectGradingAnimal(groupKey, symbol, title) {
+  selectGradingAnimal(groupKey, symbol, title = "") {
     this.selectedGradingAnimalGroup = groupKey;
     this.selectedGradingAnimalSymbol = symbol;
-    this.selectedGradingAnimalTitle = title;
+    this.selectedGradingAnimalTitle = "";
     this.renderGradingAnimalSelector();
   }
 
   renderGradingAnimalSelector() {
     const groupKey = this.selectedGradingAnimalGroup;
     const labelEl = document.getElementById("grade-selected-animal-label");
-    const nameMap = {
-      "dolphin": "🐬 Cá heo thông thái (Smart)",
-      "monkey": "🐵 Khỉ con nhanh nhẹn (Kinda smart)",
-      "orange_cat": "🐱 Mèo cam chăm chỉ (Ordinary)",
-      "turtle_snail": "🐢 Rùa / Ốc sên (Need improvement)"
+    const symMap = {
+      "dolphin": "🐬",
+      "monkey": "🐵",
+      "orange_cat": "🐱",
+      "turtle_snail": "🐢"
     };
     if (labelEl) {
       if (groupKey) {
-        labelEl.innerText = nameMap[groupKey] || "🐱 Mèo cam chăm chỉ";
+        labelEl.innerText = this.selectedGradingAnimalSymbol || symMap[groupKey] || "🐱";
       } else {
-        labelEl.innerText = "Giữ nguyên linh vật từng em";
+        labelEl.innerText = "";
       }
     }
     document.querySelectorAll(".animal-tier-btn").forEach(btn => {
@@ -1769,34 +1828,82 @@ class LMSApp {
       container.innerHTML = `<div style="color: var(--text-muted); font-size: 13px;">Bài tập này chưa có danh sách câu hỏi cụ thể.</div>`;
       return;
     }
-    container.innerHTML = questions.map((q, idx) => {
-      const currentStatus = this.gradingQuestionStatus[q] || "correct";
-      return `
-        <div class="grade-question-row">
-          <div class="grade-question-title">${q}</div>
-          <div class="grade-question-actions">
-            <button type="button" class="q-btn q-btn-correct ${currentStatus === 'correct' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'correct')">
-              🟢 Đúng (Right)
-            </button>
-            <button type="button" class="q-btn q-btn-wrong ${currentStatus === 'incorrect' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
-              🔴 Sai (Wrong)
-            </button>
-            <button type="button" class="q-btn q-btn-needfix ${currentStatus === 'need_fix' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'need_fix')">
-              🟡 Cần sửa
-            </button>
-          </div>
-        </div>
-      `;
-    }).join("");
+    if (!this.gradingQuestionNotes) this.gradingQuestionNotes = {};
+
+    let html = `
+      <div class="grade-horizontal-table-wrap">
+        <table class="grade-horizontal-table">
+          <thead>
+            <tr class="gh-row gh-row-head">
+              <th class="gh-col-label"><span class="gh-icon">❓</span> Câu hỏi</th>
+              ${questions.map(q => `<th class="gh-col-q">${q}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="gh-row gh-row-correct">
+              <td class="gh-col-label"><span class="gh-icon">🟢</span> Đúng</td>
+              ${questions.map(q => {
+                const isSel = (this.gradingQuestionStatus[q] || "correct") === "correct";
+                return `
+                  <td class="gh-col-cell">
+                    <button type="button" class="gh-choice-btn gh-btn-correct ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'correct')">
+                      ${isSel ? '✓' : ''} Đúng
+                    </button>
+                  </td>
+                `;
+              }).join("")}
+            </tr>
+            <tr class="gh-row gh-row-incorrect">
+              <td class="gh-col-label"><span class="gh-icon">🔴</span> Sai</td>
+              ${questions.map(q => {
+                const isSel = this.gradingQuestionStatus[q] === "incorrect";
+                return `
+                  <td class="gh-col-cell">
+                    <button type="button" class="gh-choice-btn gh-btn-wrong ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
+                      ${isSel ? '✗' : ''} Sai
+                    </button>
+                  </td>
+                `;
+              }).join("")}
+            </tr>
+            <tr class="gh-row gh-row-needfix">
+              <td class="gh-col-label"><span class="gh-icon">🟡</span> Cần sửa</td>
+              ${questions.map(q => {
+                const isSel = this.gradingQuestionStatus[q] === "need_fix";
+                return `
+                  <td class="gh-col-cell">
+                    <button type="button" class="gh-choice-btn gh-btn-needfix ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'need_fix')">
+                      ${isSel ? '⚡' : ''} Cần sửa
+                    </button>
+                  </td>
+                `;
+              }).join("")}
+            </tr>
+            <tr class="gh-row gh-row-notes">
+              <td class="gh-col-label"><span class="gh-icon">📝</span> Ghi chú</td>
+              ${questions.map(q => {
+                const noteVal = this.gradingQuestionNotes[q] || "";
+                return `
+                  <td class="gh-col-cell gh-col-note">
+                    <input type="text" class="gh-note-input" placeholder="Ghi chú câu..." value="${noteVal.replace(/"/g, '&quot;')}" oninput="app.setGradeQuestionNote('${q}', this.value)">
+                  </td>
+                `;
+              }).join("")}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    container.innerHTML = html;
+  }
+
+  setGradeQuestionNote(qName, note) {
+    if (!this.gradingQuestionNotes) this.gradingQuestionNotes = {};
+    this.gradingQuestionNotes[qName] = note;
   }
 
   setGradeQuestionStatus(qName, status) {
-    if (this.gradingQuestionStatus[qName] === status) {
-      // Toggle to opposite if clicked again
-      this.gradingQuestionStatus[qName] = status === "correct" ? "incorrect" : "correct";
-    } else {
-      this.gradingQuestionStatus[qName] = status;
-    }
+    this.gradingQuestionStatus[qName] = status;
     this.renderGradingQuestions();
     this.recomputeScoreFromQuestions();
   }
@@ -1875,6 +1982,14 @@ class LMSApp {
     const status = this.selectedGradeStatus || "Đã đạt";
     const note = document.getElementById("grade-note-input").value;
     const animalGroup = this.selectedGradingAnimalGroup;
+    const animalSymbol = this.selectedGradingAnimalSymbol;
+    const animalTitle = this.selectedGradingAnimalTitle;
+    const asg = (this.assignments || []).find(a => a.id == asgId);
+    const currentSubject = asg ? asg.subject : "Toán";
+    const qDetails = {
+      status: this.gradingQuestionStatus,
+      notes: this.gradingQuestionNotes || {}
+    };
 
     // Check if Batch Grading
     if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
@@ -1891,8 +2006,10 @@ class LMSApp {
               score: score,
               status: status,
               teacher_note: note,
-              question_details: this.gradingQuestionStatus,
+              question_details: qDetails,
               animal_group: animalGroup || null,
+              animal_symbol: animalSymbol || null,
+              animal_title: animalTitle || null,
               operator: this.settings.teacher_name || "Cô Linh"
             })
           });
@@ -1905,8 +2022,10 @@ class LMSApp {
             status,
             note,
             this.settings.teacher_name || "Cô Linh",
-            this.gradingQuestionStatus,
-            animalGroup || null
+            qDetails,
+            animalGroup || null,
+            animalSymbol || null,
+            animalTitle || null
           );
         }
 
@@ -1915,7 +2034,19 @@ class LMSApp {
           if (animalGroup) {
             studentIds.forEach(sid => {
               const st = (this.students || []).find(s => s.id == sid);
-              if (st) st.animal_group = animalGroup;
+              if (st) {
+                st.animal_group = animalGroup;
+                if (animalSymbol) st.animal_symbol = animalSymbol;
+                if (animalTitle) st.animal_title = animalTitle;
+                if (currentSubject) {
+                  if (!st.subject_animals) st.subject_animals = {};
+                  st.subject_animals[currentSubject] = {
+                    group: animalGroup,
+                    symbol: animalSymbol || st.animal_symbol,
+                    title: animalTitle || st.animal_title
+                  };
+                }
+              }
             });
             this.updateGradeGroupCounts();
           }
@@ -1952,8 +2083,10 @@ class LMSApp {
             score: score,
             status: status,
             teacher_note: note,
-            question_details: this.gradingQuestionStatus,
+            question_details: qDetails,
             animal_group: this.selectedGradingAnimalGroup,
+            animal_symbol: this.selectedGradingAnimalSymbol,
+            animal_title: this.selectedGradingAnimalTitle,
             operator: this.settings.teacher_name || "Cô Linh"
           })
         });
@@ -1966,8 +2099,10 @@ class LMSApp {
           status,
           note,
           this.settings.teacher_name || "Cô Linh",
-          this.gradingQuestionStatus,
-          this.selectedGradingAnimalGroup
+          qDetails,
+          this.selectedGradingAnimalGroup,
+          this.selectedGradingAnimalSymbol,
+          this.selectedGradingAnimalTitle
         );
       }
       if (!data || data.error || data.success === false) {
@@ -1980,11 +2115,22 @@ class LMSApp {
         const targetSt = (this.students || []).find(s => s.id == this.currentlyGradingStudent.id);
         if (targetSt) {
           targetSt.animal_group = this.selectedGradingAnimalGroup;
+          targetSt.animal_symbol = this.selectedGradingAnimalSymbol || targetSt.animal_symbol;
+          targetSt.animal_title = this.selectedGradingAnimalTitle || targetSt.animal_title;
           if (data.student) {
             targetSt.animal_symbol = data.student.animal_symbol || targetSt.animal_symbol;
             targetSt.animal_title = data.student.animal_title || targetSt.animal_title;
           }
+          if (currentSubject) {
+            if (!targetSt.subject_animals) targetSt.subject_animals = {};
+            targetSt.subject_animals[currentSubject] = {
+              group: this.selectedGradingAnimalGroup,
+              symbol: targetSt.animal_symbol,
+              title: targetSt.animal_title
+            };
+          }
         }
+        this.updateGradeGroupCounts();
       }
 
       alert(`✅ Đã lưu điểm cho học sinh ${this.currentlyGradingStudent.full_name} (${status})!`);
@@ -2039,10 +2185,13 @@ class LMSApp {
       const matchSearch = row.full_name.toLowerCase().includes(search) || row.code.toLowerCase().includes(search);
       if (!matchSearch) return false;
 
-      // Animal Group Filter (Teacher only)
+      // Color Group / Animal Group Filter (Teacher only)
       if (this.activeTrackingAnimalFilter && this.activeTrackingAnimalFilter !== "ALL") {
-        const rowGrp = row.animal_group || "orange_cat";
-        if (rowGrp !== this.activeTrackingAnimalFilter) return false;
+        const filterVal = this.activeTrackingAnimalFilter.toLowerCase();
+        const rowGrp = (row.animal_group || "orange_cat").toLowerCase();
+        const rowCol = (row.group_color || "").toLowerCase();
+        const rowName = (row.group_name || "").toLowerCase();
+        if (rowGrp !== filterVal && rowCol !== filterVal && rowName !== filterVal) return false;
       }
 
       // Status Filter
@@ -2067,17 +2216,20 @@ class LMSApp {
       const latestScoreStr = (row.latest_score !== null && row.latest_score !== undefined) ? `<span class="score-pill score-high">${row.latest_score}</span>` : "-";
       const submitTimeStr = row.latest_submit_time ? (row.latest_submit_time.includes(" ") ? row.latest_submit_time.split(" ")[1] : row.latest_submit_time) : "-";
 
-      const animalGrp = row.animal_group || "orange_cat";
-      const animalSym = row.animal_symbol || "🐱";
-      const animalTtl = row.animal_title || "Mèo cam";
+      const genderIcon = row.gender === "Nữ" ? "👧" : "👦";
+      const grpColor = row.group_color || "#3B82F6";
+      const grpName = row.group_name || "Nhóm 1";
 
       return `
         <tr>
           <td><strong>${sttVal}</strong></td>
           <td><code>${row.code || "-"}</code></td>
           <td>
-            <strong>${row.full_name || "-"}</strong>
-            <span class="badge-animal-mini badge-animal-${animalGrp}" title="${animalTtl}">${animalSym}</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 15px;">${genderIcon}</span>
+              <strong>${row.full_name || "-"}</strong>
+              <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
+            </div>
           </td>
           <td>${statusBadge}</td>
           <td>${submitTimeStr}</td>
@@ -2362,6 +2514,8 @@ class LMSApp {
     document.getElementById("new-asg-assigned").value = now.toISOString().split("T")[0];
     const tomorrow = new Date(now.getTime() + 86400000);
     document.getElementById("new-asg-due").value = tomorrow.toISOString().slice(0, 16);
+    const goalsEl = document.getElementById("new-asg-goals");
+    if (goalsEl) goalsEl.value = "";
     this.newAsgQuestions = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
     this.renderNewAsgQuestions();
   }
@@ -2420,6 +2574,7 @@ class LMSApp {
     const due_date = document.getElementById("new-asg-due").value.replace("T", " ");
     const max_score = document.getElementById("new-asg-maxscore").value;
     const notes = document.getElementById("new-asg-notes").value;
+    const goals = (document.getElementById("new-asg-goals")?.value || "").trim();
     const questions = this.collectNewAsgQuestions();
 
     if (!title || !due_date) {
@@ -2433,11 +2588,11 @@ class LMSApp {
         const res = await fetch("/api/assignments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions })
+          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions, goals })
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes, questions);
+        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes, questions, goals);
       }
       if (!data || data.error) {
         alert((data && data.error) || "Lỗi khi tạo bài tập!");
@@ -2558,6 +2713,8 @@ class LMSApp {
     document.getElementById("edit-asg-due").value = asg.due_date ? asg.due_date.replace(" ", "T").slice(0, 16) : "";
     document.getElementById("edit-asg-maxscore").value = asg.max_score || 10;
     document.getElementById("edit-asg-notes").value = asg.notes || asg.description || "";
+    const goalsEl = document.getElementById("edit-asg-goals");
+    if (goalsEl) goalsEl.value = asg.goals || "";
 
     const questions = asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
       ? asg.questions
@@ -2623,6 +2780,7 @@ class LMSApp {
     const due_date = document.getElementById("edit-asg-due").value.replace("T", " ");
     const max_score = parseFloat(document.getElementById("edit-asg-maxscore").value) || 10;
     const notes = document.getElementById("edit-asg-notes").value.trim();
+    const goals = (document.getElementById("edit-asg-goals")?.value || "").trim();
     const questions = this.collectEditAsgQuestions();
 
     if (!title || !due_date) {
@@ -2635,11 +2793,11 @@ class LMSApp {
         const res = await fetch(`/api/assignments/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions })
+          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions, goals })
         });
         if (!res.ok) throw new Error("Cập nhật bài tập thất bại trên máy chủ.");
       } else {
-        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes, questions);
+        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes, questions, goals);
       }
 
       alert(`✅ Đã cập nhật bài tập "${title}" thành công!`);
@@ -2715,7 +2873,56 @@ class LMSApp {
     const list = this.students || [];
     const countEl = document.getElementById("student-roster-count");
     if (countEl) countEl.innerText = list.length;
+    this.updateStudentColorGroupCounters();
     this.renderStudentsTable(list);
+  }
+
+  setStudentColorGroupFilter(colorKey, el) {
+    this.activeStudentColorFilter = colorKey || "ALL";
+    document.querySelectorAll(".color-filter-btn").forEach(btn => btn.classList.remove("active"));
+    if (el) el.classList.add("active");
+    this.filterStudentsList();
+  }
+
+  updateStudentColorGroupCounters() {
+    const list = this.students || [];
+    const countAll = list.length;
+    const countRed = list.filter(s => (s.group_color || "").toUpperCase() === "#EF4444" || (s.group_name || "").includes("Đỏ")).length;
+    const countBlue = list.filter(s => (s.group_color || "").toUpperCase() === "#3B82F6" || (s.group_name || "").includes("Xanh Dương")).length;
+    const countGreen = list.filter(s => (s.group_color || "").toUpperCase() === "#10B981" || (s.group_name || "").includes("Xanh Lá")).length;
+    const countYellow = list.filter(s => (s.group_color || "").toUpperCase() === "#F59E0B" || (s.group_name || "").includes("Vàng")).length;
+
+    const elAll = document.getElementById("color-count-all");
+    const elRed = document.getElementById("color-count-red");
+    const elBlue = document.getElementById("color-count-blue");
+    const elGreen = document.getElementById("color-count-green");
+    const elYellow = document.getElementById("color-count-yellow");
+
+    if (elAll) elAll.innerText = countAll;
+    if (elRed) elRed.innerText = countRed;
+    if (elBlue) elBlue.innerText = countBlue;
+    if (elGreen) elGreen.innerText = countGreen;
+    if (elYellow) elYellow.innerText = countYellow;
+
+    this.updateStudentTierCounters();
+    this.updateGradeColorCounters();
+  }
+
+  updateGradeColorCounters() {
+    const list = this.students || [];
+    const countRed = list.filter(s => (s.group_color || "").toUpperCase() === "#EF4444" || (s.group_name || "").includes("Đỏ")).length;
+    const countBlue = list.filter(s => (s.group_color || "").toUpperCase() === "#3B82F6" || (s.group_name || "").includes("Xanh Dương")).length;
+    const countGreen = list.filter(s => (s.group_color || "").toUpperCase() === "#10B981" || (s.group_name || "").includes("Xanh Lá")).length;
+    const countYellow = list.filter(s => (s.group_color || "").toUpperCase() === "#F59E0B" || (s.group_name || "").includes("Vàng")).length;
+
+    const elR = document.getElementById("grade-count-red");
+    const elB = document.getElementById("grade-count-blue");
+    const elG = document.getElementById("grade-count-green");
+    const elY = document.getElementById("grade-count-yellow");
+    if (elR) elR.innerText = countRed;
+    if (elB) elB.innerText = countBlue;
+    if (elG) elG.innerText = countGreen;
+    if (elY) elY.innerText = countYellow;
   }
 
   setStudentAnimalFilter(tier, el) {
@@ -2748,6 +2955,7 @@ class LMSApp {
 
   filterStudentsList() {
     const query = (document.getElementById("student-search-input")?.value || "").toLowerCase().trim();
+    const colorFilter = this.activeStudentColorFilter || "ALL";
     const tier = this.activeStudentAnimalFilter || "ALL";
     const list = this.students || [];
 
@@ -2756,6 +2964,14 @@ class LMSApp {
              (s.code || "").toLowerCase().includes(query) ||
              String(s.order_num || "").includes(query);
       if (!matchQuery) return false;
+
+      if (colorFilter !== "ALL") {
+        const sCol = (s.group_color || "").toUpperCase();
+        const sName = (s.group_name || "").toLowerCase();
+        const target = colorFilter.toUpperCase();
+        const matchCol = sCol === target || sName.includes(colorFilter.toLowerCase());
+        if (!matchCol) return false;
+      }
 
       if (tier !== "ALL") {
         const sGrp = s.animal_group || "orange_cat";
@@ -2776,25 +2992,35 @@ class LMSApp {
     }
 
     tbody.innerHTML = list.map((s, idx) => {
-      const grp = s.animal_group || "orange_cat";
-      const sym = s.animal_symbol || "🐱";
-      const ttl = s.animal_title || "Mèo cam chăm chỉ";
+      const grpColor = s.group_color || "#3B82F6";
+      const grpName = s.group_name || "Nhóm 1";
+      const genderIcon = s.gender === "Nữ" ? "👧" : "👦";
+      const genderBg = s.gender === "Nữ" ? "#FDF2F8" : "#EFF6FF";
+      const genderBorder = s.gender === "Nữ" ? "#F472B6" : "#60A5FA";
+
       return `
       <tr>
         <td><strong>${s.order_num || (idx + 1)}</strong></td>
         <td><code>${s.code}</code></td>
-        <td><strong>${s.full_name}</strong></td>
         <td>
-          <button type="button" class="animal-picker-btn badge-animal badge-animal-${grp}" onclick="app.openAssignAnimalGroupModal(${s.id})" title="Nhấn để đổi nhóm linh vật (Chỉ giáo viên)">
-            <span>${sym}</span>
-            <span>${ttl}</span>
-            <span style="font-size: 10px; opacity: 0.7;">✏️</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="student-avatar-circle" style="background: ${genderBg}; border: 1.5px solid ${genderBorder};">
+              ${genderIcon}
+            </div>
+            <strong>${s.full_name}</strong>
+          </div>
+        </td>
+        <td>
+          <button type="button" class="color-group-pill" style="border: 1px solid ${grpColor}50; background: ${grpColor}15; color: ${grpColor};" onclick="app.openAssignColorGroupModal(${s.id})" title="Nhấn để đổi nhóm màu">
+            <span class="color-bullet" style="background: ${grpColor};"></span>
+            <span style="font-weight: 700;">${grpName}</span>
+            <span style="font-size: 11px; opacity: 0.7;">✏️</span>
           </button>
         </td>
         <td>${s.gender === "Nữ" ? '👧 Nữ' : '👦 Nam'}</td>
         <td><span class="badge badge-blue">${s.class_name || "Lớp 3A7"}</span></td>
         <td style="text-align: center; white-space: nowrap;">
-          <button class="btn btn-outline btn-sm" onclick="app.openAssignAnimalGroupModal(${s.id})" title="Phân loại linh vật cho học sinh (Chỉ giáo viên)">🐾 Nhóm</button>
+          <button class="btn btn-outline btn-sm" onclick="app.openAssignColorGroupModal(${s.id})" title="Chia nhóm màu cho học sinh">🎨 Đổi Nhóm</button>
           <button class="btn btn-outline btn-sm" onclick="app.viewStudentProfileFromList(${s.id})">👤 Hồ Sơ</button>
           <button class="btn btn-outline btn-sm" onclick="app.openEditStudentModal(${s.id})">✏️ Sửa</button>
           <button class="btn btn-danger btn-sm" onclick="app.deleteStudent(${s.id})">🗑️ Xóa</button>
@@ -2802,6 +3028,157 @@ class LMSApp {
       </tr>
       `;
     }).join("");
+  }
+
+  openAssignColorGroupModal(studentId) {
+    const st = (this.students || []).find(s => s.id == studentId);
+    if (!st) return;
+
+    const modal = document.getElementById("modal-assign-color-group");
+    if (!modal) return;
+
+    const nameEl = document.getElementById("modal-color-student-name");
+    const codeEl = document.getElementById("modal-color-student-code");
+    const targetEl = document.getElementById("modal-color-target-id");
+
+    if (nameEl) nameEl.innerText = st.full_name;
+    if (codeEl) codeEl.innerText = st.code;
+    if (targetEl) targetEl.value = st.id;
+
+    const curName = st.group_name || "Nhóm Đỏ";
+    const curColor = st.group_color || "#EF4444";
+    this.selectModalColorGroup(curName, curColor);
+
+    modal.style.display = "flex";
+  }
+
+  closeAssignColorGroupModal() {
+    const modal = document.getElementById("modal-assign-color-group");
+    if (modal) modal.style.display = "none";
+  }
+
+  selectModalColorGroup(name, color) {
+    const hidCol = document.getElementById("modal-color-selected-color");
+    const hidName = document.getElementById("modal-color-selected-name");
+    const custName = document.getElementById("modal-color-custom-name");
+    const custPick = document.getElementById("modal-color-custom-picker");
+    const prevPill = document.getElementById("modal-color-preview-pill");
+    const prevBullet = document.getElementById("modal-color-preview-bullet");
+    const prevName = document.getElementById("modal-color-preview-name");
+
+    if (hidCol) hidCol.value = color;
+    if (hidName) hidName.value = name;
+    if (custName) custName.value = name;
+    if (custPick) custPick.value = color;
+
+    if (prevBullet) prevBullet.style.background = color;
+    if (prevName) prevName.innerText = name;
+    if (prevPill) {
+      prevPill.style.borderColor = `${color}50`;
+      prevPill.style.backgroundColor = `${color}18`;
+      prevPill.style.color = color;
+    }
+
+    document.querySelectorAll("#modal-assign-color-group .color-preset-card").forEach(card => {
+      const cCol = card.getAttribute("data-color");
+      if (cCol && cCol.toUpperCase() === color.toUpperCase()) {
+        card.classList.add("selected");
+        card.style.outline = `2px solid ${color}`;
+      } else {
+        card.classList.remove("selected");
+        card.style.outline = "none";
+      }
+    });
+  }
+
+  onCustomColorGroupNameChange(val) {
+    const name = val.trim() || "Nhóm Tùy Chọn";
+    const hidName = document.getElementById("modal-color-selected-name");
+    const prevName = document.getElementById("modal-color-preview-name");
+    if (hidName) hidName.value = name;
+    if (prevName) prevName.innerText = name;
+  }
+
+  onCustomColorGroupPickerChange(color) {
+    const hidCol = document.getElementById("modal-color-selected-color");
+    const prevPill = document.getElementById("modal-color-preview-pill");
+    const prevBullet = document.getElementById("modal-color-preview-bullet");
+    if (hidCol) hidCol.value = color;
+    if (prevBullet) prevBullet.style.background = color;
+    if (prevPill) {
+      prevPill.style.borderColor = `${color}50`;
+      prevPill.style.backgroundColor = `${color}18`;
+      prevPill.style.color = color;
+    }
+  }
+
+  async saveStudentColorGroup() {
+    const targetEl = document.getElementById("modal-color-target-id");
+    const hidCol = document.getElementById("modal-color-selected-color");
+    const hidName = document.getElementById("modal-color-selected-name");
+    const custName = document.getElementById("modal-color-custom-name");
+
+    if (!targetEl || !hidCol) return;
+    const sid = targetEl.value;
+    const color = hidCol.value || "#3B82F6";
+    const name = (custName && custName.value.trim()) ? custName.value.trim() : (hidName ? hidName.value : "Nhóm 1");
+
+    const st = (this.students || []).find(s => s.id == sid);
+    if (!st) return;
+
+    try {
+      if (this.serverAvailable) {
+        await fetch(`/api/students/${sid}/color-group`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            group_name: name,
+            group_color: color
+          })
+        });
+      }
+
+      if (window.ClientDB) {
+        window.ClientDB.updateStudentColorGroup(sid, name, color);
+      }
+
+      st.group_name = name;
+      st.group_color = color;
+
+      if (this.trackingMatrix) {
+        const trRow = this.trackingMatrix.find(r => r.student_id == sid || r.code == st.code);
+        if (trRow) {
+          trRow.group_name = name;
+          trRow.group_color = color;
+        }
+      }
+
+      this.closeAssignColorGroupModal();
+      this.updateStudentColorGroupCounters();
+      this.filterStudentsList();
+      if (typeof this.filterTrackingTable === "function") {
+        this.filterTrackingTable();
+      }
+
+      const toast = document.createElement("div");
+      toast.style.position = "fixed";
+      toast.style.bottom = "20px";
+      toast.style.right = "20px";
+      toast.style.background = "#059669";
+      toast.style.color = "white";
+      toast.style.padding = "10px 18px";
+      toast.style.borderRadius = "8px";
+      toast.style.fontWeight = "700";
+      toast.style.fontSize = "13px";
+      toast.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+      toast.style.zIndex = "9999";
+      toast.innerText = `✅ Đã lưu ${st.full_name} vào ${name}!`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    } catch (e) {
+      console.error("Error saving color group:", e);
+      alert("Lỗi khi lưu nhóm màu: " + e.message);
+    }
   }
 
   openAssignAnimalGroupModal(studentId) {
@@ -2814,17 +3191,40 @@ class LMSApp {
     const nameEl = document.getElementById("modal-animal-student-name");
     const codeEl = document.getElementById("modal-animal-student-code");
     const targetEl = document.getElementById("modal-animal-target-id");
+    const subjSel = document.getElementById("modal-animal-subject-select");
 
     if (nameEl) nameEl.innerText = st.full_name;
     if (codeEl) codeEl.innerText = st.code;
     if (targetEl) targetEl.value = st.id;
+    if (subjSel) subjSel.value = "Toán";
 
-    const grp = st.animal_group || "orange_cat";
-    const sym = st.animal_symbol || "🐱";
-    const ttl = st.animal_title || "Mèo cam chăm chỉ";
-
-    this.selectStudentAnimal(grp, sym, ttl);
+    const curSubj = subjSel ? subjSel.value : "Toán";
+    if (curSubj !== "ALL" && st.subject_animals && st.subject_animals[curSubj]) {
+      const sa = st.subject_animals[curSubj];
+      this.selectStudentAnimal(sa.group || "orange_cat", sa.symbol || "🐱", "");
+    } else {
+      const grp = st.animal_group || "orange_cat";
+      const sym = st.animal_symbol || "🐱";
+      this.selectStudentAnimal(grp, sym, "");
+    }
     modal.style.display = "flex";
+  }
+
+  onStudentAnimalSubjectChange() {
+    const targetEl = document.getElementById("modal-animal-target-id");
+    const subjSel = document.getElementById("modal-animal-subject-select");
+    if (!targetEl || !subjSel) return;
+    const sid = targetEl.value;
+    const st = (this.students || []).find(s => s.id == sid);
+    if (!st) return;
+
+    const subj = subjSel.value;
+    if (subj !== "ALL" && st.subject_animals && st.subject_animals[subj]) {
+      const sa = st.subject_animals[subj];
+      this.selectStudentAnimal(sa.group || "orange_cat", sa.symbol || "🐱", "");
+    } else {
+      this.selectStudentAnimal(st.animal_group || "orange_cat", st.animal_symbol || "🐱", "");
+    }
   }
 
   closeAssignAnimalGroupModal() {
@@ -2832,7 +3232,7 @@ class LMSApp {
     if (modal) modal.style.display = "none";
   }
 
-  selectStudentAnimal(groupKey, symbol, title) {
+  selectStudentAnimal(groupKey, symbol, title = "") {
     const hidGrp = document.getElementById("modal-animal-selected-group");
     const hidSym = document.getElementById("modal-animal-selected-symbol");
     const hidTtl = document.getElementById("modal-animal-selected-title");
@@ -2840,11 +3240,11 @@ class LMSApp {
 
     if (hidGrp) hidGrp.value = groupKey;
     if (hidSym) hidSym.value = symbol;
-    if (hidTtl) hidTtl.value = title;
+    if (hidTtl) hidTtl.value = symbol;
 
     if (badgeEl) {
       badgeEl.className = `badge-animal badge-animal-${groupKey}`;
-      badgeEl.innerText = `${symbol} ${title}`;
+      badgeEl.innerText = symbol;
     }
 
     // Highlight selected chip
@@ -2863,37 +3263,56 @@ class LMSApp {
     const targetEl = document.getElementById("modal-animal-target-id");
     const hidGrp = document.getElementById("modal-animal-selected-group");
     const hidSym = document.getElementById("modal-animal-selected-symbol");
-    const hidTtl = document.getElementById("modal-animal-selected-title");
+    const subjSel = document.getElementById("modal-animal-subject-select");
 
     if (!targetEl || !hidGrp) return;
     const sid = targetEl.value;
     const grp = hidGrp.value;
     const sym = hidSym ? hidSym.value : "🐱";
-    const ttl = hidTtl ? hidTtl.value : "Mèo cam chăm chỉ";
+    const ttl = sym;
+    const subject = subjSel ? subjSel.value : "ALL";
 
     const st = (this.students || []).find(s => s.id == sid);
     if (!st) return;
 
     try {
-      if (this.serverAvailable) {
-        await fetch(`/api/students/${sid}/animal-group`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            animal_group: grp,
-            animal_symbol: sym,
-            animal_title: ttl
-          })
-        });
+      if (subject && subject !== "ALL") {
+        if (this.serverAvailable) {
+          await fetch(`/api/students/${sid}/subject-animal`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subject: subject,
+              animal_group: grp,
+              animal_symbol: sym,
+              animal_title: ttl
+            })
+          });
+        }
+        if (window.ClientDB) {
+          window.ClientDB.updateStudentSubjectAnimal(sid, subject, grp, sym, ttl);
+        }
+        if (!st.subject_animals) st.subject_animals = {};
+        st.subject_animals[subject] = { group: grp, symbol: sym, title: ttl };
+      } else {
+        if (this.serverAvailable) {
+          await fetch(`/api/students/${sid}/animal-group`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              animal_group: grp,
+              animal_symbol: sym,
+              animal_title: ttl
+            })
+          });
+        }
+        if (window.ClientDB) {
+          window.ClientDB.updateStudentAnimalGroup(sid, grp, sym, ttl);
+        }
+        st.animal_group = grp;
+        st.animal_symbol = sym;
+        st.animal_title = ttl;
       }
-
-      if (window.ClientDB) {
-        window.ClientDB.updateStudentAnimalGroup(sid, grp, sym, ttl);
-      }
-
-      st.animal_group = grp;
-      st.animal_symbol = sym;
-      st.animal_title = ttl;
 
       this.closeAssignAnimalGroupModal();
       this.updateStudentTierCounters();
@@ -2908,7 +3327,8 @@ class LMSApp {
         this.filterTrackingTable();
       }
 
-      alert(`✅ Đã xếp "${st.full_name}" vào nhóm: ${sym} ${ttl}!`);
+      const subjMsg = subject !== "ALL" ? ` (Môn ${subject})` : "";
+      alert(`✅ Đã cập nhật linh vật cho "${st.full_name}"${subjMsg}: ${sym}!`);
     } catch (e) {
       alert("Lỗi khi lưu nhóm linh vật: " + e.message);
     }
@@ -5178,6 +5598,9 @@ class LMSApp {
       const icon = t.icon || "⭐";
       const members = t.members || [];
       const mottoHtml = t.motto ? `<div class="team-motto">“${t.motto}”</div>` : "";
+      const capacityBadgeStr = t.max_capacity && t.max_capacity > 0 
+        ? `${members.length}/${t.max_capacity} em` 
+        : `${members.length} thành viên`;
       
       const membersHtml = members.length > 0
         ? members.map(m => {
@@ -5202,7 +5625,7 @@ class LMSApp {
               <div>
                 <h3 class="team-card-title">${t.name}</h3>
                 <div class="team-member-badge" style="color: ${color}; font-weight: 700; font-size: 12px;">
-                  👥 ${members.length} thành viên
+                  👥 ${capacityBadgeStr}
                 </div>
               </div>
             </div>
@@ -5214,8 +5637,8 @@ class LMSApp {
           <div class="team-card-body">
             ${mottoHtml}
             <div class="team-members-header">
-              <span>Thành viên nhóm:</span>
-              <span class="badge" style="background: ${color}15; color: ${color}; font-size: 11px;">${members.length} học sinh</span>
+              <span>🎯 Sĩ số:</span>
+              <span class="badge" style="background: ${color}15; color: ${color}; font-size: 11px;">${members.length}${t.max_capacity && t.max_capacity > 0 ? ' / ' + t.max_capacity : ''} học sinh</span>
             </div>
             <div class="team-members-list">
               ${membersHtml}
@@ -5234,6 +5657,8 @@ class LMSApp {
     document.getElementById("team-modal-color").value = "#2563EB";
     document.getElementById("team-modal-image").value = "";
     document.getElementById("team-modal-motto").value = "";
+    const capEl = document.getElementById("team-modal-capacity");
+    if (capEl) capEl.value = "4";
     document.getElementById("team-modal-title").innerText = "🏆 Tạo Nhóm Học Tập Mới";
     this.selectedTeamMemberIds = new Set();
     this.renderTeamStudentChecklist();
@@ -5251,6 +5676,8 @@ class LMSApp {
     document.getElementById("team-modal-color").value = team.color || "#2563EB";
     document.getElementById("team-modal-image").value = team.image || "";
     document.getElementById("team-modal-motto").value = team.motto || "";
+    const capEl = document.getElementById("team-modal-capacity");
+    if (capEl) capEl.value = team.max_capacity !== undefined ? team.max_capacity : 0;
     document.getElementById("team-modal-title").innerText = `✏️ Chỉnh Sửa Nhóm "${team.name}"`;
 
     const memberIds = (team.members || []).map(m => m.id);
@@ -5332,6 +5759,7 @@ class LMSApp {
     const color = document.getElementById("team-modal-color").value || "#2563EB";
     const image = document.getElementById("team-modal-image").value.trim();
     const motto = document.getElementById("team-modal-motto").value.trim();
+    const maxCapacity = parseInt(document.getElementById("team-modal-capacity")?.value || "0", 10) || 0;
     const memberIds = Array.from(this.selectedTeamMemberIds || []);
 
     if (!name) {
@@ -5346,11 +5774,11 @@ class LMSApp {
           const res = await fetch(`/api/teams/${this.currentEditingTeamId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds })
+            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds, max_capacity: maxCapacity })
           });
           if (!res.ok) throw new Error("Cập nhật nhóm thất bại!");
         } else {
-          window.ClientDB.updateTeam(this.currentEditingTeamId, name, color, icon, image, motto, memberIds);
+          window.ClientDB.updateTeam(this.currentEditingTeamId, name, color, icon, image, motto, memberIds, maxCapacity);
         }
         alert(`✅ Đã cập nhật thành công nhóm "${name}"!`);
       } else {
@@ -5358,11 +5786,11 @@ class LMSApp {
           const res = await fetch("/api/teams", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds })
+            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds, max_capacity: maxCapacity })
           });
           if (!res.ok) throw new Error("Tạo nhóm thất bại!");
         } else {
-          window.ClientDB.createTeam(name, color, icon, image, motto, memberIds);
+          window.ClientDB.createTeam(name, color, icon, image, motto, memberIds, maxCapacity);
         }
         alert(`✅ Đã thành lập thành công nhóm "${name}" (${memberIds.length} thành viên)!`);
       }

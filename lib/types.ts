@@ -19,6 +19,8 @@ export interface Assignment {
   due_date: string;
   max_score: number;
   notes: string;
+  questions?: string[];
+  goals?: string;
   is_active: number;
   created_at?: string;
 }

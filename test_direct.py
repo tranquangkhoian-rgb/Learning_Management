@@ -732,8 +732,239 @@ def test_all():
     assert "batch-st-chip" in css_c, "Missing batch-st-chip in public/css/style.css"
     print(" -> PASS: Client UI, JS, and CSS contracts for multi/single grading and right/wrong question toggling verified.")
 
+    # 25. Test Homework Goals (Mục Tiêu), Mascot Cleanliness, Horizontal Table, Subject Animals & Team Capacity
+    print("\n--- 25. Test Goals, Clean Mascots, Horizontal Table, Subject Animals & Team Capacity ---")
+    
+    # 25a. Homework Goals (Mục Tiêu) CRUD & API
+    goal_asg = database.add_assignment(
+        "Toán 3: Phép nhân và chia 7",
+        "Toán",
+        datetime.now().strftime("%Y-%m-%d"),
+        datetime.now().strftime("%Y-%m-%d 23:59"),
+        10.0,
+        "Làm bài cẩn thận",
+        questions=["Bài 1", "Bài 2", "Bài 3", "Bài 4"],
+        goals="1. Thuộc bảng nhân 7.\n2. Vận dụng tính diện tích và chu vi hình chữ nhật."
+    )
+    assert goal_asg is not None, "Failed to create assignment with goals"
+    assert goal_asg.get("goals") == "1. Thuộc bảng nhân 7.\n2. Vận dụng tính diện tích và chu vi hình chữ nhật."
+
+    # Update goals
+    up_goal_asg = database.update_assignment(
+        goal_asg["id"],
+        goal_asg["title"],
+        goal_asg["subject"],
+        goal_asg["assigned_date"],
+        goal_asg["due_date"],
+        goal_asg["max_score"],
+        goal_asg["notes"],
+        questions=goal_asg["questions"],
+        goals="1. Nắm chắc bảng nhân và chia 7.\n2. Tự tin giải toán đố."
+    )
+    assert "Tự tin giải toán đố" in up_goal_asg["goals"]
+    print(" -> PASS: Homework goals (Mục Tiêu) database CRUD verified.")
+
+    # 25b. Mascot Cleanliness (No embarrassing words and zero animal text labels)
+    animal_cfg = database.get_animal_groups_config()
+    embarrassing_words = ["smart", "kinda", "ordinary", "weak", "improvement", "xuất sắc", "khá giỏi", "tiêu chuẩn", "cần cố gắng", "cá heo", "khỉ con", "mèo cam", "rùa con", "ốc sên"]
+    for k, v in animal_cfg.items():
+        name_lower = (v.get("default_name") or "").lower()
+        tier_lower = (v.get("tier_name") or "").lower()
+        assert v.get("tier_name") == v.get("default_symbol"), f"Tier name should be symbol, got {v.get('tier_name')}"
+        assert v.get("default_name") == v.get("default_symbol"), f"Default name should be symbol, got {v.get('default_name')}"
+        for opt in v.get("options", []):
+            assert opt.get("name") == opt.get("symbol"), f"Option name should match symbol: {opt}"
+        for word in embarrassing_words:
+            assert word not in name_lower, f"Embarrassing word '{word}' found in {k} default_name: {name_lower}"
+            assert word not in tier_lower, f"Embarrassing word '{word}' found in {k} tier_name: {tier_lower}"
+    print(" -> PASS: Animal mascots are 100% clean and free of embarrassing words/titles.")
+
+    # 25c. Subject-Specific Animal Mascots
+    st_hs01 = database.get_student_by_code("HS01")
+    assert st_hs01 is not None
+    # Assign Dolphin in Toán, Monkey in Tiếng Việt
+    database.update_student_subject_animal("HS01", "Toán", "dolphin", "🐬", "🐬")
+    database.update_student_subject_animal("HS01", "Tiếng Việt", "monkey", "🐵", "🐵")
+    
+    st_hs01_updated = database.get_student_by_code("HS01")
+    subj_animals = st_hs01_updated.get("subject_animals") or {}
+    assert "Toán" in subj_animals, "Missing Toán in subject_animals"
+    assert subj_animals["Toán"]["group"] == "dolphin"
+    assert "Tiếng Việt" in subj_animals, "Missing Tiếng Việt in subject_animals"
+    assert subj_animals["Tiếng Việt"]["group"] == "monkey"
+
+    # Test tracking matrix reflects subject-specific mascot
+    tracking_toan = database.get_assignment_tracking_matrix(goal_asg["id"])
+    assert tracking_toan is not None
+    matrix_rows = tracking_toan.get("matrix") or []
+    hs01_row = next((r for r in matrix_rows if r["code"] == "HS01"), None)
+    assert hs01_row is not None
+    assert hs01_row.get("animal_group") == "dolphin", f"Expected dolphin for Toán, got {hs01_row.get('animal_group')}"
+
+    subj_str = json.dumps({
+        "subject": "Tiếng Anh",
+        "animal_group": "orange_cat",
+        "animal_symbol": "🐱",
+        "animal_title": "🐱"
+    })
+    req_sa = f"POST /api/students/{st_hs01['id']}/subject-animal HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {len(subj_str.encode('utf-8'))}\r\nConnection: close\r\n\r\n{subj_str}".encode("utf-8")
+    sock_sa = MockSocket(req_sa)
+    server.LMSRequestHandler(sock_sa, ("127.0.0.1", 12345), None)
+    out_sa = sock_sa.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_sa, f"Subject animal API failed: {out_sa}"
+    print(" -> PASS: Subject-specific animal mascots verified in DB, Tracking Matrix, and API.")
+
+    # 25d. Team Capacity Management
+    team_cap = database.create_team(
+        "Biệt Đội Tia Chớp",
+        color="#F59E0B",
+        icon="⚡",
+        image="",
+        motto="Nhanh như chớp!",
+        member_ids=["HS01", "HS02", "HS03"],
+        max_capacity=4
+    )
+    assert team_cap is not None
+    assert team_cap.get("max_capacity") == 4
+
+    up_team_cap = database.update_team(
+        team_cap["id"],
+        team_cap["name"],
+        color=team_cap["color"],
+        icon=team_cap["icon"],
+        image=team_cap["image"],
+        motto=team_cap["motto"],
+        member_ids=team_cap["members"],
+        max_capacity=6
+    )
+    assert up_team_cap.get("max_capacity") == 6
+    database.delete_team(team_cap["id"])
+    print(" -> PASS: Team max_capacity verified in database.")
+
+    # 25e. Client Code Contracts (5-row table, goals, modal-animal-subject-select, team capacity)
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_25 = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_25 = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_25 = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_25 = f.read()
+
+    # Goals banner & inputs
+    assert "grade-assignment-goals-banner" in html_25
+    assert "grade-assignment-goals-text" in html_25
+    assert "new-asg-goals" in html_25
+    assert "edit-asg-goals" in html_25
+    assert "updateGradeAssignmentGoalsBanner" in js_25
+
+    # Horizontal 5-row table
+    assert "grade-questions-horizontal-wrapper" in html_25 or "grade-horizontal-table" in js_25
+    assert "grade-horizontal-table" in js_25
+    assert "gh-row-correct" in js_25
+    assert "gh-row-incorrect" in js_25
+    assert "gh-row-needfix" in js_25
+    assert "gh-row-notes" in js_25
+    assert "setGradeQuestionNote" in js_25
+    assert "grade-horizontal-table" in css_25
+    assert "gh-choice-btn" in css_25
+    assert "gh-note-input" in css_25
+
+    # Subject animal selector & team capacity
+    assert "modal-animal-subject-select" in html_25
+    assert "onStudentAnimalSubjectChange" in js_25
+    assert "updateStudentSubjectAnimal" in db_25
+    assert "team-modal-capacity" in html_25
+    assert "max_capacity" in js_25
+
+    print(" -> PASS: Client UI, JS, and CSS contracts for all 5 capabilities verified.")
+
+    # 26. Test Color Group Division, Normal Avatars & Removal of Team Tab
+    print("\n--- 26. Test Color Group Division, Normal Avatars & Team Tab Removal ---")
+
+    # 26a. Database Color Group Assignment & Distribution
+    students_list = database.get_students()
+    assert len(students_list) >= 29
+    # Verify group_name and group_color exist on students
+    for st in students_list[:5]:
+        assert "group_name" in st, f"Missing group_name on student {st['code']}"
+        assert "group_color" in st, f"Missing group_color on student {st['code']}"
+
+    # Update color group in database
+    st_hs01 = database.get_student_by_code("HS01")
+    database.update_student_color_group(st_hs01["id"], "Nhóm Tím Siêu Đẳng", "#8B5CF6")
+    st_hs01_updated = database.get_student_by_code("HS01")
+    assert st_hs01_updated["group_name"] == "Nhóm Tím Siêu Đẳng"
+    assert st_hs01_updated["group_color"] == "#8B5CF6"
+
+    # Reset HS01 back to Nhóm Đỏ
+    database.update_student_color_group(st_hs01["id"], "Nhóm Đỏ", "#EF4444")
+    assert database.get_student_by_code("HS01")["group_name"] == "Nhóm Đỏ"
+    print(" -> PASS: Student color group database CRUD verified.")
+
+    # 26b. Tracking Matrix includes group_name and group_color
+    trk_matrix = database.get_assignment_tracking_matrix(goal_asg["id"])
+    m_rows = trk_matrix.get("matrix", [])
+    assert len(m_rows) > 0
+    row_0 = m_rows[0]
+    assert "group_name" in row_0, "Missing group_name in tracking matrix row"
+    assert "group_color" in row_0, "Missing group_color in tracking matrix row"
+    print(" -> PASS: Tracking matrix includes student group_name and group_color.")
+
+    # 26c. API POST /api/students/{id}/color-group
+    color_grp_payload = json.dumps({
+        "group_name": "Nhóm Vàng Nắng",
+        "group_color": "#F59E0B"
+    }).encode("utf-8")
+    req_cg = (
+        f"POST /api/students/{st_hs01['id']}/color-group HTTP/1.1\r\n"
+        f"Host: localhost\r\nContent-Type: application/json\r\nContent-Length: {len(color_grp_payload)}\r\nConnection: close\r\n\r\n"
+    ).encode("utf-8") + color_grp_payload
+    sock_cg = MockSocket(req_cg)
+    server.LMSRequestHandler(sock_cg, ("127.0.0.1", 12345), None)
+    out_cg = sock_cg.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_cg, f"Color group API failed: {out_cg}"
+    assert "Nhóm Vàng Nắng" in out_cg
+    # Reset back to Nhóm Đỏ
+    database.update_student_color_group(st_hs01["id"], "Nhóm Đỏ", "#EF4444")
+    print(" -> PASS: Server API endpoint POST /api/students/{id}/color-group verified.")
+
+    # 26d. UI & Frontend Contracts
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_26 = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_26 = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_26 = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_26 = f.read()
+
+    # Team tab removed from #teacher-nav
+    assert '<button class="nav-tab" onclick="app.switchTab(\'pane-teams\')">🏆 Quản Lý Nhóm</button>' not in html_26, "Team tab should be removed from teacher-nav"
+    # Color group filter bar & modal in HTML
+    assert "color-group-filter-bar" in html_26, "Missing color-group-filter-bar in HTML"
+    assert "modal-assign-color-group" in html_26, "Missing modal-assign-color-group in HTML"
+    assert "modal-color-preview-pill" in html_26, "Missing modal-color-preview-pill in HTML"
+
+    # JS color group methods & normal avatars
+    assert "setStudentColorGroupFilter" in js_26, "Missing setStudentColorGroupFilter in app.js"
+    assert "updateStudentColorGroupCounters" in js_26, "Missing updateStudentColorGroupCounters in app.js"
+    assert "openAssignColorGroupModal" in js_26, "Missing openAssignColorGroupModal in app.js"
+    assert "saveStudentColorGroup" in js_26, "Missing saveStudentColorGroup in app.js"
+    assert "selectGradeColorGroupBulk" in js_26, "Missing selectGradeColorGroupBulk in app.js"
+    assert "updateStudentColorGroup" in db_26, "Missing updateStudentColorGroup in client_db.js"
+
+    # CSS classes for normal student avatar and color groups
+    assert "student-avatar-circle" in css_26, "Missing student-avatar-circle in CSS"
+    assert "color-group-filter-bar" in css_26, "Missing color-group-filter-bar in CSS"
+    assert "color-filter-btn" in css_26, "Missing color-filter-btn in CSS"
+    assert "color-group-pill" in css_26, "Missing color-group-pill in CSS"
+    assert "color-bullet" in css_26, "Missing color-bullet in CSS"
+
+    print(" -> PASS: Client UI, JS, and CSS contracts for color groups and normal avatars verified.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (24/24)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (26/26)")
     print("============================================================")
 
 if __name__ == "__main__":

@@ -20,67 +20,67 @@ from datetime import datetime
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "learning.db")
 
-# Teacher Animal Group & Ranking Tiers
+# Teacher Animal Group & Mascot Tiers (Clean, friendly names without embarrassing words)
 ANIMAL_GROUPS_CONFIG = {
     "dolphin": {
-        "tier": "smartest",
-        "tier_name": "Thông Thái (Xuất Sắc)",
+        "tier": "dolphin",
+        "tier_name": "🐬",
         "badge_color": "#0284c7",
         "bg_color": "#e0f2fe",
         "border_color": "#7dd3fc",
         "default_symbol": "🐬",
-        "default_name": "Cá heo thông thái",
+        "default_name": "🐬",
         "options": [
-            {"symbol": "🐬", "name": "Cá heo thông thái"},
-            {"symbol": "🦉", "name": "Cú mèo thông thái"},
-            {"symbol": "🦅", "name": "Đại bàng tinh anh"},
-            {"symbol": "🐳", "name": "Cá voi uyên bác"},
+            {"symbol": "🐬", "name": "🐬"},
+            {"symbol": "🦉", "name": "🦉"},
+            {"symbol": "🦅", "name": "🦅"},
+            {"symbol": "🐳", "name": "🐳"},
         ]
     },
     "monkey": {
-        "tier": "better",
-        "tier_name": "Vượt Trội (Khá Giỏi)",
+        "tier": "monkey",
+        "tier_name": "🐵",
         "badge_color": "#059669",
         "bg_color": "#ecfdf5",
         "border_color": "#a7f3d0",
         "default_symbol": "🐵",
-        "default_name": "Khỉ nhanh nhẹn",
+        "default_name": "🐵",
         "options": [
-            {"symbol": "🐵", "name": "Khỉ nhanh nhẹn"},
-            {"symbol": "🦊", "name": "Cáo lanh lợi"},
-            {"symbol": "🦁", "name": "Sư tử dũng cảm"},
-            {"symbol": "🐆", "name": "Báo đốm tốc độ"},
+            {"symbol": "🐵", "name": "🐵"},
+            {"symbol": "🦊", "name": "🦊"},
+            {"symbol": "🦁", "name": "🦁"},
+            {"symbol": "🐆", "name": "🐆"},
         ]
     },
     "orange_cat": {
-        "tier": "ordinary",
-        "tier_name": "Tiêu Chuẩn (Đạt Yêu Cầu)",
+        "tier": "orange_cat",
+        "tier_name": "🐱",
         "badge_color": "#c2410c",
         "bg_color": "#fff7ed",
         "border_color": "#fed7aa",
         "default_symbol": "🐱",
-        "default_name": "Mèo cam chăm chỉ",
+        "default_name": "🐱",
         "options": [
-            {"symbol": "🐱", "name": "Mèo cam chăm chỉ"},
-            {"symbol": "🐶", "name": "Cún con trung thành"},
-            {"symbol": "🐼", "name": "Gấu trúc cần cù"},
-            {"symbol": "🐰", "name": "Thỏ trắng nhanh nhẹn"},
+            {"symbol": "🐱", "name": "🐱"},
+            {"symbol": "🐶", "name": "🐶"},
+            {"symbol": "🐼", "name": "🐼"},
+            {"symbol": "🐰", "name": "🐰"},
         ]
     },
     "turtle_snail": {
-        "tier": "improvement",
-        "tier_name": "Cần Cố Gắng (Cần Rèn Luyện Thêm)",
+        "tier": "turtle_snail",
+        "tier_name": "🐢",
         "badge_color": "#be185d",
         "bg_color": "#fdf2f8",
         "border_color": "#fbcfe8",
         "default_symbol": "🐢",
-        "default_name": "Rùa kiên trì",
+        "default_name": "🐢",
         "options": [
-            {"symbol": "🐢", "name": "Rùa kiên trì"},
-            {"symbol": "🐌", "name": "Ốc sên nỗ lực"},
-            {"symbol": "🦥", "name": "Lười thong thả"},
-            {"symbol": "🦔", "name": "Nhím cẩn thận"},
-            {"symbol": "🐜", "name": "Kiến nhẫn nại"},
+            {"symbol": "🐢", "name": "🐢"},
+            {"symbol": "🐌", "name": "🐌"},
+            {"symbol": "🦥", "name": "🦥"},
+            {"symbol": "🦔", "name": "🦔"},
+            {"symbol": "🐜", "name": "🐜"},
         ]
     }
 }
@@ -115,7 +115,7 @@ def init_db():
         password TEXT DEFAULT '1234',
         animal_group TEXT DEFAULT 'orange_cat',
         animal_symbol TEXT DEFAULT '🐱',
-        animal_title TEXT DEFAULT 'Mèo cam chăm chỉ',
+        animal_title TEXT DEFAULT '🐱',
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -212,13 +212,27 @@ def init_db():
     if "animal_symbol" not in st_cols:
         cursor.execute("ALTER TABLE students ADD COLUMN animal_symbol TEXT DEFAULT '🐱'")
     if "animal_title" not in st_cols:
-        cursor.execute("ALTER TABLE students ADD COLUMN animal_title TEXT DEFAULT 'Mèo cam chăm chỉ'")
+        cursor.execute("ALTER TABLE students ADD COLUMN animal_title TEXT DEFAULT '🐱'")
+    if "subject_animals" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN subject_animals TEXT DEFAULT '{}'")
+    if "group_name" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN group_name TEXT DEFAULT 'Nhóm 1'")
+    if "group_color" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN group_color TEXT DEFAULT '#3B82F6'")
 
-    # Ensure questions column exists on assignments table
+    # Ensure questions and goals columns exist on assignments table
     cursor.execute("PRAGMA table_info(assignments)")
     asg_cols = [col[1] for col in cursor.fetchall()]
     if "questions" not in asg_cols:
         cursor.execute("ALTER TABLE assignments ADD COLUMN questions TEXT DEFAULT '[]'")
+    if "goals" not in asg_cols:
+        cursor.execute("ALTER TABLE assignments ADD COLUMN goals TEXT DEFAULT ''")
+
+    # Ensure max_capacity column exists on teams table
+    cursor.execute("PRAGMA table_info(teams)")
+    teams_cols = [col[1] for col in cursor.fetchall()]
+    if "max_capacity" not in teams_cols:
+        cursor.execute("ALTER TABLE teams ADD COLUMN max_capacity INTEGER DEFAULT 0")
 
     # Ensure question_details column exists on submission_events table
     cursor.execute("PRAGMA table_info(submission_events)")
@@ -239,35 +253,77 @@ def init_db():
            OR title LIKE '%Mùa thu yêu thương%'
     """)
 
-    # Initial seed distribution for animal groups
+    # Initial seed distribution for animal groups (Clean, friendly names without embarrassing words)
     initial_groups = {
-        # Smartest / Dolphin tier
-        "HS01": ("dolphin", "🐬", "Cá heo thông thái"),
-        "HS06": ("dolphin", "🐬", "Cá heo thông thái"),
-        "HS11": ("dolphin", "🦉", "Cú mèo thông thái"),
-        "HS15": ("dolphin", "🦅", "Đại bàng tinh anh"),
-        "HS21": ("dolphin", "🐬", "Cá heo thông thái"),
-        # Better than ordinary / Monkey tier
-        "HS02": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
-        "HS07": ("monkey", "🦊", "Cáo lanh lợi"),
-        "HS10": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
-        "HS14": ("monkey", "🦁", "Sư tử dũng cảm"),
-        "HS18": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
-        "HS26": ("monkey", "🐆", "Báo đốm tốc độ"),
-        "HS29": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
-        # Need improvement / Turtle/Snail tier
-        "HS22": ("turtle_snail", "🐢", "Rùa kiên trì"),
-        "HS23": ("turtle_snail", "🐌", "Ốc sên nỗ lực"),
-        "HS24": ("turtle_snail", "🐢", "Rùa kiên trì"),
-        "HS27": ("turtle_snail", "🐌", "Ốc sên nỗ lực"),
-        "HS28": ("turtle_snail", "🦥", "Lười thong thả"),
+        # Dolphin tier
+        "HS01": ("dolphin", "🐬", "🐬"),
+        "HS06": ("dolphin", "🐬", "🐬"),
+        "HS11": ("dolphin", "🦉", "🦉"),
+        "HS15": ("dolphin", "🦅", "🦅"),
+        "HS21": ("dolphin", "🐬", "🐬"),
+        # Monkey tier
+        "HS02": ("monkey", "🐵", "🐵"),
+        "HS07": ("monkey", "🦊", "🦊"),
+        "HS10": ("monkey", "🐵", "🐵"),
+        "HS14": ("monkey", "🦁", "🦁"),
+        "HS18": ("monkey", "🐵", "🐵"),
+        "HS26": ("monkey", "🐆", "🐆"),
+        "HS29": ("monkey", "🐵", "🐵"),
+        # Turtle / Snail tier
+        "HS22": ("turtle_snail", "🐢", "🐢"),
+        "HS23": ("turtle_snail", "🐌", "🐌"),
+        "HS24": ("turtle_snail", "🐢", "🐢"),
+        "HS27": ("turtle_snail", "🐌", "🐌"),
+        "HS28": ("turtle_snail", "🦥", "🦥"),
     }
     for code, (grp, sym, ttl) in initial_groups.items():
         cursor.execute("""
             UPDATE students
             SET animal_group = ?, animal_symbol = ?, animal_title = ?
-            WHERE code = ? AND (animal_group IS NULL OR animal_group = 'orange_cat')
-        """, (grp, sym, ttl, code))
+            WHERE code = ?
+        """, (grp, sym, sym, code))
+
+    # Clean all animal_title to be strictly the icon symbol without any words
+    cursor.execute("UPDATE students SET animal_title = animal_symbol")
+
+    # Initial seed distribution for color groups (divided by different colors)
+    color_group_seeds = [
+        # Nhóm Đỏ (HS01..HS07)
+        ("HS01", "Nhóm Đỏ", "#EF4444"),
+        ("HS02", "Nhóm Đỏ", "#EF4444"),
+        ("HS03", "Nhóm Đỏ", "#EF4444"),
+        ("HS04", "Nhóm Đỏ", "#EF4444"),
+        ("HS05", "Nhóm Đỏ", "#EF4444"),
+        ("HS06", "Nhóm Đỏ", "#EF4444"),
+        ("HS07", "Nhóm Đỏ", "#EF4444"),
+        # Nhóm Xanh Dương (HS08..HS14)
+        ("HS08", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS09", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS10", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS11", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS12", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS13", "Nhóm Xanh Dương", "#3B82F6"),
+        ("HS14", "Nhóm Xanh Dương", "#3B82F6"),
+        # Nhóm Xanh Lá (HS15..HS21)
+        ("HS15", "Nhóm Xanh Lá", "#10B981"),
+        ("HS16", "Nhóm Xanh Lá", "#10B981"),
+        ("HS17", "Nhóm Xanh Lá", "#10B981"),
+        ("HS18", "Nhóm Xanh Lá", "#10B981"),
+        ("HS19", "Nhóm Xanh Lá", "#10B981"),
+        ("HS20", "Nhóm Xanh Lá", "#10B981"),
+        ("HS21", "Nhóm Xanh Lá", "#10B981"),
+        # Nhóm Vàng (HS22..HS29)
+        ("HS22", "Nhóm Vàng", "#F59E0B"),
+        ("HS23", "Nhóm Vàng", "#F59E0B"),
+        ("HS24", "Nhóm Vàng", "#F59E0B"),
+        ("HS25", "Nhóm Vàng", "#F59E0B"),
+        ("HS26", "Nhóm Vàng", "#F59E0B"),
+        ("HS27", "Nhóm Vàng", "#F59E0B"),
+        ("HS28", "Nhóm Vàng", "#F59E0B"),
+        ("HS29", "Nhóm Vàng", "#F59E0B"),
+    ]
+    for c_code, c_gname, c_gcolor in color_group_seeds:
+        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE code = ?", (c_gname, c_gcolor, c_code))
 
     # Seed Default Settings
     default_settings = {
@@ -378,6 +434,19 @@ def update_settings(data):
     return get_settings()
 
 # --- Students ---
+def _format_student_row(row_dict):
+    if not row_dict:
+        return row_dict
+    raw_subj = row_dict.get("subject_animals")
+    if isinstance(raw_subj, str):
+        try:
+            row_dict["subject_animals"] = json.loads(raw_subj) if raw_subj else {}
+        except Exception:
+            row_dict["subject_animals"] = {}
+    elif not isinstance(raw_subj, dict):
+        row_dict["subject_animals"] = {}
+    return row_dict
+
 def get_students(include_inactive=False):
     conn = get_db()
     cursor = conn.cursor()
@@ -385,7 +454,7 @@ def get_students(include_inactive=False):
         cursor.execute("SELECT * FROM students ORDER BY order_num ASC, code ASC")
     else:
         cursor.execute("SELECT * FROM students WHERE is_active = 1 ORDER BY order_num ASC, code ASC")
-    rows = [dict(r) for r in cursor.fetchall()]
+    rows = [_format_student_row(dict(r)) for r in cursor.fetchall()]
     conn.close()
     return rows
 
@@ -399,7 +468,7 @@ def get_student_by_code(code):
     cursor.execute("SELECT * FROM students WHERE code = ? AND is_active = 1", (clean,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    return _format_student_row(dict(row)) if row else None
 
 def get_student_by_id(student_id):
     conn = get_db()
@@ -411,7 +480,7 @@ def get_student_by_id(student_id):
         cursor.execute("SELECT * FROM students WHERE code = ?", (val.upper(),))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    return _format_student_row(dict(row)) if row else None
 
 def add_student(code, full_name, gender="Nam", order_num=None, class_name="Lớp 3A7"):
     conn = get_db()
@@ -551,6 +620,88 @@ def update_student_animal_group(student_id_or_code, group_key, symbol=None, titl
         "border_color": cfg["border_color"]
     }
 
+def update_student_color_group(student_id_or_code, group_name, group_color):
+    """
+    Teacher-only: Updates a student's assigned color group (e.g. 'Nhóm Đỏ', '#EF4444').
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    clean_name = str(group_name or "Nhóm 1").strip()
+    clean_color = str(group_color or "#3B82F6").strip()
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE id = ?", (clean_name, clean_color, int(val)))
+    else:
+        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE code = ?", (clean_name, clean_color, val.upper()))
+    conn.commit()
+    conn.close()
+    return {
+        "success": True,
+        "student_id": student_id_or_code,
+        "group_name": clean_name,
+        "group_color": clean_color
+    }
+
+def update_student_subject_animal(student_id_or_code, subject, group_key, symbol=None, title=None):
+    """
+    Teacher-only: Updates a student's assigned animal mascot for a specific subject (e.g. 'Toán', 'Tiếng Việt').
+    Stored in students.subject_animals JSON: {"Toán": {"group": "dolphin", "symbol": "🐬", "title": "🐬"}}.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("SELECT id, subject_animals FROM students WHERE id = ?", (int(val),))
+    else:
+        cursor.execute("SELECT id, subject_animals FROM students WHERE code = ?", (val.upper(),))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return {"success": False, "error": f"Không tìm thấy học sinh: {student_id_or_code}"}
+
+    st_id = row[0]
+    raw = row[1]
+    curr_map = {}
+    if raw:
+        try:
+            curr_map = json.loads(raw)
+        except Exception:
+            curr_map = {}
+
+    clean_subj = str(subject or "Toán").strip()
+    clean_group = str(group_key or "orange_cat").strip().lower()
+    if clean_group not in ANIMAL_GROUPS_CONFIG:
+        clean_group = "orange_cat"
+    cfg = ANIMAL_GROUPS_CONFIG[clean_group]
+    clean_symbol = symbol or cfg["default_symbol"]
+    clean_title = title or cfg["default_name"]
+
+    curr_map[clean_subj] = {
+        "group": clean_group,
+        "symbol": clean_symbol,
+        "title": clean_title,
+        "tier_name": cfg["tier_name"],
+        "badge_color": cfg["badge_color"],
+        "bg_color": cfg["bg_color"],
+        "border_color": cfg["border_color"]
+    }
+
+    new_json = json.dumps(curr_map, ensure_ascii=False)
+    cursor.execute("""
+        UPDATE students
+        SET subject_animals = ?, animal_group = ?, animal_symbol = ?, animal_title = ?
+        WHERE id = ?
+    """, (new_json, clean_group, clean_symbol, clean_title, st_id))
+    conn.commit()
+    conn.close()
+    return {
+        "success": True,
+        "student_id": st_id,
+        "subject": clean_subj,
+        "animal": curr_map[clean_subj],
+        "subject_animals": curr_map
+    }
+
 def reset_students_to_default():
     conn = get_db()
     cursor = conn.cursor()
@@ -616,6 +767,7 @@ def _format_assignment_row(row_dict):
             row_dict["questions"] = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
     elif not isinstance(raw_q, list):
         row_dict["questions"] = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+    row_dict["goals"] = row_dict.get("goals") or ""
     return row_dict
 
 def get_assignments(include_inactive=False):
@@ -637,7 +789,7 @@ def get_assignment_by_id(assignment_id):
     conn.close()
     return _format_assignment_row(dict(row)) if row else None
 
-def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes="", questions=None):
+def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes="", questions=None, goals=""):
     conn = get_db()
     cursor = conn.cursor()
     if questions is None:
@@ -654,15 +806,15 @@ def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, note
     q_str = json.dumps(q_list, ensure_ascii=False)
 
     cursor.execute("""
-        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes, questions)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str))
+        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes, questions, goals)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, (goals or "").strip()))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return get_assignment_by_id(new_id)
 
-def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes, questions=None):
+def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes, questions=None, goals=None):
     conn = get_db()
     cursor = conn.cursor()
     if questions is not None:
@@ -676,17 +828,31 @@ def update_assignment(assignment_id, title, subject, assigned_date, due_date, ma
         else:
             q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
         q_str = json.dumps(q_list, ensure_ascii=False)
-        cursor.execute("""
-            UPDATE assignments
-            SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?
-            WHERE id = ?
-        """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, assignment_id))
+        if goals is not None:
+            cursor.execute("""
+                UPDATE assignments
+                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?, goals = ?
+                WHERE id = ?
+            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, goals.strip(), assignment_id))
+        else:
+            cursor.execute("""
+                UPDATE assignments
+                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?
+                WHERE id = ?
+            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, assignment_id))
     else:
-        cursor.execute("""
-            UPDATE assignments
-            SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?
-            WHERE id = ?
-        """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), assignment_id))
+        if goals is not None:
+            cursor.execute("""
+                UPDATE assignments
+                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, goals = ?
+                WHERE id = ?
+            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), goals.strip(), assignment_id))
+        else:
+            cursor.execute("""
+                UPDATE assignments
+                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?
+                WHERE id = ?
+            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), assignment_id))
     conn.commit()
     conn.close()
     return get_assignment_by_id(assignment_id)
@@ -772,11 +938,11 @@ def record_submission(student_code_or_id, assignment_id, operator="Học sinh"):
         "submitted_at": now_str
     }
 
-def record_grading(student_id, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None):
+def record_grading(student_id, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None):
     """
     Teacher grades a student's work.
     Saves a new 'grade' event without overwriting previous attempts.
-    Supports storing question breakdown details and updating student's animal mascot tier.
+    Supports storing question breakdown details and updating student's animal mascot (globally and per-subject).
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -787,11 +953,13 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
         conn.close()
         return {"success": False, "error": "Học sinh hoặc bài tập không hợp lệ!"}
 
-    # If teacher customized student's animal group during grading, update it immediately
+    # If teacher customized student's animal group during grading, update it immediately (both global and subject-specific)
     if animal_group and str(animal_group).strip():
         try:
-            update_student_animal_group(student_id, animal_group)
-            student = get_student_by_id(student_id)
+            update_student_animal_group(student["id"], animal_group, animal_symbol, animal_title)
+            if assignment.get("subject"):
+                update_student_subject_animal(student["id"], assignment["subject"], animal_group, animal_symbol, animal_title)
+            student = get_student_by_id(student["id"])
         except Exception as e:
             print("Error updating student animal group during grading:", e)
 
@@ -839,7 +1007,7 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
         "graded_at": now_str
     }
 
-def record_grading_batch(student_ids, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None):
+def record_grading_batch(student_ids, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None):
     """
     Teacher grades multiple students in a single batch operation.
     Iterates over student_ids (numeric IDs or string codes) and records grading for each student.
@@ -852,7 +1020,7 @@ def record_grading_batch(student_ids, assignment_id, score, status, teacher_note
     errors = []
     for sid in student_ids:
         try:
-            res = record_grading(sid, assignment_id, score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
+            res = record_grading(sid, assignment_id, score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
             if res.get("success"):
                 results.append(res)
             else:
@@ -984,15 +1152,30 @@ def get_assignment_tracking_matrix(assignment_id):
                     current_status = latest_event["status"]
                     color_group = "yellow"
 
+        # Determine animal mascot: check subject-specific animal first, fallback to base animal
+        subj = assignment.get("subject", "Toán")
+        subj_animal = (st.get("subject_animals") or {}).get(subj)
+        if subj_animal and isinstance(subj_animal, dict):
+            anim_group = subj_animal.get("group", st.get("animal_group", "orange_cat"))
+            anim_symbol = subj_animal.get("symbol", st.get("animal_symbol", "🐱"))
+            anim_title = subj_animal.get("title", anim_symbol)
+        else:
+            anim_group = st.get("animal_group", "orange_cat")
+            anim_symbol = st.get("animal_symbol", "🐱")
+            anim_title = st.get("animal_title", anim_symbol)
+
         matrix.append({
             "stt": st["order_num"],
             "student_id": st["id"],
             "code": st["code"],
             "full_name": st["full_name"],
             "gender": st["gender"],
-            "animal_group": st.get("animal_group", "orange_cat"),
-            "animal_symbol": st.get("animal_symbol", "🐱"),
-            "animal_title": st.get("animal_title", "Mèo cam chăm chỉ"),
+            "group_name": st.get("group_name", "Nhóm 1"),
+            "group_color": st.get("group_color", "#3B82F6"),
+            "animal_group": anim_group,
+            "animal_symbol": anim_symbol,
+            "animal_title": anim_title,
+            "subject_animals": st.get("subject_animals", {}),
             "current_status": current_status,
             "color_group": color_group,
             "latest_submit_time": latest_submit_time,
@@ -1856,13 +2039,13 @@ def _resolve_student_id(cursor, sid_or_code):
     row = cursor.fetchone()
     return row[0] if row else None
 
-def create_team(name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None):
+def create_team(name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None, max_capacity=0):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO teams (name, color, icon, image, motto)
-        VALUES (?, ?, ?, ?, ?)
-    """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip()))
+        INSERT INTO teams (name, color, icon, image, motto, max_capacity)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip(), int(max_capacity or 0)))
     team_id = cursor.lastrowid
     if member_ids and isinstance(member_ids, list):
         for sid in member_ids:
@@ -1876,14 +2059,21 @@ def create_team(name, color="#3B82F6", icon="⭐", image="", motto="", member_id
     conn.close()
     return get_team_by_id(team_id)
 
-def update_team(team_id, name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None):
+def update_team(team_id, name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None, max_capacity=None):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE teams
-        SET name = ?, color = ?, icon = ?, image = ?, motto = ?
-        WHERE id = ?
-    """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip(), int(team_id)))
+    if max_capacity is not None:
+        cursor.execute("""
+            UPDATE teams
+            SET name = ?, color = ?, icon = ?, image = ?, motto = ?, max_capacity = ?
+            WHERE id = ?
+        """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip(), int(max_capacity or 0), int(team_id)))
+    else:
+        cursor.execute("""
+            UPDATE teams
+            SET name = ?, color = ?, icon = ?, image = ?, motto = ?
+            WHERE id = ?
+        """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip(), int(team_id)))
     if member_ids is not None and isinstance(member_ids, list):
         cursor.execute("DELETE FROM team_members WHERE team_id = ?", (int(team_id),))
         for sid in member_ids:
