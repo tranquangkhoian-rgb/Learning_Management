@@ -2152,11 +2152,69 @@ class LMSApp {
     }
   }
 
+  onRaceSearch(query) {
+    this.raceSearchQuery = (query || "").trim().toLowerCase();
+    this.applyRaceFilters();
+  }
+
+  filterRaceList(filterType, btnElement) {
+    this.raceFilterType = filterType || "all";
+    document.querySelectorAll(".race-filter-pill").forEach(p => p.classList.remove("active"));
+    if (btnElement) btnElement.classList.add("active");
+    this.applyRaceFilters();
+  }
+
+  applyRaceFilters() {
+    if (!this.readingRace) return;
+    let list = this.readingRace;
+    if (this.raceFilterType === "top3") {
+      list = list.filter(st => (Number(st.rank) || 99) <= 3 && (Number(st.completed) || 0) > 0);
+    } else if (this.raceFilterType === "milestone15") {
+      list = list.filter(st => (Number(st.completed) || 0) >= 15);
+    } else if (this.raceFilterType === "finished") {
+      list = list.filter(st => (Number(st.completed) || 0) >= 33);
+    }
+
+    if (this.raceSearchQuery) {
+      const q = this.raceSearchQuery;
+      list = list.filter(st => 
+        (st.name || "").toLowerCase().includes(q) ||
+        (st.code || "").toLowerCase().includes(q)
+      );
+    }
+
+    this.renderReadingRaceRows(list);
+  }
+
   renderReadingRace(raceList) {
+    this.readingRace = raceList || [];
+    this.applyRaceFilters();
+
+    // Also update Top 5 readers on stats tab
+    const topReadersBox = document.getElementById("lib-stats-top-readers");
+    if (topReadersBox && this.readingRace.length > 0) {
+      const top5 = this.readingRace.slice(0, 5);
+      topReadersBox.innerHTML = top5.map((r, idx) => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${idx === 0 ? '#fef3c7' : '#f8fafc'}; border: 1px solid ${idx === 0 ? '#fde68a' : '#e2e8f0'}; border-radius: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}</span>
+            <span style="font-size: 22px;">${r.avatar || '🐶'}</span>
+            <div>
+              <div style="font-weight: 800; color: #1e293b;">${r.name}</div>
+              <div style="font-size: 11px; color: #64748b;">${r.code}</div>
+            </div>
+          </div>
+          <span class="badge badge-green" style="font-size: 14px; font-weight: 900;">${r.completed} / 33 quyển</span>
+        </div>
+      `).join("");
+    }
+  }
+
+  renderReadingRaceRows(raceList) {
     const tbody = document.getElementById("lib-race-tbody");
     if (!tbody) return;
     if (!raceList || raceList.length === 0) {
-      tbody.innerHTML = "<div style='padding: 24px; text-align: center; color: #94a3b8;'>Chưa có dữ liệu độc giả</div>";
+      tbody.innerHTML = "<div style='padding: 32px 16px; text-align: center; color: #94a3b8; font-weight: 700;'>Không tìm thấy độc giả nào phù hợp với bộ lọc</div>";
       return;
     }
 
@@ -2190,11 +2248,11 @@ class LMSApp {
 
       let subProgressText = "";
       if (completed > 33) {
-        subProgressText = `<div class="race-progress-sub">+${completed - 33} vượt đích!</div>`;
+        subProgressText = `<div class="race-progress-sub" style="color: #d97706; font-weight: 800;">+${completed - 33} vượt đích!</div>`;
       } else if (completed === 33) {
-        subProgressText = `<div class="race-progress-sub" style="color: #059669;">🏁 Về đích!</div>`;
+        subProgressText = `<div class="race-progress-sub" style="color: #059669; font-weight: 800;">🏁 Về đích!</div>`;
       } else {
-        subProgressText = `<div style="font-size: 11px; color: #94a3b8;">còn ${33 - completed}</div>`;
+        subProgressText = `<div class="race-progress-sub" style="color: #94a3b8;">còn ${33 - completed}</div>`;
       }
 
       const avatar = st.avatar || "🐶";
@@ -2204,59 +2262,56 @@ class LMSApp {
 
       const controls = isTeacher ? `
         <div class="race-controls-cell">
-          <button type="button" class="btn-race-step dec" onclick="app.updateStudentReadingRace(${st.student_id}, -1)" ${completed <= 0 ? 'disabled' : ''} title="Hoàn tác 1 ô">-1 ô</button>
-          <button type="button" class="btn-race-step inc" onclick="app.updateStudentReadingRace(${st.student_id}, 1)" title="Đã đọc xong thêm 1 quyển">+ 1 ô</button>
+          <button type="button" class="btn-race-step dec" onclick="app.updateStudentReadingRace(${st.student_id}, -1)" ${completed <= 0 ? 'disabled' : ''} title="Hoàn tác 1 ô">
+            <span>↩️</span> -1 ô
+          </button>
+          <button type="button" class="btn-race-step inc" onclick="app.updateStudentReadingRace(${st.student_id}, 1)" title="Đã đọc xong thêm 1 quyển">
+            <span>📖</span> + 1 ô ĐÃ ĐỌC
+          </button>
         </div>
       ` : "";
 
       return `
         <div class="race-grid-row race-student-row ${rowRankClass}">
-          <div>${rankDisplay}</div>
+          <div class="race-col-rank">${rankDisplay}</div>
           <div class="race-reader-info">
             ${petBtn}
             <div class="race-reader-names">
               <div class="race-reader-name">${st.name}</div>
-              <div class="race-reader-code">${st.code}</div>
+              <div class="race-reader-meta">
+                <span class="race-reader-code">${st.code}</span>
+                <span class="race-rank-mobile">Hạng ${rank}</span>
+              </div>
             </div>
           </div>
           <div class="race-track-cell">
-            <div class="race-track-bg">
-              <div class="race-track-fill" style="width: ${pct}%;"></div>
+            <div class="race-track-milestones-mobile">
+              <span class="rt-m rt-0">0</span>
+              <span class="rt-m rt-11">11</span>
+              <span class="rt-m rt-15" title="Mốc Tháng 12 (15 cuốn)">🎯 15 (T12)</span>
+              <span class="rt-m rt-22">22</span>
+              <span class="rt-m rt-33" title="Về Đích Tháng 4 (33 cuốn)">33 🏁 (T4)</span>
             </div>
-            <div class="milestone-pin-11" title="Mốc 11 quyển"></div>
-            <div class="milestone-pin-15" title="Mốc 15 quyển (Hết tháng 12)"></div>
-            <div class="milestone-pin-22" title="Mốc 22 quyển"></div>
-            <div class="race-runner-marker" style="left: ${pct}%;" title="${st.name}: ${completed}/33 quyển">
-              ${completed > 0 ? avatar : '🐾'}
+            <div class="race-track-bar-container">
+              <div class="race-track-bg">
+                <div class="race-track-fill" style="width: ${pct}%;"></div>
+              </div>
+              <div class="milestone-pin-11" title="Mốc 11 quyển"></div>
+              <div class="milestone-pin-15" title="Mốc 15 quyển (Hết tháng 12)"></div>
+              <div class="milestone-pin-22" title="Mốc 22 quyển"></div>
+              <div class="race-runner-marker" style="left: ${pct}%;" title="${st.name}: ${completed}/33 quyển">
+                ${completed > 0 ? avatar : '🐾'}
+              </div>
             </div>
           </div>
           <div class="race-progress-text">
-            <div>${completed}/33</div>
+            <div class="race-progress-main">${completed}/33 <span class="race-progress-unit">cuốn</span></div>
             ${subProgressText}
           </div>
           ${controls}
         </div>
       `;
     }).join("");
-
-    // Also update Top 5 readers on stats tab
-    const topReadersBox = document.getElementById("lib-stats-top-readers");
-    if (topReadersBox) {
-      const top5 = raceList.slice(0, 5);
-      topReadersBox.innerHTML = top5.map((r, idx) => `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${idx === 0 ? '#fef3c7' : '#f8fafc'}; border: 1px solid ${idx === 0 ? '#fde68a' : '#e2e8f0'}; border-radius: 14px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 20px;">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}</span>
-            <span style="font-size: 22px;">${r.avatar || '🐶'}</span>
-            <div>
-              <div style="font-weight: 800; color: #1e293b;">${r.name}</div>
-              <div style="font-size: 11px; color: #64748b;">${r.code}</div>
-            </div>
-          </div>
-          <span class="badge badge-green" style="font-size: 14px; font-weight: 900;">${r.completed} / 33 quyển</span>
-        </div>
-      `).join("");
-    }
   }
 
   async updateStudentReadingRace(studentId, delta) {

@@ -250,6 +250,19 @@ def test_all():
     assert "Mã QR Sách Lớp 3A7" in js_content, "Missing book QR print layout in public/js/app.js"
     print(" -> PASS: printAllBooksQrSheet() method and A4 PDF printing template verified in public/js/app.js.")
 
+    # 16. Verify Mobile Reading Race responsiveness and elements
+    assert "race-milestones-summary-card" in html_content, "Missing race milestones banner in public/index.html"
+    assert "lib-race-search-input" in html_content, "Missing race search input in public/index.html"
+    assert "onRaceSearch" in js_content, "Missing onRaceSearch in public/js/app.js"
+    assert "filterRaceList" in js_content, "Missing filterRaceList in public/js/app.js"
+    assert "race-track-milestones-mobile" in js_content, "Missing mobile race track milestones in public/js/app.js"
+    
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_content = f.read()
+    assert ".race-milestones-summary-card" in css_content, "Missing milestone banner CSS"
+    assert ".race-student-row" in css_content and "@media (max-width: 768px)" in css_content, "Missing mobile responsive race CSS"
+    print(" -> PASS: Mobile Reading Race UI enhancements (Milestone goals banner, search/filter, full-width responsive track cards) verified.")
+
     # Verify mirrors are in sync
     with open("index.html", "r", encoding="utf-8") as f:
         assert f.read() == html_content, "index.html not in sync with public/index.html"
@@ -259,10 +272,14 @@ def test_all():
         assert f.read() == js_content, "js/app.js not in sync with public/js/app.js"
     with open("docs/js/app.js", "r", encoding="utf-8") as f:
         assert f.read() == js_content, "docs/js/app.js not in sync with public/js/app.js"
+    with open("css/style.css", "r", encoding="utf-8") as f:
+        assert f.read() == css_content, "css/style.css not in sync with public/css/style.css"
+    with open("docs/css/style.css", "r", encoding="utf-8") as f:
+        assert f.read() == css_content, "docs/css/style.css not in sync with public/css/style.css"
     print(" -> PASS: All mirror files (public/, docs/, root) are 100% in sync.")
 
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (15/15)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (16/16)")
     print("============================================================")
 
 if __name__ == "__main__":
