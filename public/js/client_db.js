@@ -1747,6 +1747,33 @@ class ClientDBEngine {
     };
   }
 
+  recordGradingBatch(studentIds, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null) {
+    if (!studentIds || !Array.isArray(studentIds)) {
+      return { success: false, error: "Danh sách học sinh không hợp lệ!", results: [] };
+    }
+    const results = [];
+    const errors = [];
+    studentIds.forEach(sid => {
+      try {
+        const res = this.recordGrading(sid, assignmentId, score, status, teacherNote, operator, questionDetails, animalGroup);
+        if (res && res.success) {
+          results.push(res);
+        } else {
+          errors.push({ student_id: sid, error: res ? res.error : "Lỗi chấm bài" });
+        }
+      } catch (err) {
+        errors.push({ student_id: sid, error: err.message });
+      }
+    });
+    return {
+      success: results.length > 0,
+      count: results.length,
+      total_requested: studentIds.length,
+      results: results,
+      errors: errors
+    };
+  }
+
   // --- 11-column Tracking Matrix ---
   getTrackingMatrix(assignmentId) {
     const students = this.getStudents();

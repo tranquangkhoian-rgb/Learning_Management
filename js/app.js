@@ -33,6 +33,12 @@ class LMSApp {
     this.selectedPetStudent = null;
     this.currentViewMode = "teacher";
     this.currentQrBook = null;
+    this.gradeSelectionMode = "single";
+    this.selectedGradeStudentIds = new Set();
+    this.currentlyGradingBatchStudents = [];
+    this.gradeStudentSearchQuery = "";
+    this.gradeTeamFilter = "";
+    this.gradeAnimalFilter = "";
   }
 
   async checkServer() {
@@ -1012,6 +1018,8 @@ class LMSApp {
       this.startKioskCamera();
     } else if (paneId === "pane-grade") {
       this.startGradeCamera();
+      this.updateGradeGroupCounts();
+      this.renderGradeStudentList();
     } else if (paneId === "pane-homework") {
       this.loadHomeworkList();
     } else if (paneId === "pane-teams") {
@@ -1115,23 +1123,17 @@ class LMSApp {
 
   renderQuickStudentButtons() {
     const kioskBox = document.getElementById("kiosk-student-buttons");
-    const gradeBox = document.getElementById("grade-student-list");
+    if (kioskBox) {
+      const html = this.students.map(s => `
+        <button class="quick-student-btn" onclick="app.handleKioskScan('${s.code}')">
+          <strong>${s.order_num}.</strong> ${s.full_name}
+        </button>
+      `).join("");
+      kioskBox.innerHTML = html;
+    }
 
-    const html = this.students.map(s => `
-      <button class="quick-student-btn" onclick="app.handleKioskScan('${s.code}')">
-        <strong>${s.order_num}.</strong> ${s.full_name}
-      </button>
-    `).join("");
-
-    kioskBox.innerHTML = html;
-
-    const gradeHtml = this.students.map(s => `
-      <button class="quick-student-btn" onclick="app.openGradingForStudentById(${s.id})">
-        <strong>${s.order_num}.</strong> ${s.full_name} (${s.code})
-      </button>
-    `).join("");
-
-    gradeBox.innerHTML = gradeHtml;
+    this.updateGradeGroupCounts();
+    this.renderGradeStudentList();
   }
 
   async handleKioskScan(code) {
@@ -1257,22 +1259,412 @@ class LMSApp {
   }
 
   openGradingForStudentById(studentId) {
-    const st = this.students.find(s => s.id == studentId);
+    const st = (this.students || []).find(s => s.id == studentId);
     if (st) this.openGradingForStudent(st);
   }
 
-  async openGradingForStudent(st) {
-    this.currentlyGradingStudent = st;
+  setGradeSelectionMode(mode) {
+    this.gradeSelectionMode = mode;
+    const btnSingle = document.getElementById("btn-grade-mode-single");
+    const btnMulti = document.getElementById("btn-grade-mode-multi");
+    const multiActionBar = document.getElementById("grade-multi-action-bar");
+
+    if (btnSingle) btnSingle.classList.toggle("active", mode === "single");
+    if (btnMulti) btnMulti.classList.toggle("active", mode === "multi");
+    if (multiActionBar) multiActionBar.style.display = mode === "multi" ? "flex" : "none";
+
+    this.renderGradeStudentList();
+  }
+
+  updateGradeGroupCounts() {
+    const students = this.students || [];
+    let dolphinCount = 0, monkeyCount = 0, catCount = 0, turtleCount = 0;
+    students.forEach(s => {
+      const g = s.animal_group || "orange_cat";
+      if (g === "dolphin") dolphinCount++;
+      else if (g === "monkey") monkeyCount++;
+      else if (g === "turtle_snail") turtleCount++;
+      else catCount++;
+    });
+
+    const elDolphin = document.getElementById("grade-count-dolphin");
+    const elMonkey = document.getElementById("grade-count-monkey");
+    const elCat = document.getElementById("grade-count-cat");
+    const elTurtle = document.getElementById("grade-count-turtle");
+    if (elDolphin) elDolphin.innerText = dolphinCount;
+    if (elMonkey) elMonkey.innerText = monkeyCount;
+    if (elCat) elCat.innerText = catCount;
+    if (elTurtle) elTurtle.innerText = turtleCount;
+
+    // Populate grade-team-selector
+    const teamSel = document.getElementById("grade-team-selector");
+    if (teamSel) {
+      const currentVal = teamSel.value;
+      const teams = this.teams || [];
+      let opts = '<option value="">-- Chọn nhóm tùy chỉnh của cô --</option>';
+      teams.forEach(t => {
+        const count = Array.isArray(t.members) ? t.members.length : (Array.isArray(t.member_ids) ? t.member_ids.length : 0);
+        opts += `<option value="${t.id}">${t.icon || "⭐"} ${t.name} (${count} em)</option>`;
+      });
+      teamSel.innerHTML = opts;
+      if (currentVal) teamSel.value = currentVal;
+    }
+  }
+
+  onGradeTeamSelectorChange() {
+    const teamId = document.getElementById("grade-team-selector").value;
+    this.gradeTeamFilter = teamId;
+    this.renderGradeStudentList();
+  }
+
+  filterGradeStudentsList() {
+    const input = document.getElementById("grade-student-search");
+    this.gradeStudentSearchQuery = input ? input.value.trim().toLowerCase() : "";
+    this.renderGradeStudentList();
+  }
+
+  renderQuickGradeStudentList() {
+    this.renderGradeStudentList();
+  }
+
+  renderGradeStudentList() {
+    const gradeBox = document.getElementById("grade-student-list");
+    if (!gradeBox) return;
+
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    const mode = this.gradeSelectionMode || "single";
+    const query = this.gradeStudentSearchQuery || "";
+    const teamFilter = this.gradeTeamFilter;
+    const animalFilter = this.gradeAnimalFilter;
+
+    // Filter students
+    let filtered = (this.students || []).filter(s => {
+      if (query) {
+        const matchName = (s.full_name || "").toLowerCase().includes(query);
+        const matchCode = (s.code || "").toLowerCase().includes(query);
+        if (!matchName && !matchCode) return false;
+      }
+      if (animalFilter && (s.animal_group || "orange_cat") !== animalFilter) {
+        return false;
+      }
+      if (teamFilter) {
+        const team = (this.teams || []).find(t => t.id == teamFilter);
+        if (team) {
+          const mList = Array.isArray(team.members) ? team.members : [];
+          const mIds = Array.isArray(team.member_ids) ? team.member_ids : [];
+          const inTeam = mList.some(m => m && (m.id == s.id || m.code == s.code)) ||
+                         mIds.some(mid => mid == s.id || mid == s.code);
+          if (!inTeam) return false;
+        }
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      gradeBox.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 16px;">Không tìm thấy học sinh phù hợp</div>`;
+      return;
+    }
+
+    const animalSymbols = {
+      "dolphin": "🐬",
+      "monkey": "🐵",
+      "orange_cat": "🐱",
+      "turtle_snail": "🐢"
+    };
+
+    gradeBox.innerHTML = filtered.map(s => {
+      const isSelected = this.selectedGradeStudentIds.has(s.id);
+      const isSingleActive = this.currentlyGradingStudent && this.currentlyGradingStudent.id === s.id;
+      const sym = s.animal_symbol || animalSymbols[s.animal_group] || "🐱";
+
+      // Find teams s belongs to
+      const stTeams = (this.teams || []).filter(t => {
+        const mList = Array.isArray(t.members) ? t.members : [];
+        const mIds = Array.isArray(t.member_ids) ? t.member_ids : [];
+        return mList.some(m => m && (m.id == s.id || m.code == s.code)) ||
+               mIds.some(mid => mid == s.id || mid == s.code);
+      });
+      const teamTags = stTeams.map(t => `<span style="font-size: 10px; background: ${t.color}20; color: ${t.color}; border: 1px solid ${t.color}50; border-radius: 4px; padding: 1px 4px; margin-left: 4px;">${t.icon || "⭐"} ${t.name}</span>`).join("");
+
+      if (mode === "multi") {
+        return `
+          <div class="grade-student-item ${isSelected ? 'selected' : ''}" onclick="app.toggleGradeStudentSelect(${s.id}, event)">
+            <div class="st-item-left">
+              <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleGradeStudentSelect(${s.id}, event)">
+              <span style="font-size: 15px;">${sym}</span>
+              <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
+            </div>
+            <div class="st-item-right">
+              ${teamTags}
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="grade-student-item ${isSingleActive ? 'active-single' : ''}" onclick="app.openGradingForStudentById(${s.id})">
+            <div class="st-item-left">
+              <span style="font-size: 15px;">${sym}</span>
+              <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
+            </div>
+            <div class="st-item-right">
+              ${teamTags}
+              <button type="button" class="btn btn-outline btn-xs" style="font-size: 11px; padding: 2px 6px;">Chấm</button>
+            </div>
+          </div>
+        `;
+      }
+    }).join("");
+
+    const selCountEl = document.getElementById("grade-selected-count");
+    if (selCountEl) {
+      selCountEl.innerText = this.selectedGradeStudentIds.size;
+    }
+  }
+
+  toggleGradeStudentSelect(studentId, evt) {
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    if (this.selectedGradeStudentIds.has(studentId)) {
+      this.selectedGradeStudentIds.delete(studentId);
+    } else {
+      this.selectedGradeStudentIds.add(studentId);
+    }
+    this.renderGradeStudentList();
+    if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
+      const selectedStudents = (this.students || []).filter(s => this.selectedGradeStudentIds.has(s.id));
+      if (selectedStudents.length > 0) {
+        this.openGradingForMultipleStudents(selectedStudents, false);
+      } else {
+        this.cancelGrading();
+      }
+    }
+  }
+
+  selectAllGradeStudents() {
+    this.setGradeSelectionMode("multi");
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    (this.students || []).forEach(s => this.selectedGradeStudentIds.add(s.id));
+    this.renderGradeStudentList();
+    const allStudents = [...(this.students || [])];
+    this.openGradingForMultipleStudents(allStudents, true, "Cả Lớp 3A7");
+  }
+
+  deselectAllGradeStudents() {
+    if (this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds.clear();
+    }
+    this.renderGradeStudentList();
+    if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
+      this.cancelGrading();
+    }
+  }
+
+  selectGradeAnimalGroupBulk(groupKey) {
+    this.setGradeSelectionMode("multi");
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    this.selectedGradeStudentIds.clear();
+    const matched = (this.students || []).filter(s => (s.animal_group || "orange_cat") === groupKey);
+    matched.forEach(s => this.selectedGradeStudentIds.add(s.id));
+    this.renderGradeStudentList();
+    if (matched.length > 0) {
+      const groupNames = {
+        "dolphin": "Nhóm Cá heo 🐬",
+        "monkey": "Nhóm Khỉ con 🐵",
+        "orange_cat": "Nhóm Mèo cam 🐱",
+        "turtle_snail": "Nhóm Rùa / Sên 🐢"
+      };
+      this.openGradingForMultipleStudents(matched, true, groupNames[groupKey] || "Nhóm Linh Vật");
+    } else {
+      alert(`Hiện tại chưa có học sinh nào trong nhóm linh vật này!`);
+    }
+  }
+
+  selectGradeTeamBulkCurrent() {
+    const sel = document.getElementById("grade-team-selector");
+    const teamId = sel ? sel.value : "";
+    if (!teamId) {
+      alert("Vui lòng chọn một nhóm của cô từ danh sách trước!");
+      return;
+    }
+    this.selectGradeTeamBulk(teamId);
+  }
+
+  selectGradeTeamBulk(teamId) {
+    this.setGradeSelectionMode("multi");
+    const team = (this.teams || []).find(t => t.id == teamId);
+    if (!team) {
+      alert("Không tìm thấy thông tin nhóm!");
+      return;
+    }
+    if (!this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds = new Set();
+    }
+    this.selectedGradeStudentIds.clear();
+
+    const mList = Array.isArray(team.members) ? team.members : [];
+    const mIds = Array.isArray(team.member_ids) ? team.member_ids : [];
+    const matched = (this.students || []).filter(s => {
+      return mList.some(m => m && (m.id == s.id || m.code == s.code)) ||
+             mIds.some(mid => mid == s.id || mid == s.code);
+    });
+
+    matched.forEach(s => this.selectedGradeStudentIds.add(s.id));
+    this.renderGradeStudentList();
+    if (matched.length > 0) {
+      this.openGradingForMultipleStudents(matched, true, `${team.icon || "🏆"} ${team.name}`);
+    } else {
+      alert(`Nhóm "${team.name}" hiện chưa có học sinh nào!`);
+    }
+  }
+
+  openGradingForSelectedBatch() {
+    if (!this.selectedGradeStudentIds || this.selectedGradeStudentIds.size === 0) {
+      alert("Vui lòng chọn ít nhất 1 học sinh để chấm điểm!");
+      return;
+    }
+    const matched = (this.students || []).filter(s => this.selectedGradeStudentIds.has(s.id));
+    this.openGradingForMultipleStudents(matched, true, `Đã chọn (${matched.length} em)`);
+  }
+
+  removeGradeBatchStudent(studentId) {
+    if (this.selectedGradeStudentIds) {
+      this.selectedGradeStudentIds.delete(studentId);
+    }
+    if (this.currentlyGradingBatchStudents) {
+      this.currentlyGradingBatchStudents = this.currentlyGradingBatchStudents.filter(s => s.id != studentId);
+      if (this.currentlyGradingBatchStudents.length === 0) {
+        this.cancelGrading();
+        this.renderGradeStudentList();
+        return;
+      }
+      this.renderBatchHeaderChips(this.currentlyGradingBatchStudents);
+      const titleCount = document.getElementById("grade-batch-count-title");
+      if (titleCount) titleCount.innerText = this.currentlyGradingBatchStudents.length;
+      const btn = document.getElementById("btn-submit-grading");
+      if (btn) btn.innerText = `💾 Lưu Điểm Cho ${this.currentlyGradingBatchStudents.length} Học Sinh Đã Chọn`;
+    }
+    this.renderGradeStudentList();
+  }
+
+  renderBatchHeaderChips(students) {
+    const container = document.getElementById("grade-batch-student-chips");
+    if (!container) return;
+    const animalSymbols = {
+      "dolphin": "🐬",
+      "monkey": "🐵",
+      "orange_cat": "🐱",
+      "turtle_snail": "🐢"
+    };
+    container.innerHTML = students.map(s => {
+      const sym = s.animal_symbol || animalSymbols[s.animal_group] || "🐱";
+      return `
+        <span class="batch-st-chip">
+          ${sym} <strong>${s.order_num}.</strong> ${s.full_name}
+          <span class="chip-remove" onclick="event.stopPropagation(); app.removeGradeBatchStudent(${s.id})" title="Bỏ học sinh này">✕</span>
+        </span>
+      `;
+    }).join("");
+  }
+
+  openGradingForMultipleStudents(students, resetQuestions = true, sourceLabel = "Chấm Hàng Loạt") {
+    if (!students || students.length === 0) return;
+    this.currentlyGradingStudent = null;
+    this.currentlyGradingBatchStudents = students;
+
     const asgId = document.getElementById("grade-assignment-select").value;
 
     document.getElementById("grade-placeholder").style.display = "none";
     document.getElementById("grade-input-box").style.display = "block";
 
+    // Show Batch Header, hide Single Header
+    const singleHeader = document.getElementById("grade-single-header");
+    const batchHeader = document.getElementById("grade-batch-header");
+    const attemptBadge = document.getElementById("grade-attempt-badge");
+    if (singleHeader) singleHeader.style.display = "none";
+    if (batchHeader) batchHeader.style.display = "block";
+    if (attemptBadge) attemptBadge.style.display = "none";
+
+    const titleCount = document.getElementById("grade-batch-count-title");
+    if (titleCount) titleCount.innerText = students.length;
+
+    const sourceBadge = document.getElementById("grade-batch-source-badge");
+    if (sourceBadge) sourceBadge.innerText = sourceLabel;
+
+    this.renderBatchHeaderChips(students);
+
+    // Animal Mascot customization label for batch
+    const animalLabel = document.getElementById("grade-animal-section-label");
+    if (animalLabel) {
+      animalLabel.innerText = "🐾 Tùy chỉnh linh vật cho cả nhóm (Bấm để đổi đồng loạt):";
+    }
+    const selectedAnimalLabel = document.getElementById("grade-selected-animal-label");
+    if (selectedAnimalLabel) {
+      selectedAnimalLabel.innerText = "Giữ nguyên linh vật từng em";
+    }
+    this.selectedGradingAnimalGroup = null; // null means keep individual animal groups
+    document.querySelectorAll(".animal-tier-btn").forEach(btn => btn.classList.remove("selected"));
+
+    // Reset inputs
+    document.getElementById("grade-score-input").value = "10";
+    document.getElementById("grade-note-input").value = "";
+    this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
+    document.getElementById("grade-prev-history").style.display = "none";
+
+    // Initialize Questions Breakdown
+    const asg = (this.assignments || []).find(a => a.id == asgId);
+    let questions = asg && asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
+      ? asg.questions
+      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    this.gradingQuestions = questions;
+    this.gradingQuestionStatus = {};
+
+    // USER REQUIREMENT: When checked, mark all the question right first!
+    this.gradingQuestions.forEach(q => {
+      this.gradingQuestionStatus[q] = "correct";
+    });
+    this.renderGradingQuestions();
+    this.setQuickScore(10);
+
+    const submitBtn = document.getElementById("btn-submit-grading");
+    if (submitBtn) {
+      submitBtn.innerText = `💾 Lưu Điểm Cho ${students.length} Học Sinh Đã Chọn`;
+    }
+    this.renderGradeStudentList();
+  }
+
+  async openGradingForStudent(st) {
+    this.currentlyGradingStudent = st;
+    this.currentlyGradingBatchStudents = [];
+    const asgId = document.getElementById("grade-assignment-select").value;
+
+    document.getElementById("grade-placeholder").style.display = "none";
+    document.getElementById("grade-input-box").style.display = "block";
+
+    // Show Single Header, hide Batch Header
+    const singleHeader = document.getElementById("grade-single-header");
+    const batchHeader = document.getElementById("grade-batch-header");
+    const attemptBadge = document.getElementById("grade-attempt-badge");
+    if (singleHeader) singleHeader.style.display = "flex";
+    if (batchHeader) batchHeader.style.display = "none";
+    if (attemptBadge) attemptBadge.style.display = "inline-block";
+
     document.getElementById("grade-st-name").innerText = `${st.order_num}. ${st.full_name}`;
     document.getElementById("grade-st-info").innerText = `Mã: ${st.code} • Lớp: ${st.class_name}`;
 
+    const animalLabel = document.getElementById("grade-animal-section-label");
+    if (animalLabel) {
+      animalLabel.innerText = "🐾 Phân loại linh vật học sinh (Bấm để đổi ngay):";
+    }
+
     // Reset inputs
-    document.getElementById("grade-score-input").value = "";
+    document.getElementById("grade-score-input").value = "10";
     document.getElementById("grade-note-input").value = "";
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
 
@@ -1287,7 +1679,18 @@ class LMSApp {
       : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
     this.gradingQuestions = questions;
     this.gradingQuestionStatus = {};
+
+    // USER REQUIREMENT: When checked, mark all the question right first!
+    this.gradingQuestions.forEach(q => {
+      this.gradingQuestionStatus[q] = "correct";
+    });
     this.renderGradingQuestions();
+    this.setQuickScore(10);
+
+    const submitBtn = document.getElementById("btn-submit-grading");
+    if (submitBtn) {
+      submitBtn.innerText = "💾 Lưu Điểm & Chấm Tiếp";
+    }
 
     // Fetch previous history
     try {
@@ -1322,6 +1725,7 @@ class LMSApp {
       console.warn(e);
     }
 
+    this.renderGradeStudentList();
     document.getElementById("grade-score-input").focus();
   }
 
@@ -1333,7 +1737,7 @@ class LMSApp {
   }
 
   renderGradingAnimalSelector() {
-    const groupKey = this.selectedGradingAnimalGroup || "orange_cat";
+    const groupKey = this.selectedGradingAnimalGroup;
     const labelEl = document.getElementById("grade-selected-animal-label");
     const nameMap = {
       "dolphin": "🐬 Cá heo thông thái (Smart)",
@@ -1342,10 +1746,14 @@ class LMSApp {
       "turtle_snail": "🐢 Rùa / Ốc sên (Need improvement)"
     };
     if (labelEl) {
-      labelEl.innerText = nameMap[groupKey] || "🐱 Mèo cam chăm chỉ";
+      if (groupKey) {
+        labelEl.innerText = nameMap[groupKey] || "🐱 Mèo cam chăm chỉ";
+      } else {
+        labelEl.innerText = "Giữ nguyên linh vật từng em";
+      }
     }
     document.querySelectorAll(".animal-tier-btn").forEach(btn => {
-      if (btn.getAttribute("data-group") === groupKey) {
+      if (groupKey && btn.getAttribute("data-group") === groupKey) {
         btn.classList.add("selected");
       } else {
         btn.classList.remove("selected");
@@ -1362,19 +1770,19 @@ class LMSApp {
       return;
     }
     container.innerHTML = questions.map((q, idx) => {
-      const currentStatus = this.gradingQuestionStatus[q] || "";
+      const currentStatus = this.gradingQuestionStatus[q] || "correct";
       return `
         <div class="grade-question-row">
           <div class="grade-question-title">${q}</div>
           <div class="grade-question-actions">
             <button type="button" class="q-btn q-btn-correct ${currentStatus === 'correct' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'correct')">
-              🟢 Đúng
+              🟢 Đúng (Right)
+            </button>
+            <button type="button" class="q-btn q-btn-wrong ${currentStatus === 'incorrect' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
+              🔴 Sai (Wrong)
             </button>
             <button type="button" class="q-btn q-btn-needfix ${currentStatus === 'need_fix' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'need_fix')">
               🟡 Cần sửa
-            </button>
-            <button type="button" class="q-btn q-btn-wrong ${currentStatus === 'incorrect' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
-              🔴 Chưa đạt
             </button>
           </div>
         </div>
@@ -1384,7 +1792,8 @@ class LMSApp {
 
   setGradeQuestionStatus(qName, status) {
     if (this.gradingQuestionStatus[qName] === status) {
-      delete this.gradingQuestionStatus[qName];
+      // Toggle to opposite if clicked again
+      this.gradingQuestionStatus[qName] = status === "correct" ? "incorrect" : "correct";
     } else {
       this.gradingQuestionStatus[qName] = status;
     }
@@ -1401,24 +1810,29 @@ class LMSApp {
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
   }
 
+  markAllGradeQuestionsWrong() {
+    (this.gradingQuestions || []).forEach(q => {
+      this.gradingQuestionStatus[q] = "incorrect";
+    });
+    this.renderGradingQuestions();
+    this.setQuickScore(0);
+    this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Cần nộp lại']"), "Cần nộp lại");
+  }
+
   recomputeScoreFromQuestions() {
     const questions = this.gradingQuestions || [];
     if (questions.length === 0) return;
     let answered = 0;
     let points = 0;
     questions.forEach(q => {
-      const st = this.gradingQuestionStatus[q];
-      if (st) {
-        answered++;
-        if (st === 'correct') points += 1.0;
-        else if (st === 'need_fix') points += 0.5;
-        else if (st === 'incorrect') points += 0.0;
-      }
+      const st = this.gradingQuestionStatus[q] || "correct";
+      answered++;
+      if (st === 'correct') points += 1.0;
+      else if (st === 'need_fix') points += 0.5;
+      else if (st === 'incorrect') points += 0.0;
     });
-    if (answered > 0) {
-      const calcScore = Math.round((points / questions.length) * 10 * 10) / 10;
-      this.setQuickScore(calcScore);
-    }
+    const calcScore = Math.round((points / questions.length) * 10 * 10) / 10;
+    this.setQuickScore(calcScore);
   }
 
   setQuickScore(val) {
@@ -1449,17 +1863,83 @@ class LMSApp {
 
   cancelGrading() {
     this.currentlyGradingStudent = null;
+    this.currentlyGradingBatchStudents = [];
     document.getElementById("grade-input-box").style.display = "none";
     document.getElementById("grade-placeholder").style.display = "block";
+    this.renderGradeStudentList();
   }
 
   async submitGrading() {
-    if (!this.currentlyGradingStudent) return;
     const asgId = document.getElementById("grade-assignment-select").value;
     const score = document.getElementById("grade-score-input").value;
-    const status = this.selectedGradeStatus;
+    const status = this.selectedGradeStatus || "Đã đạt";
     const note = document.getElementById("grade-note-input").value;
+    const animalGroup = this.selectedGradingAnimalGroup;
 
+    // Check if Batch Grading
+    if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
+      const studentIds = this.currentlyGradingBatchStudents.map(s => s.id);
+      try {
+        let data;
+        if (this.serverAvailable) {
+          const res = await fetch("/api/grade", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              student_ids: studentIds,
+              assignment_id: asgId,
+              score: score,
+              status: status,
+              teacher_note: note,
+              question_details: this.gradingQuestionStatus,
+              animal_group: animalGroup || null,
+              operator: this.settings.teacher_name || "Cô Linh"
+            })
+          });
+          data = await res.json();
+        } else {
+          data = window.ClientDB.recordGradingBatch(
+            studentIds,
+            asgId,
+            score,
+            status,
+            note,
+            this.settings.teacher_name || "Cô Linh",
+            this.gradingQuestionStatus,
+            animalGroup || null
+          );
+        }
+
+        if (data && data.success) {
+          // If animalGroup was specified, update local cache
+          if (animalGroup) {
+            studentIds.forEach(sid => {
+              const st = (this.students || []).find(s => s.id == sid);
+              if (st) st.animal_group = animalGroup;
+            });
+            this.updateGradeGroupCounts();
+          }
+
+          alert(`🎉 Đã lưu kết quả chấm điểm thành công cho ${studentIds.length} học sinh!`);
+          this.cancelGrading();
+          this.deselectAllGradeStudents();
+          this.loadTrackingMatrix();
+          this.renderAnalytics();
+          this.renderStudentList();
+          this.renderGradeStudentList();
+          if (this.renderTeams) this.renderTeams();
+        } else {
+          alert("Lỗi khi lưu điểm: " + (data ? (data.error || "Không thể lưu") : "Lỗi mạng"));
+        }
+      } catch (err) {
+        console.error("Submit batch grading error:", err);
+        alert("Lỗi khi lưu điểm: " + err.message);
+      }
+      return;
+    }
+
+    // Single Student Grading
+    if (!this.currentlyGradingStudent) return;
     try {
       let data;
       if (this.serverAvailable) {
@@ -4646,10 +5126,12 @@ class LMSApp {
       }
       this.teams = Array.isArray(teams) ? teams : [];
       this.renderTeams();
+      if (this.updateGradeGroupCounts) this.updateGradeGroupCounts();
     } catch (e) {
       console.warn("Could not load teams:", e);
       this.teams = window.ClientDB.getTeams();
       this.renderTeams();
+      if (this.updateGradeGroupCounts) this.updateGradeGroupCounts();
     }
   }
 
