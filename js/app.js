@@ -22,6 +22,17 @@ class LMSApp {
     this.currentUserRole = null;
     this.currentStudent = null;
     this.kioskEnteredFromLogin = false;
+    this.books = [];
+    this.activeLoans = [];
+    this.readingRace = [];
+    this.currentLibSubTab = "race";
+    this.libScanner = null;
+    this.libScanTarget = null;
+    this.catalogCategoryFilter = "all";
+    this.catalogSearchQuery = "";
+    this.selectedPetStudent = null;
+    this.currentViewMode = "teacher";
+    this.currentQrBook = null;
   }
 
   async checkServer() {
@@ -832,6 +843,8 @@ class LMSApp {
     } else if (paneId === "pane-students") {
       this.loadStudentsList();
       this.loadStudentProfile();
+    } else if (paneId === "pane-library") {
+      this.loadLibraryData();
     }
   }
 
@@ -2037,6 +2050,970 @@ class LMSApp {
       }
     });
   }
+
+  // =====================================================================
+  // MODULE: THƯ VIỆN & ĐƯỜNG ĐUA ĐỌC SÁCH 3A7 ("HÀNH TRÌNH ĐỌC SÁCH")
+  // =====================================================================
+
+  async loadLibraryData() {
+    console.log("Loading library and reading race data...");
+    try {
+      // 1. Load Stats
+      let stats;
+      if (this.serverAvailable) {
+        try {
+          const res = await fetch("/api/library/stats");
+          if (res.ok) stats = await res.json();
+          else stats = window.ClientDB.getLibraryStats();
+        } catch {
+          stats = window.ClientDB.getLibraryStats();
+        }
+      } else {
+        stats = window.ClientDB.getLibraryStats();
+      }
+      this.renderLibraryStats(stats);
+
+      // 2. Load Reading Race
+      let race;
+      if (this.serverAvailable) {
+        try {
+          const res = await fetch("/api/race");
+          if (res.ok) race = await res.json();
+          else race = window.ClientDB.getReadingRace();
+        } catch {
+          race = window.ClientDB.getReadingRace();
+        }
+      } else {
+        race = window.ClientDB.getReadingRace();
+      }
+      this.readingRace = race;
+      this.renderReadingRace(race);
+
+      // 3. Load Books
+      let books;
+      if (this.serverAvailable) {
+        try {
+          const res = await fetch("/api/books");
+          if (res.ok) books = await res.json();
+          else books = window.ClientDB.getBooks();
+        } catch {
+          books = window.ClientDB.getBooks();
+        }
+      } else {
+        books = window.ClientDB.getBooks();
+      }
+      this.books = books;
+      this.renderBooksCatalog(books);
+
+      // 4. Load Active Loans
+      let loans;
+      if (this.serverAvailable) {
+        try {
+          const res = await fetch("/api/loans");
+          if (res.ok) loans = await res.json();
+          else loans = window.ClientDB.getActiveLoans();
+        } catch {
+          loans = window.ClientDB.getActiveLoans();
+        }
+      } else {
+        loans = window.ClientDB.getActiveLoans();
+      }
+      this.activeLoans = loans;
+      this.renderActiveLoans(loans);
+
+      // 5. Populate dropdowns for borrowing
+      this.populateLibraryDropdowns();
+
+    } catch (e) {
+      console.error("Error loading library data:", e);
+    }
+  }
+
+  renderLibraryStats(stats) {
+    if (!stats) return;
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = val !== undefined && val !== null ? val : 0;
+    };
+    setVal("lib-stat-total-books", stats.totalBooks || 75);
+    setVal("lib-stat-borrowed-books", stats.borrowedCount || 0);
+    setVal("lib-stat-readers", stats.readersCount || 29);
+    setVal("lib-stat-overdue-books", stats.overdueCount || 0);
+
+    // Also render stats sub-pane cards
+    const catBox = document.getElementById("lib-stats-categories");
+    if (catBox && stats.categories) {
+      catBox.innerHTML = Object.entries(stats.categories).map(([cat, count]) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <span style="font-weight: 700; color: #334155;">📖 ${cat}</span>
+          <span class="badge badge-blue" style="font-size: 13px; font-weight: 800;">${count} cuốn</span>
+        </div>
+      `).join("");
+    }
+  }
+
+  renderReadingRace(raceList) {
+    const tbody = document.getElementById("lib-race-tbody");
+    if (!tbody) return;
+    if (!raceList || raceList.length === 0) {
+      tbody.innerHTML = "<div style='padding: 24px; text-align: center; color: #94a3b8;'>Chưa có dữ liệu độc giả</div>";
+      return;
+    }
+
+    const isTeacher = this.currentUserRole === "teacher" || (!this.currentUserRole && this.currentViewMode !== "public");
+
+    // Header teacher controls column visibility
+    const ctrlHeader = document.getElementById("lib-race-header-ctrl");
+    if (ctrlHeader) {
+      ctrlHeader.style.display = isTeacher ? "block" : "none";
+    }
+
+    tbody.innerHTML = raceList.map((st) => {
+      const completed = Number(st.completed) || 0;
+      const pct = Math.min(100, Math.round((completed / 33) * 1000) / 10);
+      const rank = st.rank || 1;
+
+      let rankDisplay = "";
+      let rowRankClass = "";
+      if (rank === 1 && completed > 0) {
+        rankDisplay = `<span class="rank-medal-icon" title="Hạng 1 - Huy chương Vàng">🥇</span>`;
+        rowRankClass = "rank-1";
+      } else if (rank === 2 && completed > 0) {
+        rankDisplay = `<span class="rank-medal-icon" title="Hạng 2 - Huy chương Bạc">🥈</span>`;
+        rowRankClass = "rank-2";
+      } else if (rank === 3 && completed > 0) {
+        rankDisplay = `<span class="rank-medal-icon" title="Hạng 3 - Huy chương Đồng">🥉</span>`;
+        rowRankClass = "rank-3";
+      } else {
+        rankDisplay = `<div class="rank-badge">${rank}</div>`;
+      }
+
+      let subProgressText = "";
+      if (completed > 33) {
+        subProgressText = `<div class="race-progress-sub">+${completed - 33} vượt đích!</div>`;
+      } else if (completed === 33) {
+        subProgressText = `<div class="race-progress-sub" style="color: #059669;">🏁 Về đích!</div>`;
+      } else {
+        subProgressText = `<div style="font-size: 11px; color: #94a3b8;">còn ${33 - completed}</div>`;
+      }
+
+      const avatar = st.avatar || "🐶";
+      const petBtn = isTeacher 
+        ? `<button type="button" class="race-pet-avatar" onclick="app.openPetAvatarModal(${st.student_id})" title="Bấm để đổi thú cưng">${avatar}</button>`
+        : `<span class="race-pet-avatar" style="cursor: default;">${avatar}</span>`;
+
+      const controls = isTeacher ? `
+        <div class="race-controls-cell">
+          <button type="button" class="btn-race-step dec" onclick="app.updateStudentReadingRace(${st.student_id}, -1)" ${completed <= 0 ? 'disabled' : ''} title="Hoàn tác 1 ô">-1 ô</button>
+          <button type="button" class="btn-race-step inc" onclick="app.updateStudentReadingRace(${st.student_id}, 1)" title="Đã đọc xong thêm 1 quyển">+ 1 ô</button>
+        </div>
+      ` : "";
+
+      return `
+        <div class="race-grid-row race-student-row ${rowRankClass}">
+          <div>${rankDisplay}</div>
+          <div class="race-reader-info">
+            ${petBtn}
+            <div class="race-reader-names">
+              <div class="race-reader-name">${st.name}</div>
+              <div class="race-reader-code">${st.code}</div>
+            </div>
+          </div>
+          <div class="race-track-cell">
+            <div class="race-track-bg">
+              <div class="race-track-fill" style="width: ${pct}%;"></div>
+            </div>
+            <div class="milestone-pin-11" title="Mốc 11 quyển"></div>
+            <div class="milestone-pin-15" title="Mốc 15 quyển (Hết tháng 12)"></div>
+            <div class="milestone-pin-22" title="Mốc 22 quyển"></div>
+            <div class="race-runner-marker" style="left: ${pct}%;" title="${st.name}: ${completed}/33 quyển">
+              ${completed > 0 ? avatar : '🐾'}
+            </div>
+          </div>
+          <div class="race-progress-text">
+            <div>${completed}/33</div>
+            ${subProgressText}
+          </div>
+          ${controls}
+        </div>
+      `;
+    }).join("");
+
+    // Also update Top 5 readers on stats tab
+    const topReadersBox = document.getElementById("lib-stats-top-readers");
+    if (topReadersBox) {
+      const top5 = raceList.slice(0, 5);
+      topReadersBox.innerHTML = top5.map((r, idx) => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${idx === 0 ? '#fef3c7' : '#f8fafc'}; border: 1px solid ${idx === 0 ? '#fde68a' : '#e2e8f0'}; border-radius: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}</span>
+            <span style="font-size: 22px;">${r.avatar || '🐶'}</span>
+            <div>
+              <div style="font-weight: 800; color: #1e293b;">${r.name}</div>
+              <div style="font-size: 11px; color: #64748b;">${r.code}</div>
+            </div>
+          </div>
+          <span class="badge badge-green" style="font-size: 14px; font-weight: 900;">${r.completed} / 33 quyển</span>
+        </div>
+      `).join("");
+    }
+  }
+
+  async updateStudentReadingRace(studentId, delta) {
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch("/api/race/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: studentId, delta: delta })
+        });
+        if (res.ok) {
+          this.readingRace = await res.json();
+        } else {
+          this.readingRace = window.ClientDB.updateReadingRace(studentId, delta);
+        }
+      } else {
+        this.readingRace = window.ClientDB.updateReadingRace(studentId, delta);
+      }
+
+      // Audio feedback
+      try {
+        const audio = new QRCameraScanner(document.createElement("video"), () => {});
+        audio.playSuccessBeep();
+      } catch (err) {}
+
+      this.renderReadingRace(this.readingRace);
+
+      // Update stats
+      this.renderLibraryStats(window.ClientDB ? window.ClientDB.getLibraryStats() : null);
+
+      const st = this.readingRace.find(r => r.student_id == studentId);
+      const studentName = st ? st.name : "Học sinh";
+      console.log(`[Reading Race]: Updated ${studentName} (${delta > 0 ? '+' : ''}${delta})`);
+    } catch (e) {
+      alert("Lỗi khi cập nhật đường đua: " + e.message);
+    }
+  }
+
+  switchLibSubTab(tab) {
+    this.currentLibSubTab = tab;
+    document.querySelectorAll(".nav-tab-3d").forEach(btn => btn.classList.remove("active"));
+    document.querySelectorAll(".lib-sub-pane").forEach(pane => pane.classList.remove("active"));
+
+    const targetBtn = document.querySelector(`.nav-tab-3d.nav-tab-${tab}`);
+    if (targetBtn) targetBtn.classList.add("active");
+
+    const targetPane = document.getElementById(`lib-sub-${tab}`);
+    if (targetPane) targetPane.classList.add("active");
+
+    if (tab === "catalog") {
+      this.renderBooksCatalog(this.books);
+    } else if (tab === "borrow") {
+      this.populateLibraryDropdowns();
+      this.renderActiveLoans(this.activeLoans);
+    } else if (tab === "return") {
+      this.renderReturnLoans(this.activeLoans);
+    } else if (tab === "race") {
+      this.renderReadingRace(this.readingRace);
+    }
+  }
+
+  populateLibraryDropdowns() {
+    // 1. Students dropdown
+    const stSelect = document.getElementById("lib-borrow-student-select");
+    const jrSelect = document.getElementById("jr-student-select");
+    if (stSelect) {
+      const cur = stSelect.value;
+      stSelect.innerHTML = `<option value="">-- Chọn tên trong danh sách 29 bạn --</option>` +
+        this.students.map(s => `<option value="${s.id}">${s.order_num}. ${s.full_name} (${s.code})</option>`).join("");
+      if (cur) stSelect.value = cur;
+    }
+    if (jrSelect) {
+      jrSelect.innerHTML = this.students.map(s => `<option value="${s.id}">${s.order_num}. ${s.full_name} (${s.code})</option>`).join("");
+    }
+
+    // 2. Books dropdown (available books)
+    const bkSelect = document.getElementById("lib-borrow-book-select");
+    if (bkSelect) {
+      const avail = this.books.filter(b => b.status === "available");
+      bkSelect.innerHTML = `<option value="">-- Chọn cuốn sách cần mượn (${avail.length} cuốn sẵn sàng) --</option>` +
+        avail.map(b => `<option value="${b.id}">[${b.code || ('STT ' + b.stt)}] ${b.title} (${b.category || 'Sách'})</option>`).join("");
+    }
+  }
+
+  onLibBorrowStudentChange() {
+    const sel = document.getElementById("lib-borrow-student-select");
+    const badge = document.getElementById("lib-borrow-student-selected");
+    const nameEl = document.getElementById("lib-borrow-student-name");
+    if (!sel || !badge || !nameEl) return;
+    if (sel.value) {
+      const st = this.students.find(s => s.id == sel.value);
+      if (st) {
+        nameEl.innerText = `Đã chọn: ${st.order_num}. ${st.full_name} (${st.code})`;
+        badge.style.display = "flex";
+      }
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  onLibBorrowBookChange() {
+    // Hook for book selection if needed
+  }
+
+  async confirmBorrowBook() {
+    const stSelect = document.getElementById("lib-borrow-student-select");
+    const bkSelect = document.getElementById("lib-borrow-book-select");
+    const daysSelect = document.getElementById("lib-borrow-days");
+    const notesInput = document.getElementById("lib-borrow-notes");
+
+    if (!stSelect.value) {
+      alert("Vui lòng chọn học sinh ở Bước 1!");
+      return;
+    }
+    if (!bkSelect.value) {
+      alert("Vui lòng chọn hoặc quét cuốn sách ở Bước 2!");
+      return;
+    }
+
+    const studentId = parseInt(stSelect.value);
+    const bookId = parseInt(bkSelect.value);
+    const days = parseInt(daysSelect ? daysSelect.value : 14);
+    const notes = notesInput ? notesInput.value.trim() : "";
+
+    try {
+      let loan;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/loans/borrow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_id: studentId,
+            book_id: bookId,
+            due_days: days,
+            notes: notes
+          })
+        });
+        if (res.ok) loan = await res.json();
+        else {
+          const err = await res.json();
+          throw new Error(err.error || "Không thể cho mượn sách");
+        }
+      } else {
+        loan = window.ClientDB.borrowBook(studentId, bookId, days, notes);
+      }
+
+      // Success! Play sound
+      try {
+        const audio = new QRCameraScanner(document.createElement("video"), () => {});
+        audio.playSuccessBeep();
+      } catch (err) {}
+
+      alert(`✅ Cho mượn sách thành công!\n\n📖 Sách: ${loan.book_title}\n🎒 Học sinh: ${loan.student_name}\n⏰ Hạn trả: ${loan.due_date.substring(0, 10)}`);
+
+      // Reset form
+      if (bkSelect) bkSelect.value = "";
+      if (notesInput) notesInput.value = "";
+
+      // Reload
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("❌ Lỗi: " + e.message);
+    }
+  }
+
+  renderActiveLoans(loans) {
+    const container = document.getElementById("lib-active-loans-list");
+    const countEl = document.getElementById("lib-active-loans-count");
+    if (countEl) countEl.innerText = loans ? loans.length : 0;
+    if (!container) return;
+
+    if (!loans || loans.length === 0) {
+      container.innerHTML = `<div style="text-align: center; padding: 32px 16px; color: #94a3b8; font-weight: 600;">Hiện không có sách nào đang được mượn. Toàn bộ sách đã ở trên kệ!</div>`;
+      return;
+    }
+
+    container.innerHTML = loans.map(l => {
+      const isOverdue = l.is_overdue || (l.due_date && l.due_date < new Date().toISOString().substring(0, 19));
+      return `
+        <div style="background: ${isOverdue ? '#fff1f2' : '#f8fafc'}; border: 1px solid ${isOverdue ? '#fecdd3' : '#e2e8f0'}; border-radius: 16px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              [${l.book_code || ('STT ' + l.book_stt)}] ${l.book_title}
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+              Người mượn: <strong style="color: #0369a1;">${l.student_name} (${l.student_code})</strong>
+            </div>
+            <div style="font-size: 11px; color: ${isOverdue ? '#e11d48' : '#059669'}; font-weight: 700; margin-top: 2px;">
+              ${isOverdue ? '⚠️ Quá hạn trả!' : 'Hạn trả:'} ${l.due_date ? l.due_date.substring(0, 10) : ''} (Mượn: ${l.borrow_date ? l.borrow_date.substring(0, 10) : ''})
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" style="font-weight: 800; white-space: nowrap; color: #d97706; border-color: #fde68a;" onclick="app.quickReturnBook('${l.book_code || l.book_id}')">
+            ↩️ Trả Sách
+          </button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  renderReturnLoans(loans) {
+    const list = document.getElementById("lib-return-loans-list");
+    if (!list) return;
+    if (!loans || loans.length === 0) {
+      list.innerHTML = `<div style="text-align: center; padding: 20px; color: #94a3b8;">Không có sách nào đang được mượn cần trả.</div>`;
+      return;
+    }
+    list.innerHTML = loans.map(l => `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <div>
+          <div style="font-weight: 800; color: #1e293b; font-size: 13px;">[${l.book_code || ('STT ' + l.book_stt)}] ${l.book_title}</div>
+          <div style="font-size: 11px; color: #64748b;">Mượn bởi: <strong>${l.student_name}</strong> • Hạn: ${l.due_date ? l.due_date.substring(0, 10) : ''}</div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" style="font-weight: 800; background: #d97706; border-color: #b45309;" onclick="app.quickReturnBook('${l.book_code || l.book_id}')">
+          ↩️ Trả Sách Ngay
+        </button>
+      </div>
+    `).join("");
+  }
+
+  async quickReturnBook(bookIdOrCode) {
+    try {
+      let ret;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/loans/return", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ book_id: bookIdOrCode })
+        });
+        if (res.ok) ret = await res.json();
+        else {
+          const err = await res.json();
+          throw new Error(err.error || "Không thể trả sách");
+        }
+      } else {
+        ret = window.ClientDB.returnBook(bookIdOrCode);
+      }
+
+      // Audio chime
+      try {
+        const audio = new QRCameraScanner(document.createElement("video"), () => {});
+        audio.playSuccessBeep();
+      } catch (err) {}
+
+      // Prompt to increment reading race
+      let msg = `✅ Trả sách thành công!\n\n📖 Cuốn sách: ${ret.book_title} đã được đưa về kệ thư viện.`;
+      if (ret.student_id && ret.student_name !== "Chưa rõ") {
+        const wantAdd = confirm(`${msg}\n\n🌟 Bạn có muốn CỘNG +1 Ô vào Đường đua 33 quyển sách cho bạn ${ret.student_name} không?`);
+        if (wantAdd) {
+          await this.updateStudentReadingRace(ret.student_id, 1);
+        }
+      } else {
+        alert(msg);
+      }
+
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("❌ Lỗi: " + e.message);
+    }
+  }
+
+  manualReturnBook() {
+    const input = document.getElementById("lib-manual-return-code");
+    if (!input || !input.value.trim()) {
+      alert("Vui lòng nhập Mã sách (ví dụ: SACH001) hoặc STT sách (1..75)!");
+      return;
+    }
+    const val = input.value.trim();
+    this.quickReturnBook(val);
+    input.value = "";
+  }
+
+  renderBooksCatalog(booksList) {
+    const container = document.getElementById("lib-catalog-books-list");
+    if (!container) return;
+    if (!booksList || booksList.length === 0) {
+      container.innerHTML = `<div style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 700;">Không tìm thấy cuốn sách nào khớp với tìm kiếm.</div>`;
+      return;
+    }
+
+    container.innerHTML = booksList.map(b => {
+      const isAvailable = b.status === "available";
+      return `
+        <div class="book-card-item">
+          <div class="book-stt-badge">
+            <span class="book-stt-label">STT</span>
+            <span class="book-stt-num">${b.stt}</span>
+          </div>
+          <div class="book-meta-main">
+            <h4 class="book-meta-title">${b.title}</h4>
+            <div class="book-meta-author">
+              Tác giả: <strong>${b.author || 'Chưa ghi tác giả'}</strong> • 
+              <span class="badge badge-blue" style="font-size: 11px;">${b.category}</span>
+              ${b.shelf_code ? ` • Kệ <strong>${b.shelf_code}</strong>` : ''}
+            </div>
+            <div class="book-meta-contrib">
+              Đóng góp bởi: <strong>${b.contributed_by || 'Thư viện lớp'}</strong> • 
+              Tình trạng: <span style="color: #059669; font-weight: 800;">${b.condition || 'Tốt'}</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <span class="book-status-tag ${isAvailable ? 'available' : 'borrowed'}">
+              ${isAvailable ? '● Sẵn sàng' : '● Đang mượn'}
+            </span>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="app.openBookQrModal(${b.id})" title="Xem mã QR">
+                🏷️ Mã QR
+              </button>
+              ${isAvailable ? `
+                <button type="button" class="btn btn-primary btn-sm" onclick="app.directBorrowBookModal(${b.id})" title="Cho mượn cuốn này">
+                  📖 Mượn
+                </button>
+              ` : `
+                <button type="button" class="btn btn-outline btn-sm" style="color: #d97706; border-color: #fde68a;" onclick="app.quickReturnBook('${b.code || b.id}')" title="Trả cuốn này">
+                  ↩️ Trả
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  onCatalogSearch(query) {
+    this.catalogSearchQuery = query.trim().toLowerCase();
+    this.applyCatalogFilters();
+  }
+
+  filterCatalogCategory(category, btnElement) {
+    this.catalogCategoryFilter = category;
+    document.querySelectorAll(".cat-pill").forEach(p => p.classList.remove("active"));
+    if (btnElement) btnElement.classList.add("active");
+    this.applyCatalogFilters();
+  }
+
+  applyCatalogFilters() {
+    let filtered = this.books;
+    if (this.catalogCategoryFilter && this.catalogCategoryFilter !== "all") {
+      filtered = filtered.filter(b => b.category === this.catalogCategoryFilter);
+    }
+    if (this.catalogSearchQuery) {
+      const q = this.catalogSearchQuery;
+      filtered = filtered.filter(b =>
+        (b.title && b.title.toLowerCase().includes(q)) ||
+        (b.author && b.author.toLowerCase().includes(q)) ||
+        (b.contributed_by && b.contributed_by.toLowerCase().includes(q)) ||
+        (b.code && b.code.toLowerCase().includes(q)) ||
+        (String(b.stt) === q)
+      );
+    }
+    this.renderBooksCatalog(filtered);
+  }
+
+  directBorrowBookModal(bookId) {
+    this.switchLibSubTab("borrow");
+    const bkSelect = document.getElementById("lib-borrow-book-select");
+    if (bkSelect) bkSelect.value = bookId;
+  }
+
+  // --- Library QR Scanner Modal ---
+  openLibScanner(target) {
+    this.libScanTarget = target;
+    const modal = document.getElementById("modal-lib-scan");
+    const titleEl = document.getElementById("lib-scan-modal-title");
+    const descEl = document.getElementById("lib-scan-modal-desc");
+    if (!modal) return;
+
+    if (target === "student") {
+      titleEl.innerText = "📷 Quét Thẻ QR Học Sinh (HS01..HS29)";
+      descEl.innerText = "Đưa mã QR trên thẻ học sinh trước camera để nhận diện.";
+    } else if (target === "bookBorrow") {
+      titleEl.innerText = "📷 Quét Mã QR Trên Sách Để Mượn";
+      descEl.innerText = "Đưa mã QR dán trên gáy hoặc bìa sách (SACH001..SACH075 hoặc STT) vào trước camera.";
+    } else if (target === "bookReturn") {
+      titleEl.innerText = "📷 Quét Mã QR Trên Sách Để Trả Sách";
+      descEl.innerText = "Đưa mã QR trên cuốn sách vào camera để trả nhanh.";
+    } else if (target === "journal") {
+      titleEl.innerText = "📷 Quét Thẻ Học Sinh Duyệt Sổ Đọc";
+      descEl.innerText = "Đưa mã thẻ của học sinh vào camera để duyệt đúc kết đọc sách.";
+    }
+
+    modal.style.display = "flex";
+    this.startLibCamera();
+  }
+
+  async startLibCamera() {
+    const video = document.getElementById("lib-scan-video");
+    if (!video) return;
+    if (!this.libScanner) {
+      this.libScanner = new QRCameraScanner(video, (code) => this.handleLibScan(code), {
+        facingMode: this.cameraFacing
+      });
+    }
+    try {
+      await this.libScanner.start();
+    } catch (e) {
+      alert("Không thể mở camera: " + e.message);
+    }
+  }
+
+  switchLibCameraFacing() {
+    this.cameraFacing = this.cameraFacing === "environment" ? "user" : "environment";
+    if (this.libScanner) {
+      this.libScanner.stop();
+      this.libScanner = null;
+      this.startLibCamera();
+    }
+  }
+
+  closeLibScanner() {
+    if (this.libScanner) {
+      this.libScanner.stop();
+      this.libScanner = null;
+    }
+    const modal = document.getElementById("modal-lib-scan");
+    if (modal) modal.style.display = "none";
+  }
+
+  handleLibScan(code) {
+    if (!code) return;
+    const clean = code.trim().toUpperCase();
+    console.log(`[Lib Scanner]: Scanned ${clean} for target ${this.libScanTarget}`);
+
+    if (this.libScanTarget === "student") {
+      const match = clean.match(/HS\d+/i);
+      const studentCode = match ? match[0].toUpperCase() : clean;
+      const st = this.students.find(s => s.code.toUpperCase() === studentCode);
+      if (st) {
+        if (this.libScanner) this.libScanner.playSuccessBeep();
+        const sel = document.getElementById("lib-borrow-student-select");
+        if (sel) sel.value = st.id;
+        this.onLibBorrowStudentChange();
+        this.closeLibScanner();
+      } else {
+        if (this.libScanner) this.libScanner.playErrorBeep();
+        alert(`❌ Không tìm thấy học sinh với mã "${studentCode}" trong Lớp 3A7!`);
+      }
+    } else if (this.libScanTarget === "bookBorrow") {
+      const book = this.books.find(b => 
+        (b.code && b.code.toUpperCase() === clean) || 
+        String(b.stt) === clean ||
+        clean.includes(b.code)
+      );
+      if (book) {
+        if (book.status === "borrowed") {
+          if (this.libScanner) this.libScanner.playErrorBeep();
+          alert(`⚠️ Cuốn sách "${book.title}" hiện đang được mượn, chưa trả về thư viện!`);
+          return;
+        }
+        if (this.libScanner) this.libScanner.playSuccessBeep();
+        const sel = document.getElementById("lib-borrow-book-select");
+        if (sel) sel.value = book.id;
+        this.closeLibScanner();
+      } else {
+        if (this.libScanner) this.libScanner.playErrorBeep();
+        alert(`❌ Không tìm thấy sách với mã "${clean}" trong thư viện 75 cuốn!`);
+      }
+    } else if (this.libScanTarget === "bookReturn") {
+      this.closeLibScanner();
+      this.quickReturnBook(clean);
+    } else if (this.libScanTarget === "journal") {
+      const match = clean.match(/HS\d+/i);
+      const studentCode = match ? match[0].toUpperCase() : clean;
+      const st = this.students.find(s => s.code.toUpperCase() === studentCode);
+      this.closeLibScanner();
+      if (st) {
+        this.openJournalReviewModal(st.id);
+      } else {
+        alert(`❌ Không tìm thấy học sinh với mã "${studentCode}"!`);
+      }
+    }
+  }
+
+  // --- Pet Avatar Selector Modal ---
+  openPetAvatarModal(studentId) {
+    this.selectedPetStudent = studentId;
+    const modal = document.getElementById("modal-pet-avatar");
+    const nameEl = document.getElementById("pet-avatar-student-name");
+    const grid = document.getElementById("pet-avatar-grid");
+    if (!modal || !grid) return;
+
+    const st = this.students.find(s => s.id == studentId) || (this.readingRace ? this.readingRace.find(r => r.student_id == studentId) : null);
+    if (nameEl) nameEl.innerText = st ? (st.full_name || st.name) : "Học sinh";
+
+    const pets = ['🐶', '🐱', '🦊', '🐰', '🐼', '🦁', '🐯', '🐨', '🦄', '🐸',
+                  '🐵', '🐻', '🐧', '🐤', '🦉', '🐺', '🐗', '🐴', '🐝', '🐙',
+                  '🦋', '🐢', '🐬', '🐳', '🦖', '🦔', '🐿️', '🦩', '🦚', '🐮'];
+
+    grid.innerHTML = pets.map(p => `
+      <button type="button" class="btn btn-outline" style="font-size: 26px; height: 56px; border-radius: 16px; padding: 0; display: grid; place-items: center;" onclick="app.selectPetAvatar('${p}')">
+        ${p}
+      </button>
+    `).join("");
+
+    modal.style.display = "flex";
+  }
+
+  closePetAvatarModal() {
+    const modal = document.getElementById("modal-pet-avatar");
+    if (modal) modal.style.display = "none";
+    this.selectedPetStudent = null;
+  }
+
+  async selectPetAvatar(emoji) {
+    if (!this.selectedPetStudent) return;
+    const sid = this.selectedPetStudent;
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch("/api/race/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: sid, delta: 0, avatar: emoji })
+        });
+        if (res.ok) this.readingRace = await res.json();
+        else this.readingRace = window.ClientDB.updateReadingRace(sid, 0, null, emoji);
+      } else {
+        this.readingRace = window.ClientDB.updateReadingRace(sid, 0, null, emoji);
+      }
+      this.renderReadingRace(this.readingRace);
+      this.closePetAvatarModal();
+    } catch (e) {
+      alert("Lỗi khi lưu avatar: " + e.message);
+    }
+  }
+
+  // --- Journal Review (Quét sổ – duyệt đúc kết) ---
+  openJournalReviewScanner() {
+    this.openLibScanner("journal");
+  }
+
+  openJournalReviewModal(studentId) {
+    const modal = document.getElementById("modal-journal-review");
+    const sel = document.getElementById("jr-student-select");
+    const titleInput = document.getElementById("jr-book-title");
+    const notesInput = document.getElementById("jr-review-notes");
+    if (!modal) return;
+    if (sel && studentId) sel.value = studentId;
+    if (titleInput) titleInput.value = "";
+    if (notesInput) notesInput.value = "";
+    modal.style.display = "flex";
+  }
+
+  closeJournalReviewModal() {
+    const modal = document.getElementById("modal-journal-review");
+    if (modal) modal.style.display = "none";
+  }
+
+  async confirmJournalReview() {
+    const sel = document.getElementById("jr-student-select");
+    const titleInput = document.getElementById("jr-book-title");
+    const notesInput = document.getElementById("jr-review-notes");
+
+    if (!sel || !sel.value) {
+      alert("Vui lòng chọn học sinh!");
+      return;
+    }
+    const sid = parseInt(sel.value);
+    const bookTitle = titleInput ? titleInput.value.trim() : "";
+    const notes = notesInput ? notesInput.value.trim() : "";
+
+    await this.updateStudentReadingRace(sid, 1);
+    this.closeJournalReviewModal();
+
+    const st = this.students.find(s => s.id == sid);
+    const stName = st ? st.full_name : "Học sinh";
+    alert(`🎉 Đã duyệt sổ đọc sách thành công!\n\n🎒 Học sinh: ${stName}\n📖 Cuốn sách: ${bookTitle || '1 cuốn sách'}\n🌟 Đã cộng +1 ô trên Đường đua 33 quyển sách!`);
+  }
+
+  // --- Add New Book Modal ---
+  openNewBookModal() {
+    const modal = document.getElementById("modal-new-book");
+    if (!modal) return;
+    document.getElementById("nb-title").value = "";
+    document.getElementById("nb-author").value = "";
+    document.getElementById("nb-category").value = "Truyện hay";
+    document.getElementById("nb-shelf").value = "K1";
+    document.getElementById("nb-contrib").value = "Cô Linh";
+    document.getElementById("nb-condition").value = "Tốt";
+    modal.style.display = "flex";
+  }
+
+  closeNewBookModal() {
+    const modal = document.getElementById("modal-new-book");
+    if (modal) modal.style.display = "none";
+  }
+
+  async saveNewBook() {
+    const title = document.getElementById("nb-title").value.trim();
+    const author = document.getElementById("nb-author").value.trim();
+    const category = document.getElementById("nb-category").value;
+    const shelf = document.getElementById("nb-shelf").value.trim();
+    const contrib = document.getElementById("nb-contrib").value.trim();
+    const condition = document.getElementById("nb-condition").value;
+
+    if (!title) {
+      alert("Vui lòng nhập tên cuốn sách!");
+      return;
+    }
+
+    const payload = {
+      title,
+      author,
+      category,
+      shelf_code: shelf || "K1",
+      contributed_by: contrib || "Thư viện lớp",
+      condition: condition || "Tốt"
+    };
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch("/api/books", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Không thể thêm sách");
+      } else {
+        window.ClientDB.addBook(payload);
+      }
+      this.closeNewBookModal();
+      alert(`✅ Đã thêm cuốn sách "${title}" vào thư viện thành công!`);
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("Lỗi khi thêm sách: " + e.message);
+    }
+  }
+
+  resetBooksCatalogToSeed() {
+    if (!confirm("Bạn có chắc chắn muốn đặt lại kho sách về 75 cuốn sách gốc ban đầu không?")) return;
+    if (window.ClientDB) {
+      window.ClientDB.resetBooksToDefault();
+    }
+    alert("✅ Đã khôi phục 75 cuốn sách gốc thành công!");
+    this.loadLibraryData();
+  }
+
+  // --- Book QR Code Preview & Print ---
+  openBookQrModal(bookId) {
+    const book = this.books.find(b => b.id == bookId);
+    if (!book) return;
+    this.currentQrBook = book;
+    const modal = document.getElementById("modal-book-qr");
+    const previewBox = document.getElementById("book-qr-preview-svg");
+    const titleEl = document.getElementById("book-qr-preview-title");
+    const codeEl = document.getElementById("book-qr-preview-code");
+    if (!modal) return;
+
+    if (titleEl) titleEl.innerText = book.title;
+    if (codeEl) codeEl.innerText = `${book.code} • Kệ ${book.shelf_code || 'K1'}`;
+
+    if (previewBox) {
+      if (window.QRCode && window.QRCode.generateSVG) {
+        previewBox.innerHTML = window.QRCode.generateSVG(book.code, { margin: 2 });
+      } else {
+        previewBox.innerHTML = `<img src="/api/qr?text=${encodeURIComponent(book.code)}" alt="${book.code}" style="width: 180px; height: 180px;" />`;
+      }
+    }
+
+    modal.style.display = "flex";
+  }
+
+  closeBookQrModal() {
+    const modal = document.getElementById("modal-book-qr");
+    if (modal) modal.style.display = "none";
+    this.currentQrBook = null;
+  }
+
+  printCurrentBookQr() {
+    if (!this.currentQrBook) return;
+    const b = this.currentQrBook;
+    const qrSvg = window.QRCode && window.QRCode.generateSVG ? window.QRCode.generateSVG(b.code, { margin: 2 }) : `<img src="/api/qr?text=${encodeURIComponent(b.code)}" />`;
+    const printWin = window.open("", "_blank");
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Nhãn Sách ${b.code}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; background: white; }
+          .label-box { width: 65mm; height: 45mm; border: 2px dashed #059669; border-radius: 8px; padding: 6px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; }
+          .qr-img { width: 32mm; height: 32mm; }
+          .qr-img svg { width: 100%; height: 100%; }
+          .info { flex: 1; font-size: 11px; }
+          .info h4 { font-size: 12px; margin: 0 0 4px; line-height: 1.2; }
+          .info .code { font-weight: 900; color: #059669; font-size: 14px; margin-bottom: 2px; }
+          .info .class { font-weight: 700; color: #64748b; font-size: 10px; }
+          @media print {
+            body { margin: 0; }
+            .label-box { border: 2px solid #000; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="label-box">
+          <div class="qr-img">${qrSvg}</div>
+          <div class="info">
+            <div class="class">LỚP 3A7 • TH ÁNH DƯƠNG</div>
+            <div class="code">${b.code} (STT ${b.stt})</div>
+            <h4>${b.title}</h4>
+            <div>Kệ: <strong>${b.shelf_code || 'K1'}</strong></div>
+          </div>
+        </div>
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  }
+
+  // --- Public Library Viewing (From Login Screen or Student Portal) ---
+  openPublicLibrary() {
+    this.currentViewMode = "public";
+    const viewLogin = document.getElementById("view-login");
+    const viewStudent = document.getElementById("view-student-portal");
+    const viewTeacher = document.getElementById("view-teacher-app");
+    const viewPublic = document.getElementById("view-public-library");
+    const mount = document.getElementById("public-library-mount");
+    const paneLib = document.getElementById("pane-library");
+
+    if (viewLogin) viewLogin.style.display = "none";
+    if (viewStudent) viewStudent.style.display = "none";
+    if (viewTeacher) viewTeacher.style.display = "none";
+    if (viewPublic) viewPublic.style.display = "block";
+
+    if (mount && paneLib) {
+      mount.appendChild(paneLib);
+      paneLib.classList.add("active");
+    }
+
+    this.loadLibraryData();
+  }
+
+  exitPublicLibrary() {
+    this.currentViewMode = "teacher";
+    const viewPublic = document.getElementById("view-public-library");
+    const paneLib = document.getElementById("pane-library");
+    const teacherMain = document.querySelector("#view-teacher-app .app-main");
+
+    if (viewPublic) viewPublic.style.display = "none";
+    if (teacherMain && paneLib) {
+      teacherMain.appendChild(paneLib);
+    }
+
+    if (this.currentUserRole === "student" && this.currentStudent) {
+      this.showStudentPortal(this.currentStudent);
+    } else if (this.currentUserRole === "teacher") {
+      const vTeacher = document.getElementById("view-teacher-app");
+      if (vTeacher) vTeacher.style.display = "block";
+      this.switchTab("pane-library");
+    } else {
+      const vLogin = document.getElementById("view-login");
+      if (vLogin) vLogin.style.display = "flex";
+    }
+  }
+
 }
 
 // Global App Instance
