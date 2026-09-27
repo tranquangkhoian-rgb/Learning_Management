@@ -3019,5 +3019,237 @@ main.app-main {
   }
 }
 
+/* ====================================================================
+   TEACHER ANIMAL GROUP & RANKING SYSTEM (4 TIERS - TEACHER ONLY)
+   ==================================================================== */
+.badge-animal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
 
+.badge-animal-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
 
+/* Dolphin Tier - Smartest / Xuất sắc */
+.badge-animal-dolphin,
+.tier-card-dolphin .animal-tier-badge,
+.badge-dolphin {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+/* Monkey Tier - Better / Khá giỏi */
+.badge-animal-monkey,
+.tier-card-monkey .animal-tier-badge,
+.badge-monkey {
+  color: #059669;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+/* Orange Cat Tier - Ordinary / Đạt chuẩn */
+.badge-animal-orange_cat,
+.badge-animal-cat,
+.tier-card-cat .animal-tier-badge,
+.badge-cat {
+  color: #c2410c;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+/* Turtle & Snail Tier - Need Improvement / Cần rèn luyện */
+.badge-animal-turtle_snail,
+.badge-animal-turtle,
+.tier-card-turtle .animal-tier-badge,
+.badge-turtle {
+  color: #be185d;
+  background: #fdf2f8;
+  border-color: #fbcfe8;
+}
+
+/* Animal Picker Button in Table */
+.animal-picker-btn {
+  background: transparent;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+
+.animal-picker-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Tier Filter Bar */
+.animal-tier-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.animal-tier-filter-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.animal-tier-filter-btn.active {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+  box-shadow: 0 2px 6px rgba(30, 41, 59, 0.15);
+}
+
+.animal-tier-filter-btn.tier-btn-dolphin.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+.animal-tier-filter-btn.tier-btn-monkey.active {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+}
+
+.animal-tier-filter-btn.tier-btn-cat.active {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+}
+
+.animal-tier-filter-btn.tier-btn-turtle.active {
+  background: #be185d;
+  color: #ffffff;
+  border-color: #be185d;
+}
+
+.tier-count-chip {
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+}
+
+.animal-tier-filter-btn.active .tier-count-chip {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Modal Tier Cards */
+.animal-tier-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.animal-tier-card.tier-card-dolphin {
+  border-left: 4px solid #0284c7;
+  background: #f0f9ff;
+}
+
+.animal-tier-card.tier-card-monkey {
+  border-left: 4px solid #059669;
+  background: #f0fdf4;
+}
+
+.animal-tier-card.tier-card-cat {
+  border-left: 4px solid #c2410c;
+  background: #fffaf0;
+}
+
+.animal-tier-card.tier-card-turtle {
+  border-left: 4px solid #be185d;
+  background: #fff1f2;
+}
+
+.animal-tier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.animal-tier-badge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.animal-tier-sub {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Mascot Options Grid */
+.animal-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.animal-option-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.animal-option-chip:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.animal-option-chip.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.animal-chip-icon {
+  font-size: 18px;
+}
+
+.animal-chip-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+}

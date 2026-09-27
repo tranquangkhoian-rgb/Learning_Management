@@ -4,36 +4,101 @@
  * Uses localStorage for persistent storage and direct Google Sheets webhook sync.
  */
 
+// Teacher Animal Group & Ranking Tiers (Exclusively for Teacher)
+const ANIMAL_GROUPS_CONFIG = {
+  dolphin: {
+    tier: "smartest",
+    tier_name: "Thông Thái (Xuất Sắc)",
+    badge_color: "#0284c7",
+    bg_color: "#e0f2fe",
+    border_color: "#7dd3fc",
+    default_symbol: "🐬",
+    default_name: "Cá heo thông thái",
+    options: [
+      { symbol: "🐬", name: "Cá heo thông thái" },
+      { symbol: "🦉", name: "Cú mèo thông thái" },
+      { symbol: "🦅", name: "Đại bàng tinh anh" },
+      { symbol: "🐳", name: "Cá voi uyên bác" }
+    ]
+  },
+  monkey: {
+    tier: "better",
+    tier_name: "Vượt Trội (Khá Giỏi)",
+    badge_color: "#059669",
+    bg_color: "#ecfdf5",
+    border_color: "#a7f3d0",
+    default_symbol: "🐵",
+    default_name: "Khỉ nhanh nhẹn",
+    options: [
+      { symbol: "🐵", name: "Khỉ nhanh nhẹn" },
+      { symbol: "🦊", name: "Cáo lanh lợi" },
+      { symbol: "🦁", name: "Sư tử dũng cảm" },
+      { symbol: "🐆", name: "Báo đốm tốc độ" }
+    ]
+  },
+  orange_cat: {
+    tier: "ordinary",
+    tier_name: "Tiêu Chuẩn (Đạt Yêu Cầu)",
+    badge_color: "#c2410c",
+    bg_color: "#fff7ed",
+    border_color: "#fed7aa",
+    default_symbol: "🐱",
+    default_name: "Mèo cam chăm chỉ",
+    options: [
+      { symbol: "🐱", name: "Mèo cam chăm chỉ" },
+      { symbol: "🐶", name: "Cún con trung thành" },
+      { symbol: "🐼", name: "Gấu trúc cần cù" },
+      { symbol: "🐰", name: "Thỏ trắng nhanh nhẹn" }
+    ]
+  },
+  turtle_snail: {
+    tier: "improvement",
+    tier_name: "Cần Cố Gắng (Cần Rèn Luyện Thêm)",
+    badge_color: "#be185d",
+    bg_color: "#fdf2f8",
+    border_color: "#fbcfe8",
+    default_symbol: "🐢",
+    default_name: "Rùa kiên trì",
+    options: [
+      { symbol: "🐢", name: "Rùa kiên trì" },
+      { symbol: "🐌", name: "Ốc sên nỗ lực" },
+      { symbol: "🦥", name: "Lười thong thả" },
+      { symbol: "🦔", name: "Nhím cẩn thận" },
+      { symbol: "🐜", name: "Kiến nhẫn nại" }
+    ]
+  }
+};
+
 const DEFAULT_STUDENTS_3A7 = [
-  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7", password: "1234" },
-  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7", password: "1234" },
-  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7", password: "1234" },
-  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7", password: "1234" },
-  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7", password: "1234" },
-  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7", password: "1234" },
-  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7", password: "1234" },
-  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7", password: "1234" },
-  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7", password: "1234" },
-  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7", password: "1234" },
-  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7", password: "1234" },
-  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7", password: "1234" },
-  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7", password: "1234" },
-  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7", password: "1234" },
-  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7", password: "1234" },
-  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7", password: "1234" },
-  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7", password: "1234" },
-  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7", password: "1234" },
-  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7", password: "1234" },
-  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7", password: "1234" },
-  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7", password: "1234" },
-  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7", password: "1234" },
-  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7", password: "1234" },
-  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7", password: "1234" },
-  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7", password: "1234" },
-  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7", password: "1234" },
-  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7", password: "1234" },
-  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7", password: "1234" },
-  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7", password: "1234" }
+  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7", password: "1234", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "Cá heo thông thái" },
+  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🐵", animal_title: "Khỉ nhanh nhẹn" },
+  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7", password: "1234", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "Cá heo thông thái" },
+  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🦊", animal_title: "Cáo lanh lợi" },
+  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🐵", animal_title: "Khỉ nhanh nhẹn" },
+  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7", password: "1234", animal_group: "dolphin", animal_symbol: "🦉", animal_title: "Cú mèo thông thái" },
+  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🦁", animal_title: "Sư tử dũng cảm" },
+  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7", password: "1234", animal_group: "dolphin", animal_symbol: "🦅", animal_title: "Đại bàng tinh anh" },
+  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🐵", animal_title: "Khỉ nhanh nhẹn" },
+  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7", password: "1234", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "Cá heo thông thái" },
+  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7", password: "1234", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "Rùa kiên trì" },
+  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7", password: "1234", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "Ốc sên nỗ lực" },
+  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7", password: "1234", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "Rùa kiên trì" },
+  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7", password: "1234", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "Mèo cam chăm chỉ" },
+  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🐆", animal_title: "Báo đốm tốc độ" },
+  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7", password: "1234", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "Ốc sên nỗ lực" },
+  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7", password: "1234", animal_group: "turtle_snail", animal_symbol: "🦥", animal_title: "Lười thong thả" },
+  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7", password: "1234", animal_group: "monkey", animal_symbol: "🐵", animal_title: "Khỉ nhanh nhẹn" }
 ];
 
 const DEFAULT_BOOKS_3A7 = [
@@ -1247,19 +1312,38 @@ class ClientDBEngine {
   }
 
   // --- Student CRUD ---
+  // --- Student CRUD ---
   getStudents() {
     try {
       const raw = JSON.parse(localStorage.getItem("lms_students"));
-      const list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_STUDENTS_3A7;
-      return list.map((s, idx) => {
-        if (!s.order_num) s.order_num = idx + 1;
-        if (!s.password) s.password = "1234";
+      let list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_STUDENTS_3A7;
+      const devPwds = this.getDevicePasswordsMap();
+      let changed = false;
+
+      const result = list.map((s, idx) => {
+        if (!s.order_num) { s.order_num = idx + 1; changed = true; }
+        const match = DEFAULT_STUDENTS_3A7.find(d => d.code === s.code);
         if (!s.gender) {
-          const match = DEFAULT_STUDENTS_3A7.find(d => d.code === s.code);
           s.gender = match ? match.gender : "Học sinh";
+          changed = true;
         }
+        // Ensure teacher animal ranking fields exist
+        if (!s.animal_group || !s.animal_symbol || !s.animal_title) {
+          s.animal_group = (match && match.animal_group) ? match.animal_group : "orange_cat";
+          s.animal_symbol = (match && match.animal_symbol) ? match.animal_symbol : "🐱";
+          s.animal_title = (match && match.animal_title) ? match.animal_title : "Mèo cam chăm chỉ";
+          changed = true;
+        }
+        // Device-specific password resolution: local device password overrides
+        const devPwd = devPwds[s.code] || devPwds[String(s.id)] || s.password || "1234";
+        s.password = devPwd;
         return s;
       });
+
+      if (changed) {
+        localStorage.setItem("lms_students", JSON.stringify(result));
+      }
+      return result;
     } catch {
       return DEFAULT_STUDENTS_3A7;
     }
@@ -1273,21 +1357,105 @@ class ClientDBEngine {
     return false;
   }
 
-  resetAllPasswordsToDefault(defaultPass = "1234") {
-    const clean = String(defaultPass || "1234").trim();
-    const list = this.getStudents().map(s => ({
-      ...s,
-      password: clean
-    }));
+  // --- Teacher Animal Group & Ranking Tiers ---
+  getAnimalGroupsConfig() {
+    return ANIMAL_GROUPS_CONFIG;
+  }
+
+  updateStudentAnimalGroup(studentIdOrCode, groupKey, symbol = null, title = null) {
+    const list = this.getStudents();
+    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
+    const idx = list.findIndex(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (idx === -1) return false;
+
+    const groupCfg = ANIMAL_GROUPS_CONFIG[groupKey] || ANIMAL_GROUPS_CONFIG.orange_cat;
+    list[idx].animal_group = groupKey;
+    list[idx].animal_symbol = symbol || groupCfg.default_symbol;
+    list[idx].animal_title = title || groupCfg.default_name;
+
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return list[idx];
+  }
+
+  // --- Device-Specific Passwords Management (Decoupled from other devices) ---
+  getDevicePasswordsMap() {
+    try {
+      return JSON.parse(localStorage.getItem("lms_device_passwords") || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  saveDevicePasswordsMap(map) {
+    localStorage.setItem("lms_device_passwords", JSON.stringify(map || {}));
+  }
+
+  getDeviceStudentPassword(studentIdOrCode) {
+    const map = this.getDevicePasswordsMap();
+    const cleanSC = String(studentIdOrCode || "").trim().toUpperCase();
+    if (map[cleanSC]) return map[cleanSC];
+    const list = this.getStudents();
+    const st = list.find(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (st && st.password) return st.password;
+    return "1234";
+  }
+
+  updateDeviceStudentPassword(studentIdOrCode, newPassword) {
+    const cleanPass = String(newPassword || "1234").trim();
+    const map = this.getDevicePasswordsMap();
+    const cleanSC = String(studentIdOrCode || "").trim().toUpperCase();
+    const list = this.getStudents();
+    const st = list.find(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (st) {
+      map[st.code] = cleanPass;
+      map[String(st.id)] = cleanPass;
+      st.password = cleanPass;
+      localStorage.setItem("lms_students", JSON.stringify(list));
+    } else {
+      map[cleanSC] = cleanPass;
+    }
+    this.saveDevicePasswordsMap(map);
+    return true;
+  }
+
+  verifyStudentPassword(studentIdOrCode, inputPassword) {
+    const expected = this.getDeviceStudentPassword(studentIdOrCode);
+    return String(inputPassword || "").trim() === expected;
+  }
+
+  resetDeviceAllPasswords(defaultPass = "1234") {
+    const cleanPass = String(defaultPass || "1234").trim();
+    const map = {};
+    const list = this.getStudents().map(s => {
+      map[s.code] = cleanPass;
+      map[String(s.id)] = cleanPass;
+      return { ...s, password: cleanPass };
+    });
+    this.saveDevicePasswordsMap(map);
     localStorage.setItem("lms_students", JSON.stringify(list));
     return list;
+  }
+
+  applyDevicePasswordsToStudents(studentsList) {
+    if (!Array.isArray(studentsList)) return [];
+    const map = this.getDevicePasswordsMap();
+    return studentsList.map(s => {
+      const codeKey = (s.code || "").toUpperCase();
+      const idKey = String(s.id);
+      const devPwd = map[codeKey] || map[idKey] || s.password || "1234";
+      return { ...s, password: devPwd };
+    });
+  }
+
+  resetAllPasswordsToDefault(defaultPass = "1234") {
+    return this.resetDeviceAllPasswords(defaultPass);
   }
 
   getStudentPasswordsMap() {
     const list = this.getStudents();
     const map = {};
     list.forEach(s => {
-      const pwd = s.password || "1234";
+      const pwd = this.getDeviceStudentPassword(s.code);
       map[s.code] = pwd;
       map[String(s.id)] = pwd;
     });
@@ -1295,39 +1463,12 @@ class ClientDBEngine {
   }
 
   syncPasswordsFromMap(map) {
-    if (!map || typeof map !== "object") return false;
-    const list = this.getStudents();
-    let changed = false;
-    list.forEach(s => {
-      const newPwd = map[s.code] || map[String(s.id)];
-      if (newPwd && s.password !== newPwd) {
-        s.password = newPwd;
-        changed = true;
-      }
-    });
-    if (changed) {
-      localStorage.setItem("lms_students", JSON.stringify(list));
-    }
-    return changed;
+    // Decoupled: device passwords remain local to this device
+    return false;
   }
 
   updateStudentPassword(studentIdOrCode, newPassword) {
-    const list = this.getStudents();
-    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
-    const idx = list.findIndex(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
-    if (idx === -1) return false;
-    list[idx].password = String(newPassword || "1234").trim();
-    localStorage.setItem("lms_students", JSON.stringify(list));
-    return true;
-  }
-
-  verifyStudentPassword(studentIdOrCode, inputPassword) {
-    const list = this.getStudents();
-    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
-    const st = list.find(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
-    if (!st) return false;
-    const expected = (st.password || "1234").trim();
-    return String(inputPassword || "").trim() === expected;
+    return this.updateDeviceStudentPassword(studentIdOrCode, newPassword);
   }
 
   addStudent(code, fullName, gender = "Nam", orderNum = null) {
@@ -1345,11 +1486,15 @@ class ClientDBEngine {
       gender: gender || "Học sinh",
       order_num: orderNum !== null && orderNum !== undefined ? Number(orderNum) : (maxOrder + 1),
       class_name: this.getSettings().class_name || "Lớp 3A7",
-      password: "1234"
+      password: "1234",
+      animal_group: "orange_cat",
+      animal_symbol: "🐱",
+      animal_title: "Mèo cam chăm chỉ"
     };
     list.push(st);
     list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
     localStorage.setItem("lms_students", JSON.stringify(list));
+    this.updateDeviceStudentPassword(st.code, "1234");
     return st;
   }
 
@@ -1649,6 +1794,9 @@ class ClientDBEngine {
         code: st.code,
         full_name: st.full_name,
         gender: st.gender || "Học sinh",
+        animal_group: st.animal_group || "orange_cat",
+        animal_symbol: st.animal_symbol || "🐱",
+        animal_title: st.animal_title || "Mèo cam chăm chỉ",
         current_status: currentStatus,
         status: currentStatus,
         color_group: colorGroup,

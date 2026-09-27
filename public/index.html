@@ -667,12 +667,21 @@
         </div>
 
         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;">
-          <div style="flex: 1; min-width: 240px;">
+          <div style="flex: 1.2; min-width: 220px;">
             <select id="tracking-assignment-select" class="form-control" onchange="app.loadTrackingMatrix()">
               <!-- Filled dynamically -->
             </select>
           </div>
-          <div style="flex: 1; min-width: 200px;">
+          <div style="flex: 1; min-width: 180px;">
+            <select id="tracking-animal-filter" class="form-control" onchange="app.setTrackingAnimalFilter(this.value)">
+              <option value="ALL">🐾 Tất cả nhóm linh vật (GV)</option>
+              <option value="dolphin">🐬 Nhóm Thông Thái (Xuất Sắc)</option>
+              <option value="monkey">🐵 Nhóm Vượt Trội (Khá Giỏi)</option>
+              <option value="orange_cat">🐱 Nhóm Tiêu Chuẩn (Đạt)</option>
+              <option value="turtle_snail">🐢 Nhóm Cần Cố Gắng</option>
+            </select>
+          </div>
+          <div style="flex: 1; min-width: 180px;">
             <input type="text" id="tracking-search-input" class="form-control" placeholder="🔍 Tìm kiếm học sinh..." oninput="app.filterTrackingTable()">
           </div>
         </div>
@@ -842,6 +851,28 @@
 
         <!-- Subtab 1: Danh Sách & Quản Lý Học Sinh -->
         <div id="student-subtab-list">
+          <!-- Teacher Animal Groups & Ranking Filter Bar (Only for Teacher) -->
+          <div class="animal-filter-bar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; background: #f8fafc; padding: 10px 14px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 13px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 4px;">
+              🐾 Xếp hạng linh vật (GV):
+            </span>
+            <button type="button" class="animal-tier-filter-btn active" data-tier="ALL" onclick="app.setStudentAnimalFilter('ALL', this)">
+              Tất cả <span class="tier-count-chip" id="tier-count-all">29</span>
+            </button>
+            <button type="button" class="animal-tier-filter-btn tier-btn-dolphin" data-tier="dolphin" onclick="app.setStudentAnimalFilter('dolphin', this)">
+              🐬 Thông Thái <span class="tier-count-chip" id="tier-count-dolphin">0</span>
+            </button>
+            <button type="button" class="animal-tier-filter-btn tier-btn-monkey" data-tier="monkey" onclick="app.setStudentAnimalFilter('monkey', this)">
+              🐵 Vượt Trội <span class="tier-count-chip" id="tier-count-monkey">0</span>
+            </button>
+            <button type="button" class="animal-tier-filter-btn tier-btn-cat" data-tier="orange_cat" onclick="app.setStudentAnimalFilter('orange_cat', this)">
+              🐱 Tiêu Chuẩn <span class="tier-count-chip" id="tier-count-orange_cat">0</span>
+            </button>
+            <button type="button" class="animal-tier-filter-btn tier-btn-turtle" data-tier="turtle_snail" onclick="app.setStudentAnimalFilter('turtle_snail', this)">
+              🐢 Cần Cố Gắng <span class="tier-count-chip" id="tier-count-turtle_snail">0</span>
+            </button>
+          </div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
             <div style="max-width: 360px; flex: 1;">
               <input type="text" id="student-search-input" class="form-control" placeholder="🔍 Tìm kiếm theo tên hoặc mã HS..." oninput="app.filterStudentsList()">
@@ -855,12 +886,13 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 60px;">STT</th>
-                  <th style="width: 100px;">Mã HS</th>
+                  <th style="width: 50px;">STT</th>
+                  <th style="width: 90px;">Mã HS</th>
                   <th>Họ và Tên</th>
-                  <th style="width: 100px;">Giới Tính</th>
-                  <th style="width: 120px;">Lớp</th>
-                  <th style="width: 220px; text-align: center;">Thao Tác</th>
+                  <th style="width: 175px;">Linh Vật (GV)</th>
+                  <th style="width: 90px;">Giới Tính</th>
+                  <th style="width: 100px;">Lớp</th>
+                  <th style="width: 250px; text-align: center;">Thao Tác</th>
                 </tr>
               </thead>
               <tbody id="students-management-tbody">
@@ -1027,7 +1059,7 @@
           <div>
             <div class="card-title">🔑 Quản Lý Mật Khẩu Học Sinh (29 Bạn Lớp 3A7)</div>
             <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
-              Mật khẩu riêng từng học sinh khi chạm tên vào cổng điểm & đường đua. Đồng bộ ngay lập tức giữa laptop, điện thoại và máy tính bảng. Mặc định: 1234
+              Mật khẩu riêng từng học sinh khi chạm tên vào cổng điểm & đường đua. Mật khẩu lưu độc lập trên từng thiết bị (Mặc định: 1234, đổi trên máy này không ảnh hưởng đến máy khác).
             </div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -1882,7 +1914,157 @@
           </div>
         </form>
         <div style="margin-top: 14px; text-align: center; font-size: 12px; color: #64748b;">
-          🌐 Mật khẩu mới sẽ được đồng bộ ngay lập tức tới tất cả thiết bị khác.
+          🔒 Mật khẩu được lưu riêng trên thiết bị này và không ảnh hưởng đến thiết bị khác.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PHÂN LOẠI NHÓM LINH VẬT HỌC SINH (CHỈ GIÁO VIÊN) -->
+  <div id="modal-assign-animal-group" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+            <span>🐾</span> Phân Loại Nhóm Linh Vật
+          </h3>
+          <p id="modal-animal-student-sub" style="font-size: 13px; color: var(--text-muted); margin: 3px 0 0;">
+            Học sinh: <strong id="modal-animal-student-name">Vỹ An</strong> (<span id="modal-animal-student-code">HS01</span>) • <em>Chỉ giáo viên nhìn thấy</em>
+          </p>
+        </div>
+        <button class="modal-close" onclick="app.closeAssignAnimalGroupModal()">&times;</button>
+      </div>
+
+      <div style="padding: 4px 0 16px;">
+        <input type="hidden" id="modal-animal-target-id" value="">
+        <input type="hidden" id="modal-animal-selected-group" value="orange_cat">
+        <input type="hidden" id="modal-animal-selected-symbol" value="🐱">
+        <input type="hidden" id="modal-animal-selected-title" value="Mèo cam chăm chỉ">
+
+        <p style="font-size: 13px; color: #475569; margin-bottom: 14px; line-height: 1.5;">
+          Phân nhóm giúp Cô Linh theo dõi học lực và mức độ tiếp thu để có phương pháp rèn luyện phù hợp. <strong>Học sinh hoàn toàn không nhìn thấy bảng xếp hạng hay linh vật này.</strong>
+        </p>
+
+        <!-- 4 Tiers Container -->
+        <div class="animal-tiers-container" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Tier 1: Smartest / Dolphin -->
+          <div class="animal-tier-card tier-card-dolphin" data-tier="dolphin">
+            <div class="animal-tier-header">
+              <span class="animal-tier-badge badge-dolphin">🐬 Thông Thái (Xuất Sắc)</span>
+              <span class="animal-tier-sub">Nhóm tiếp thu nhanh, học giỏi</span>
+            </div>
+            <div class="animal-options-grid">
+              <div class="animal-option-chip" data-group="dolphin" data-symbol="🐬" data-title="Cá heo thông thái" onclick="app.selectStudentAnimal('dolphin', '🐬', 'Cá heo thông thái')">
+                <span class="animal-chip-icon">🐬</span>
+                <span class="animal-chip-label">Cá heo</span>
+              </div>
+              <div class="animal-option-chip" data-group="dolphin" data-symbol="🦉" data-title="Cú mèo thông thái" onclick="app.selectStudentAnimal('dolphin', '🦉', 'Cú mèo thông thái')">
+                <span class="animal-chip-icon">🦉</span>
+                <span class="animal-chip-label">Cú mèo</span>
+              </div>
+              <div class="animal-option-chip" data-group="dolphin" data-symbol="🦅" data-title="Đại bàng tinh anh" onclick="app.selectStudentAnimal('dolphin', '🦅', 'Đại bàng tinh anh')">
+                <span class="animal-chip-icon">🦅</span>
+                <span class="animal-chip-label">Đại bàng</span>
+              </div>
+              <div class="animal-option-chip" data-group="dolphin" data-symbol="🐳" data-title="Cá voi uyên bác" onclick="app.selectStudentAnimal('dolphin', '🐳', 'Cá voi uyên bác')">
+                <span class="animal-chip-icon">🐳</span>
+                <span class="animal-chip-label">Cá voi</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier 2: Better than ordinary / Monkey -->
+          <div class="animal-tier-card tier-card-monkey" data-tier="monkey">
+            <div class="animal-tier-header">
+              <span class="animal-tier-badge badge-monkey">🐵 Vượt Trội (Khá Giỏi)</span>
+              <span class="animal-tier-sub">Nhóm học lực khá, tiến bộ nhanh</span>
+            </div>
+            <div class="animal-options-grid">
+              <div class="animal-option-chip" data-group="monkey" data-symbol="🐵" data-title="Khỉ nhanh nhẹn" onclick="app.selectStudentAnimal('monkey', '🐵', 'Khỉ nhanh nhẹn')">
+                <span class="animal-chip-icon">🐵</span>
+                <span class="animal-chip-label">Khỉ</span>
+              </div>
+              <div class="animal-option-chip" data-group="monkey" data-symbol="🦊" data-title="Cáo lanh lợi" onclick="app.selectStudentAnimal('monkey', '🦊', 'Cáo lanh lợi')">
+                <span class="animal-chip-icon">🦊</span>
+                <span class="animal-chip-label">Cáo</span>
+              </div>
+              <div class="animal-option-chip" data-group="monkey" data-symbol="🦁" data-title="Sư tử dũng cảm" onclick="app.selectStudentAnimal('monkey', '🦁', 'Sư tử dũng cảm')">
+                <span class="animal-chip-icon">🦁</span>
+                <span class="animal-chip-label">Sư tử</span>
+              </div>
+              <div class="animal-option-chip" data-group="monkey" data-symbol="🐆" data-title="Báo đốm tốc độ" onclick="app.selectStudentAnimal('monkey', '🐆', 'Báo đốm tốc độ')">
+                <span class="animal-chip-icon">🐆</span>
+                <span class="animal-chip-label">Báo đốm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier 3: Ordinary students / Orange Cats -->
+          <div class="animal-tier-card tier-card-cat" data-tier="orange_cat">
+            <div class="animal-tier-header">
+              <span class="animal-tier-badge badge-cat">🐱 Tiêu Chuẩn (Đạt Yêu Cầu)</span>
+              <span class="animal-tier-sub">Nhóm trung bình khá, chăm chỉ</span>
+            </div>
+            <div class="animal-options-grid">
+              <div class="animal-option-chip" data-group="orange_cat" data-symbol="🐱" data-title="Mèo cam chăm chỉ" onclick="app.selectStudentAnimal('orange_cat', '🐱', 'Mèo cam chăm chỉ')">
+                <span class="animal-chip-icon">🐱</span>
+                <span class="animal-chip-label">Mèo cam</span>
+              </div>
+              <div class="animal-option-chip" data-group="orange_cat" data-symbol="🐶" data-title="Cún con trung thành" onclick="app.selectStudentAnimal('orange_cat', '🐶', 'Cún con trung thành')">
+                <span class="animal-chip-icon">🐶</span>
+                <span class="animal-chip-label">Cún con</span>
+              </div>
+              <div class="animal-option-chip" data-group="orange_cat" data-symbol="🐼" data-title="Gấu trúc cần cù" onclick="app.selectStudentAnimal('orange_cat', '🐼', 'Gấu trúc cần cù')">
+                <span class="animal-chip-icon">🐼</span>
+                <span class="animal-chip-label">Gấu trúc</span>
+              </div>
+              <div class="animal-option-chip" data-group="orange_cat" data-symbol="🐰" data-title="Thỏ trắng nhanh nhẹn" onclick="app.selectStudentAnimal('orange_cat', '🐰', 'Thỏ trắng nhanh nhẹn')">
+                <span class="animal-chip-icon">🐰</span>
+                <span class="animal-chip-label">Thỏ trắng</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier 4: Need improvement / Turtle/Snail -->
+          <div class="animal-tier-card tier-card-turtle" data-tier="turtle_snail">
+            <div class="animal-tier-header">
+              <span class="animal-tier-badge badge-turtle">🐢 Cần Cố Gắng (Cần Rèn Luyện Thêm)</span>
+              <span class="animal-tier-sub">Nhóm cần cô kèm cặp, rèn luyện thêm</span>
+            </div>
+            <div class="animal-options-grid">
+              <div class="animal-option-chip" data-group="turtle_snail" data-symbol="🐢" data-title="Rùa kiên trì" onclick="app.selectStudentAnimal('turtle_snail', '🐢', 'Rùa kiên trì')">
+                <span class="animal-chip-icon">🐢</span>
+                <span class="animal-chip-label">Rùa</span>
+              </div>
+              <div class="animal-option-chip" data-group="turtle_snail" data-symbol="🐌" data-title="Ốc sên nỗ lực" onclick="app.selectStudentAnimal('turtle_snail', '🐌', 'Ốc sên nỗ lực')">
+                <span class="animal-chip-icon">🐌</span>
+                <span class="animal-chip-label">Ốc sên</span>
+              </div>
+              <div class="animal-option-chip" data-group="turtle_snail" data-symbol="🦥" data-title="Lười thong thả" onclick="app.selectStudentAnimal('turtle_snail', '🦥', 'Lười thong thả')">
+                <span class="animal-chip-icon">🦥</span>
+                <span class="animal-chip-label">Lười</span>
+              </div>
+              <div class="animal-option-chip" data-group="turtle_snail" data-symbol="🦔" data-title="Nhím cẩn thận" onclick="app.selectStudentAnimal('turtle_snail', '🦔', 'Nhím cẩn thận')">
+                <span class="animal-chip-icon">🦔</span>
+                <span class="animal-chip-label">Nhím</span>
+              </div>
+              <div class="animal-option-chip" data-group="turtle_snail" data-symbol="🐜" data-title="Kiến nhẫn nại" onclick="app.selectStudentAnimal('turtle_snail', '🐜', 'Kiến nhẫn nại')">
+                <span class="animal-chip-icon">🐜</span>
+                <span class="animal-chip-label">Kiến</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected preview -->
+        <div style="margin-top: 16px; padding: 10px 14px; background: #f8fafc; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e8f0;">
+          <span style="font-size: 13px; color: #64748b;">Đang chọn:</span>
+          <span id="modal-animal-selected-badge" class="badge-animal badge-animal-orange_cat" style="font-weight: 700; font-size: 14px; padding: 6px 14px; border-radius: 20px;">🐱 Mèo cam chăm chỉ</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-outline" style="flex: 1;" onclick="app.closeAssignAnimalGroupModal()">Hủy</button>
+          <button type="button" class="btn btn-primary" style="flex: 2; font-weight: 800;" onclick="app.saveStudentAnimalGroup()">💾 Lưu Linh Vật Cho Học Sinh</button>
         </div>
       </div>
     </div>

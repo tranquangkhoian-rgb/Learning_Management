@@ -20,6 +20,71 @@ from datetime import datetime
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "learning.db")
 
+# Teacher Animal Group & Ranking Tiers
+ANIMAL_GROUPS_CONFIG = {
+    "dolphin": {
+        "tier": "smartest",
+        "tier_name": "Thông Thái (Xuất Sắc)",
+        "badge_color": "#0284c7",
+        "bg_color": "#e0f2fe",
+        "border_color": "#7dd3fc",
+        "default_symbol": "🐬",
+        "default_name": "Cá heo thông thái",
+        "options": [
+            {"symbol": "🐬", "name": "Cá heo thông thái"},
+            {"symbol": "🦉", "name": "Cú mèo thông thái"},
+            {"symbol": "🦅", "name": "Đại bàng tinh anh"},
+            {"symbol": "🐳", "name": "Cá voi uyên bác"},
+        ]
+    },
+    "monkey": {
+        "tier": "better",
+        "tier_name": "Vượt Trội (Khá Giỏi)",
+        "badge_color": "#059669",
+        "bg_color": "#ecfdf5",
+        "border_color": "#a7f3d0",
+        "default_symbol": "🐵",
+        "default_name": "Khỉ nhanh nhẹn",
+        "options": [
+            {"symbol": "🐵", "name": "Khỉ nhanh nhẹn"},
+            {"symbol": "🦊", "name": "Cáo lanh lợi"},
+            {"symbol": "🦁", "name": "Sư tử dũng cảm"},
+            {"symbol": "🐆", "name": "Báo đốm tốc độ"},
+        ]
+    },
+    "orange_cat": {
+        "tier": "ordinary",
+        "tier_name": "Tiêu Chuẩn (Đạt Yêu Cầu)",
+        "badge_color": "#c2410c",
+        "bg_color": "#fff7ed",
+        "border_color": "#fed7aa",
+        "default_symbol": "🐱",
+        "default_name": "Mèo cam chăm chỉ",
+        "options": [
+            {"symbol": "🐱", "name": "Mèo cam chăm chỉ"},
+            {"symbol": "🐶", "name": "Cún con trung thành"},
+            {"symbol": "🐼", "name": "Gấu trúc cần cù"},
+            {"symbol": "🐰", "name": "Thỏ trắng nhanh nhẹn"},
+        ]
+    },
+    "turtle_snail": {
+        "tier": "improvement",
+        "tier_name": "Cần Cố Gắng (Cần Rèn Luyện Thêm)",
+        "badge_color": "#be185d",
+        "bg_color": "#fdf2f8",
+        "border_color": "#fbcfe8",
+        "default_symbol": "🐢",
+        "default_name": "Rùa kiên trì",
+        "options": [
+            {"symbol": "🐢", "name": "Rùa kiên trì"},
+            {"symbol": "🐌", "name": "Ốc sên nỗ lực"},
+            {"symbol": "🦥", "name": "Lười thong thả"},
+            {"symbol": "🦔", "name": "Nhím cẩn thận"},
+            {"symbol": "🐜", "name": "Kiến nhẫn nại"},
+        ]
+    }
+}
+
 def get_db():
     os.makedirs(DB_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
@@ -48,6 +113,9 @@ def init_db():
         class_name TEXT DEFAULT 'Lớp 3A',
         order_num INTEGER,
         password TEXT DEFAULT '1234',
+        animal_group TEXT DEFAULT 'orange_cat',
+        animal_symbol TEXT DEFAULT '🐱',
+        animal_title TEXT DEFAULT 'Mèo cam chăm chỉ',
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -113,11 +181,47 @@ def init_db():
     );
     """)
 
-    # Ensure password column exists on students table (Universal Password sync)
+    # Ensure password and animal group columns exist on students table
     cursor.execute("PRAGMA table_info(students)")
     st_cols = [col[1] for col in cursor.fetchall()]
     if "password" not in st_cols:
         cursor.execute("ALTER TABLE students ADD COLUMN password TEXT DEFAULT '1234'")
+    if "animal_group" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN animal_group TEXT DEFAULT 'orange_cat'")
+    if "animal_symbol" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN animal_symbol TEXT DEFAULT '🐱'")
+    if "animal_title" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN animal_title TEXT DEFAULT 'Mèo cam chăm chỉ'")
+
+    # Initial seed distribution for animal groups
+    initial_groups = {
+        # Smartest / Dolphin tier
+        "HS01": ("dolphin", "🐬", "Cá heo thông thái"),
+        "HS06": ("dolphin", "🐬", "Cá heo thông thái"),
+        "HS11": ("dolphin", "🦉", "Cú mèo thông thái"),
+        "HS15": ("dolphin", "🦅", "Đại bàng tinh anh"),
+        "HS21": ("dolphin", "🐬", "Cá heo thông thái"),
+        # Better than ordinary / Monkey tier
+        "HS02": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
+        "HS07": ("monkey", "🦊", "Cáo lanh lợi"),
+        "HS10": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
+        "HS14": ("monkey", "🦁", "Sư tử dũng cảm"),
+        "HS18": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
+        "HS26": ("monkey", "🐆", "Báo đốm tốc độ"),
+        "HS29": ("monkey", "🐵", "Khỉ nhanh nhẹn"),
+        # Need improvement / Turtle/Snail tier
+        "HS22": ("turtle_snail", "🐢", "Rùa kiên trì"),
+        "HS23": ("turtle_snail", "🐌", "Ốc sên nỗ lực"),
+        "HS24": ("turtle_snail", "🐢", "Rùa kiên trì"),
+        "HS27": ("turtle_snail", "🐌", "Ốc sên nỗ lực"),
+        "HS28": ("turtle_snail", "🦥", "Lười thong thả"),
+    }
+    for code, (grp, sym, ttl) in initial_groups.items():
+        cursor.execute("""
+            UPDATE students
+            SET animal_group = ?, animal_symbol = ?, animal_title = ?
+            WHERE code = ? AND (animal_group IS NULL OR animal_group = 'orange_cat')
+        """, (grp, sym, ttl, code))
 
     # Seed Default Settings
     default_settings = {
@@ -420,6 +524,50 @@ def verify_student_password(student_id_or_code, input_password):
         return False
     saved = row["password"] if row["password"] is not None else "1234"
     return str(input_password).strip() == str(saved).strip()
+
+def get_animal_groups_config():
+    """Returns the teacher animal group ranking tiers configuration."""
+    return ANIMAL_GROUPS_CONFIG
+
+def update_student_animal_group(student_id_or_code, group_key, symbol=None, title=None):
+    """
+    Teacher-only: Updates a student's assigned animal ranking group and icon symbol.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    clean_group = str(group_key or "orange_cat").strip().lower()
+    if clean_group not in ANIMAL_GROUPS_CONFIG:
+        clean_group = "orange_cat"
+    cfg = ANIMAL_GROUPS_CONFIG[clean_group]
+    clean_symbol = symbol or cfg["default_symbol"]
+    clean_title = title or cfg["default_name"]
+
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("""
+            UPDATE students 
+            SET animal_group = ?, animal_symbol = ?, animal_title = ? 
+            WHERE id = ?
+        """, (clean_group, clean_symbol, clean_title, int(val)))
+    else:
+        cursor.execute("""
+            UPDATE students 
+            SET animal_group = ?, animal_symbol = ?, animal_title = ? 
+            WHERE code = ?
+        """, (clean_group, clean_symbol, clean_title, val.upper()))
+    conn.commit()
+    conn.close()
+    return {
+        "success": True,
+        "student_id": student_id_or_code,
+        "animal_group": clean_group,
+        "animal_symbol": clean_symbol,
+        "animal_title": clean_title,
+        "tier_name": cfg["tier_name"],
+        "badge_color": cfg["badge_color"],
+        "bg_color": cfg["bg_color"],
+        "border_color": cfg["border_color"]
+    }
 
 def reset_students_to_default():
     conn = get_db()
@@ -770,6 +918,9 @@ def get_assignment_tracking_matrix(assignment_id):
             "code": st["code"],
             "full_name": st["full_name"],
             "gender": st["gender"],
+            "animal_group": st.get("animal_group", "orange_cat"),
+            "animal_symbol": st.get("animal_symbol", "🐱"),
+            "animal_title": st.get("animal_title", "Mèo cam chăm chỉ"),
             "current_status": current_status,
             "color_group": color_group,
             "latest_submit_time": latest_submit_time,

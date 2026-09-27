@@ -190,9 +190,15 @@ class LMSApp {
     } catch {
       this.students = window.ClientDB.getStudents();
     }
+    // Apply local device passwords (so this device's passwords override and stay isolated)
+    if (window.ClientDB) {
+      this.students = window.ClientDB.applyDevicePasswordsToStudents(this.students);
+    }
     document.getElementById("stat-total-students").innerText = this.students.length;
+    this.updateStudentTierCounters();
     this.renderQuickStudentButtons();
     this.renderStudentPasswordTable();
+    this.filterStudentsList();
   }
 
   async loadAssignments() {
@@ -477,24 +483,11 @@ class LMSApp {
     if (!st) return;
 
     let isValid = false;
-    try {
-      if (this.serverAvailable) {
-        const res = await fetch("/api/students/verify-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ student_id: sid, password: pwd })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          isValid = data.valid;
-        } else {
-          isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
-        }
-      } else {
-        isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
-      }
-    } catch {
+    if (window.ClientDB) {
       isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
+    }
+    if (!isValid && st && (st.password || "1234").trim() === pwd) {
+      isValid = true;
     }
 
     if (isValid) {
@@ -1421,6 +1414,11 @@ class LMSApp {
     this.filterTrackingTable();
   }
 
+  setTrackingAnimalFilter(val) {
+    this.activeTrackingAnimalFilter = val || "ALL";
+    this.filterTrackingTable();
+  }
+
   filterTrackingTable() {
     const search = document.getElementById("tracking-search-input").value.toLowerCase().trim();
     const tbody = document.getElementById("tracking-table-body");
@@ -1429,6 +1427,12 @@ class LMSApp {
       // Search filter
       const matchSearch = row.full_name.toLowerCase().includes(search) || row.code.toLowerCase().includes(search);
       if (!matchSearch) return false;
+
+      // Animal Group Filter (Teacher only)
+      if (this.activeTrackingAnimalFilter && this.activeTrackingAnimalFilter !== "ALL") {
+        const rowGrp = row.animal_group || "orange_cat";
+        if (rowGrp !== this.activeTrackingAnimalFilter) return false;
+      }
 
       // Status Filter
       if (this.activeTrackingFilter === "ALL") return true;
@@ -1452,11 +1456,18 @@ class LMSApp {
       const latestScoreStr = (row.latest_score !== null && row.latest_score !== undefined) ? `<span class="score-pill score-high">${row.latest_score}</span>` : "-";
       const submitTimeStr = row.latest_submit_time ? (row.latest_submit_time.includes(" ") ? row.latest_submit_time.split(" ")[1] : row.latest_submit_time) : "-";
 
+      const animalGrp = row.animal_group || "orange_cat";
+      const animalSym = row.animal_symbol || "🐱";
+      const animalTtl = row.animal_title || "Mèo cam";
+
       return `
         <tr>
           <td><strong>${sttVal}</strong></td>
           <td><code>${row.code || "-"}</code></td>
-          <td><strong>${row.full_name || "-"}</strong></td>
+          <td>
+            <strong>${row.full_name || "-"}</strong>
+            <span class="badge-animal-mini badge-animal-${animalGrp}" title="${animalTtl}">${animalSym}</span>
+          </td>
           <td>${statusBadge}</td>
           <td>${submitTimeStr}</td>
           <td>${deadlineBadge}</td>
@@ -2000,13 +2011,50 @@ class LMSApp {
     this.renderStudentsTable(list);
   }
 
+  setStudentAnimalFilter(tier, el) {
+    this.activeStudentAnimalFilter = tier || "ALL";
+    document.querySelectorAll(".animal-tier-filter-btn").forEach(btn => btn.classList.remove("active"));
+    if (el) el.classList.add("active");
+    this.filterStudentsList();
+  }
+
+  updateStudentTierCounters() {
+    const list = this.students || [];
+    const counts = {
+      all: list.length,
+      dolphin: list.filter(s => s.animal_group === "dolphin").length,
+      monkey: list.filter(s => s.animal_group === "monkey").length,
+      orange_cat: list.filter(s => (s.animal_group === "orange_cat" || !s.animal_group)).length,
+      turtle_snail: list.filter(s => s.animal_group === "turtle_snail").length
+    };
+    const cAll = document.getElementById("tier-count-all");
+    const cDol = document.getElementById("tier-count-dolphin");
+    const cMon = document.getElementById("tier-count-monkey");
+    const cCat = document.getElementById("tier-count-orange_cat");
+    const cTur = document.getElementById("tier-count-turtle_snail");
+    if (cAll) cAll.innerText = counts.all;
+    if (cDol) cDol.innerText = counts.dolphin;
+    if (cMon) cMon.innerText = counts.monkey;
+    if (cCat) cCat.innerText = counts.orange_cat;
+    if (cTur) cTur.innerText = counts.turtle_snail;
+  }
+
   filterStudentsList() {
     const query = (document.getElementById("student-search-input")?.value || "").toLowerCase().trim();
+    const tier = this.activeStudentAnimalFilter || "ALL";
     const list = this.students || [];
+
     const filtered = list.filter(s => {
-      return (s.full_name || "").toLowerCase().includes(query) ||
+      const matchQuery = (s.full_name || "").toLowerCase().includes(query) ||
              (s.code || "").toLowerCase().includes(query) ||
              String(s.order_num || "").includes(query);
+      if (!matchQuery) return false;
+
+      if (tier !== "ALL") {
+        const sGrp = s.animal_group || "orange_cat";
+        if (sGrp !== tier) return false;
+      }
+      return true;
     });
     this.renderStudentsTable(filtered);
   }
@@ -2016,24 +2064,147 @@ class LMSApp {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy học sinh nào.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy học sinh nào.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = list.map((s, idx) => `
+    tbody.innerHTML = list.map((s, idx) => {
+      const grp = s.animal_group || "orange_cat";
+      const sym = s.animal_symbol || "🐱";
+      const ttl = s.animal_title || "Mèo cam chăm chỉ";
+      return `
       <tr>
         <td><strong>${s.order_num || (idx + 1)}</strong></td>
         <td><code>${s.code}</code></td>
         <td><strong>${s.full_name}</strong></td>
+        <td>
+          <button type="button" class="animal-picker-btn badge-animal badge-animal-${grp}" onclick="app.openAssignAnimalGroupModal(${s.id})" title="Nhấn để đổi nhóm linh vật (Chỉ giáo viên)">
+            <span>${sym}</span>
+            <span>${ttl}</span>
+            <span style="font-size: 10px; opacity: 0.7;">✏️</span>
+          </button>
+        </td>
         <td>${s.gender === "Nữ" ? '👧 Nữ' : '👦 Nam'}</td>
         <td><span class="badge badge-blue">${s.class_name || "Lớp 3A7"}</span></td>
         <td style="text-align: center; white-space: nowrap;">
+          <button class="btn btn-outline btn-sm" onclick="app.openAssignAnimalGroupModal(${s.id})" title="Phân loại linh vật cho học sinh (Chỉ giáo viên)">🐾 Nhóm</button>
           <button class="btn btn-outline btn-sm" onclick="app.viewStudentProfileFromList(${s.id})">👤 Hồ Sơ</button>
           <button class="btn btn-outline btn-sm" onclick="app.openEditStudentModal(${s.id})">✏️ Sửa</button>
           <button class="btn btn-danger btn-sm" onclick="app.deleteStudent(${s.id})">🗑️ Xóa</button>
         </td>
       </tr>
-    `).join("");
+      `;
+    }).join("");
+  }
+
+  openAssignAnimalGroupModal(studentId) {
+    const st = (this.students || []).find(s => s.id == studentId);
+    if (!st) return;
+
+    const modal = document.getElementById("modal-assign-animal-group");
+    if (!modal) return;
+
+    const nameEl = document.getElementById("modal-animal-student-name");
+    const codeEl = document.getElementById("modal-animal-student-code");
+    const targetEl = document.getElementById("modal-animal-target-id");
+
+    if (nameEl) nameEl.innerText = st.full_name;
+    if (codeEl) codeEl.innerText = st.code;
+    if (targetEl) targetEl.value = st.id;
+
+    const grp = st.animal_group || "orange_cat";
+    const sym = st.animal_symbol || "🐱";
+    const ttl = st.animal_title || "Mèo cam chăm chỉ";
+
+    this.selectStudentAnimal(grp, sym, ttl);
+    modal.style.display = "flex";
+  }
+
+  closeAssignAnimalGroupModal() {
+    const modal = document.getElementById("modal-assign-animal-group");
+    if (modal) modal.style.display = "none";
+  }
+
+  selectStudentAnimal(groupKey, symbol, title) {
+    const hidGrp = document.getElementById("modal-animal-selected-group");
+    const hidSym = document.getElementById("modal-animal-selected-symbol");
+    const hidTtl = document.getElementById("modal-animal-selected-title");
+    const badgeEl = document.getElementById("modal-animal-selected-badge");
+
+    if (hidGrp) hidGrp.value = groupKey;
+    if (hidSym) hidSym.value = symbol;
+    if (hidTtl) hidTtl.value = title;
+
+    if (badgeEl) {
+      badgeEl.className = `badge-animal badge-animal-${groupKey}`;
+      badgeEl.innerText = `${symbol} ${title}`;
+    }
+
+    // Highlight selected chip
+    document.querySelectorAll("#modal-assign-animal-group .animal-option-chip").forEach(chip => {
+      const cGrp = chip.getAttribute("data-group");
+      const cSym = chip.getAttribute("data-symbol");
+      if (cGrp === groupKey && cSym === symbol) {
+        chip.classList.add("selected");
+      } else {
+        chip.classList.remove("selected");
+      }
+    });
+  }
+
+  async saveStudentAnimalGroup() {
+    const targetEl = document.getElementById("modal-animal-target-id");
+    const hidGrp = document.getElementById("modal-animal-selected-group");
+    const hidSym = document.getElementById("modal-animal-selected-symbol");
+    const hidTtl = document.getElementById("modal-animal-selected-title");
+
+    if (!targetEl || !hidGrp) return;
+    const sid = targetEl.value;
+    const grp = hidGrp.value;
+    const sym = hidSym ? hidSym.value : "🐱";
+    const ttl = hidTtl ? hidTtl.value : "Mèo cam chăm chỉ";
+
+    const st = (this.students || []).find(s => s.id == sid);
+    if (!st) return;
+
+    try {
+      if (this.serverAvailable) {
+        await fetch(`/api/students/${sid}/animal-group`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            animal_group: grp,
+            animal_symbol: sym,
+            animal_title: ttl
+          })
+        });
+      }
+
+      if (window.ClientDB) {
+        window.ClientDB.updateStudentAnimalGroup(sid, grp, sym, ttl);
+      }
+
+      st.animal_group = grp;
+      st.animal_symbol = sym;
+      st.animal_title = ttl;
+
+      this.closeAssignAnimalGroupModal();
+      this.updateStudentTierCounters();
+      this.filterStudentsList();
+      if (this.trackingMatrix && this.trackingMatrix.length > 0) {
+        const trRow = this.trackingMatrix.find(r => r.student_id == sid);
+        if (trRow) {
+          trRow.animal_group = grp;
+          trRow.animal_symbol = sym;
+          trRow.animal_title = ttl;
+        }
+        this.filterTrackingTable();
+      }
+
+      alert(`✅ Đã xếp "${st.full_name}" vào nhóm: ${sym} ${ttl}!`);
+    } catch (e) {
+      alert("Lỗi khi lưu nhóm linh vật: " + e.message);
+    }
   }
 
   viewStudentProfileFromList(studentId) {
@@ -3497,43 +3668,7 @@ class LMSApp {
   handleCloudSyncMessage(data) {
     if (!data || !data.type) return;
 
-    if (data.type === "password_change") {
-      const sid = data.student_id;
-      const scode = (data.student_code || "").toUpperCase();
-      const newPass = String(data.password || "1234").trim();
-      let updated = false;
-
-      this.students.forEach(s => {
-        if ((sid && s.id == sid) || (scode && s.code && s.code.toUpperCase() === scode)) {
-          if (s.password !== newPass) {
-            s.password = newPass;
-            updated = true;
-          }
-        }
-      });
-
-      if (updated) {
-        if (window.ClientDB) {
-          window.ClientDB.saveStudentsList(this.students);
-        }
-        this.renderStudentPasswordTable();
-        this.renderLoginStudentPicker();
-        if (this.currentUserRole === "student" && this.currentStudent) {
-          const matched = this.students.find(s => s.id == this.currentStudent.id);
-          if (matched) this.currentStudent = matched;
-        }
-        console.log(`[CloudSync]: Password for ${scode || sid} updated across devices to "${newPass}"!`);
-      }
-    } else if (data.type === "password_reset_all") {
-      const pass = String(data.password || "1234").trim();
-      this.students.forEach(s => s.password = pass);
-      if (window.ClientDB) {
-        window.ClientDB.resetAllPasswordsToDefault(pass);
-      }
-      this.renderStudentPasswordTable();
-      this.renderLoginStudentPicker();
-      console.log(`[CloudSync]: All 29 student passwords reset to "${pass}" across devices!`);
-    } else if (data.type === "race_update") {
+    if (data.type === "race_update") {
       if (data.student_id && data.completed !== undefined) {
         const entry = this.readingRace.find(r => r.student_id == data.student_id);
         if (entry) {
@@ -3578,10 +3713,9 @@ class LMSApp {
     }
 
     try {
-      const [resRace, resStats, resPasswords] = await Promise.all([
+      const [resRace, resStats] = await Promise.all([
         fetch("/api/race"),
-        fetch("/api/library/stats"),
-        fetch("/api/students/passwords")
+        fetch("/api/library/stats")
       ]);
 
       if (resRace.ok) {
@@ -3602,28 +3736,6 @@ class LMSApp {
       if (resStats.ok) {
         const freshStats = await resStats.json();
         this.renderLibraryStats(freshStats);
-      }
-
-      if (resPasswords.ok) {
-        const freshPasswords = await resPasswords.json();
-        let passwordsChanged = false;
-        this.students.forEach(s => {
-          const sPwd = freshPasswords[s.code] || freshPasswords[String(s.id)];
-          if (sPwd && s.password !== sPwd) {
-            s.password = sPwd;
-            passwordsChanged = true;
-          }
-        });
-        if (passwordsChanged) {
-          if (window.ClientDB) window.ClientDB.saveStudentsList(this.students);
-          this.renderStudentPasswordTable();
-          this.renderLoginStudentPicker();
-          if (this.currentUserRole === "student" && this.currentStudent) {
-            const cur = this.students.find(s => s.id == this.currentStudent.id);
-            if (cur) this.currentStudent = cur;
-          }
-          console.log("[LiveSync]: Passwords synchronized across devices from server.");
-        }
       }
     } catch {
       // background poll ignores errors
@@ -3669,29 +3781,13 @@ class LMSApp {
   async resetStudentPassword(studentId) {
     const st = this.students.find(s => s.id == studentId);
     const name = st ? st.full_name : `Học sinh #${studentId}`;
-    if (!confirm(`Đặt lại mật khẩu của "${name}" về mặc định "1234"?\nMật khẩu sẽ được đồng bộ ngay lập tức tới mọi thiết bị.`)) return;
+    if (!confirm(`Đặt lại mật khẩu của "${name}" về mặc định "1234"?\n(Chỉ áp dụng trên thiết bị này, không ảnh hưởng máy khác)`)) return;
 
     try {
-      if (this.serverAvailable) {
-        const res = await fetch(`/api/students/${studentId}/password`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: "1234" })
-        });
-        if (!res.ok) throw new Error("Đặt lại mật khẩu thất bại trên máy chủ.");
-      }
-      if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, "1234");
+      if (window.ClientDB) window.ClientDB.updateDeviceStudentPassword(studentId, "1234");
       if (st) st.password = "1234";
 
-      // Broadcast to all other devices in real-time
-      await this.broadcastCloudSync({
-        type: "password_change",
-        student_id: studentId,
-        student_code: st ? st.code : "",
-        password: "1234"
-      });
-
-      alert(`✅ Đã đặt lại mật khẩu cho "${name}" về "1234" trên mọi thiết bị!`);
+      alert(`✅ Đã đặt lại mật khẩu cho "${name}" về "1234" trên thiết bị này!`);
       this.renderStudentPasswordTable();
       this.renderLoginStudentPicker();
     } catch (e) {
@@ -3700,30 +3796,16 @@ class LMSApp {
   }
 
   async resetAllStudentsPasswords() {
-    if (!confirm("⚠️ Bạn có chắc chắn muốn đặt lại mật khẩu của TẤT CẢ 29 học sinh về mặc định '1234'?\n\nThao tác này sẽ đồng bộ và khôi phục mã trên MỌI thiết bị (Laptop, Điện thoại, Máy tính bảng).")) return;
+    if (!confirm("⚠️ Bạn có chắc chắn muốn đặt lại mật khẩu của TẤT CẢ 29 học sinh về mặc định '1234'?\n\n(Thao tác này chỉ đặt lại trên thiết bị này, các thiết bị khác giữ nguyên mật khẩu)")) return;
 
     try {
-      if (this.serverAvailable) {
-        await fetch("/api/students/reset-all-passwords", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: "1234" })
-        });
-      }
-
       if (window.ClientDB) {
-        window.ClientDB.resetAllPasswordsToDefault("1234");
+        window.ClientDB.resetDeviceAllPasswords("1234");
       }
 
       this.students.forEach(s => s.password = "1234");
 
-      // Broadcast to all other devices in real-time
-      await this.broadcastCloudSync({
-        type: "password_reset_all",
-        password: "1234"
-      });
-
-      alert("✅ Đã đặt lại mật khẩu của toàn bộ 29 học sinh về '1234' trên mọi thiết bị!");
+      alert("✅ Đã đặt lại mật khẩu của toàn bộ 29 học sinh về '1234' trên thiết bị này!");
       this.renderStudentPasswordTable();
       this.renderLoginStudentPicker();
     } catch (e) {
@@ -3735,7 +3817,7 @@ class LMSApp {
     const st = this.students.find(s => s.id == studentId);
     const name = st ? st.full_name : `Học sinh #${studentId}`;
     const cur = st ? (st.password || "1234") : "1234";
-    const newPass = prompt(`Nhập mật khẩu mới cho "${name}":\n(Sẽ tự động cập nhật ngay trên tất cả điện thoại/laptop khác)`, cur);
+    const newPass = prompt(`Nhập mật khẩu mới cho "${name}" trên thiết bị này:\n(Đổi trên máy này không ảnh hưởng đến điện thoại/máy tính khác)`, cur);
     if (newPass === null) return;
     const cleanPass = newPass.trim();
     if (!cleanPass) {
@@ -3744,26 +3826,10 @@ class LMSApp {
     }
 
     try {
-      if (this.serverAvailable) {
-        const res = await fetch(`/api/students/${studentId}/password`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: cleanPass })
-        });
-        if (!res.ok) throw new Error("Đổi mật khẩu thất bại trên máy chủ.");
-      }
-      if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, cleanPass);
+      if (window.ClientDB) window.ClientDB.updateDeviceStudentPassword(studentId, cleanPass);
       if (st) st.password = cleanPass;
 
-      // Broadcast to all other devices in real-time
-      await this.broadcastCloudSync({
-        type: "password_change",
-        student_id: studentId,
-        student_code: st ? st.code : "",
-        password: cleanPass
-      });
-
-      alert(`✅ Đã đổi mật khẩu cho "${name}" thành công! Mật khẩu mới "${cleanPass}" đã được đồng bộ lên toàn bộ thiết bị.`);
+      alert(`✅ Đã đổi mật khẩu cho "${name}" thành "${cleanPass}" trên thiết bị này!`);
       this.renderStudentPasswordTable();
       this.renderLoginStudentPicker();
     } catch (e) {
@@ -3806,7 +3872,7 @@ class LMSApp {
     const newVal = (newInp ? newInp.value : "").trim();
     const confVal = (confInp ? confInp.value : "").trim();
 
-    const expectedCur = (this.currentStudent.password || "1234").trim();
+    const expectedCur = (window.ClientDB ? window.ClientDB.getDeviceStudentPassword(this.currentStudent.id) : (this.currentStudent.password || "1234")).trim();
 
     if (curVal !== expectedCur) {
       if (errEl) {
@@ -3834,31 +3900,14 @@ class LMSApp {
 
     try {
       const sid = this.currentStudent.id;
-      if (this.serverAvailable) {
-        const res = await fetch(`/api/students/${sid}/password`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: newVal })
-        });
-        if (!res.ok) throw new Error("Máy chủ không thể lưu mật khẩu mới.");
-      }
-
-      if (window.ClientDB) window.ClientDB.updateStudentPassword(sid, newVal);
+      if (window.ClientDB) window.ClientDB.updateDeviceStudentPassword(sid, newVal);
       this.currentStudent.password = newVal;
 
       const stInList = this.students.find(s => s.id == sid);
       if (stInList) stInList.password = newVal;
 
-      // Broadcast to all other devices in real-time
-      await this.broadcastCloudSync({
-        type: "password_change",
-        student_id: sid,
-        student_code: this.currentStudent.code,
-        password: newVal
-      });
-
       this.closeStudentChangePasswordModal();
-      alert(`🎉 Đổi mật khẩu thành công!\nMật khẩu mới của con là "${newVal}" và đã được đồng bộ trên mọi thiết bị.`);
+      alert(`🎉 Đổi mật khẩu thành công!\nMật khẩu mới của con trên thiết bị này là "${newVal}".`);
       this.renderStudentPasswordTable();
       this.renderLoginStudentPicker();
     } catch (e) {

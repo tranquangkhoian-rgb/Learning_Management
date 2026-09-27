@@ -399,8 +399,100 @@ def test_all():
     assert "handleCloudSyncMessage" in js_content, "Missing handleCloudSyncMessage in public/js/app.js"
     print(" -> PASS: Match every device's code to default and cross-device sync contracts verified successfully.")
 
+    # 22. Test Teacher Animal Group & Ranking System & Device-Specific Passwords
+    # 22a. Animal Groups Configuration & Database Schema
+    cfg = database.get_animal_groups_config()
+    assert "dolphin" in cfg, "Missing dolphin tier in ANIMAL_GROUPS_CONFIG"
+    assert "monkey" in cfg, "Missing monkey tier in ANIMAL_GROUPS_CONFIG"
+    assert "orange_cat" in cfg, "Missing orange_cat tier in ANIMAL_GROUPS_CONFIG"
+    assert "turtle_snail" in cfg, "Missing turtle_snail tier in ANIMAL_GROUPS_CONFIG"
+    assert len(cfg["dolphin"]["options"]) >= 4, "Expected at least 4 dolphin options"
+    assert len(cfg["turtle_snail"]["options"]) >= 4, "Expected at least 4 turtle/snail options"
+
+    # Verify student seed distribution
+    all_sts = database.get_students()
+    hs01 = next(s for s in all_sts if s["code"] == "HS01")
+    assert hs01["animal_group"] == "dolphin", f"Expected HS01 to be dolphin, got {hs01['animal_group']}"
+    hs02 = next(s for s in all_sts if s["code"] == "HS02")
+    assert hs02["animal_group"] == "monkey", f"Expected HS02 to be monkey, got {hs02['animal_group']}"
+    hs22 = next(s for s in all_sts if s["code"] == "HS22")
+    assert hs22["animal_group"] == "turtle_snail", f"Expected HS22 to be turtle_snail, got {hs22['animal_group']}"
+
+    # Verify updating animal group
+    up_res = database.update_student_animal_group("HS05", "dolphin", "🦅", "Đại bàng tinh anh")
+    assert up_res and up_res.get("success") is True, "Failed to update student animal group"
+    hs05 = next(s for s in database.get_students() if s["code"] == "HS05")
+    assert hs05["animal_group"] == "dolphin"
+    assert hs05["animal_symbol"] == "🦅"
+    assert hs05["animal_title"] == "Đại bàng tinh anh"
+
+    # Verify tracking matrix includes animal group fields
+    matrix_data = database.get_assignment_tracking_matrix(1)
+    rows = matrix_data.get("matrix", matrix_data.get("rows", []))
+    assert len(rows) >= 29
+    assert "animal_group" in rows[0]
+    assert "animal_symbol" in rows[0]
+    assert "animal_title" in rows[0]
+
+    # 22b. API Server Endpoints for Animal Groups
+    req_ag = b"GET /api/animal-groups HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_ag = MockSocket(req_ag)
+    server.LMSRequestHandler(sock_ag, ("127.0.0.1", 12345), None)
+    out_ag = sock_ag.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_ag
+    assert "dolphin" in out_ag
+    assert "monkey" in out_ag
+    assert "orange_cat" in out_ag
+    assert "turtle_snail" in out_ag
+
+    post_ag_body = json.dumps({
+        "animal_group": "turtle_snail",
+        "animal_symbol": "🐌",
+        "animal_title": "Ốc sên nỗ lực"
+    })
+    req_post_ag = (
+        f"POST /api/students/{hs05['id']}/animal-group HTTP/1.1\r\n"
+        f"Host: localhost\r\n"
+        f"Content-Type: application/json\r\n"
+        f"Content-Length: {len(post_ag_body.encode('utf-8'))}\r\n"
+        f"Connection: close\r\n\r\n{post_ag_body}"
+    ).encode("utf-8")
+    sock_post_ag = MockSocket(req_post_ag)
+    server.LMSRequestHandler(sock_post_ag, ("127.0.0.1", 12345), None)
+    out_post_ag = sock_post_ag.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_post_ag
+    assert '"success": true' in out_post_ag
+
+    # 22c. Frontend UI & ClientDB contracts
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_content = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_content = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        client_db_content = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_content = f.read()
+
+    # Animal group UI
+    assert "modal-assign-animal-group" in html_content, "Missing modal-assign-animal-group in public/index.html"
+    assert "animal-filter-bar" in html_content, "Missing animal-filter-bar in public/index.html"
+    assert "tracking-animal-filter" in html_content, "Missing tracking-animal-filter in public/index.html"
+    assert "openAssignAnimalGroupModal" in js_content, "Missing openAssignAnimalGroupModal in public/js/app.js"
+    assert "selectStudentAnimal" in js_content, "Missing selectStudentAnimal in public/js/app.js"
+    assert "saveStudentAnimalGroup" in js_content, "Missing saveStudentAnimalGroup in public/js/app.js"
+    assert "setStudentAnimalFilter" in js_content, "Missing setStudentAnimalFilter in public/js/app.js"
+    assert "badge-animal-dolphin" in css_content, "Missing badge-animal-dolphin in style.css"
+    assert "badge-animal-monkey" in css_content, "Missing badge-animal-monkey in style.css"
+
+    # Device-specific local password contracts
+    assert "getDeviceStudentPassword" in client_db_content, "Missing getDeviceStudentPassword in client_db.js"
+    assert "updateDeviceStudentPassword" in client_db_content, "Missing updateDeviceStudentPassword in client_db.js"
+    assert "resetDeviceAllPasswords" in client_db_content, "Missing resetDeviceAllPasswords in client_db.js"
+    assert "lms_device_passwords" in client_db_content, "Missing lms_device_passwords storage key in client_db.js"
+    print(" -> PASS: Teacher Animal Group & Ranking System and Device-Specific Password contracts verified successfully.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (21/21)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (22/22)")
     print("============================================================")
 
 if __name__ == "__main__":
