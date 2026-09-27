@@ -2922,4 +2922,102 @@ main.app-main {
   letter-spacing: 0.5px;
 }
 
+/* =====================================================================
+   STUDENT PORTAL READING RACE & ACTIVE LOANS (Req 6)
+   ===================================================================== */
+.sp-race-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.sp-race-stat-item {
+  background: white;
+  border: 1px solid #d1fae5;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.sp-race-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.sp-race-val {
+  font-size: 16px;
+  font-weight: 900;
+  color: #065f46;
+  line-height: 1.2;
+}
+
+.sp-race-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Excel File Drop Zone */
+.excel-drop-zone {
+  border: 2px dashed #38bdf8;
+  border-radius: 16px;
+  background: #f0f9ff;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.excel-drop-zone:hover {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  transform: translateY(-1px);
+}
+
+/* Tablet & Mobile Responsiveness */
+@media (max-width: 768px) {
+  .sp-race-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .sp-race-stat-item {
+    padding: 10px 12px;
+  }
+
+  .student-race-portal-card {
+    padding: 12px !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Tablet optimization (iPads) */
+  .borrow-grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sp-race-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .books-card-list {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lib-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+
 

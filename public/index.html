@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Quản Lý Nộp Bài & Điểm Học Sinh - Cô Linh</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -82,20 +83,7 @@
             </button>
           </div>
 
-          <div class="login-divider"><span>HOẶC NHẬP MÃ HỌC SINH</span></div>
-
-          <!-- Method 2: Manual Code Input -->
-          <form id="student-code-form" onsubmit="event.preventDefault(); app.loginStudentByInput();">
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="student-login-code" class="form-control" placeholder="Nhập mã: HS01 ... HS29" style="text-transform: uppercase; font-weight: 700; text-align: center; letter-spacing: 2px;">
-              <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0 18px; font-weight: 700;">
-                Vào Xem ➔
-              </button>
-            </div>
-            <div id="student-login-error" class="login-error-msg" style="display: none;">❌ Không tìm thấy mã học sinh này trong Lớp 3A7!</div>
-          </form>
-
-          <div class="login-divider"><span>HOẶC CHẠM VÀO TÊN CỦA CON (29 BẠN 3A7)</span></div>
+          <div class="login-divider"><span>HOẶC CHẠM VÀO TÊN CỦA CON (CẦN MẬT KHẨU RIÊNG)</span></div>
 
           <!-- Method 3: Quick 29 Students Badge Grid -->
           <div class="login-student-grid" id="login-student-picker-grid">
@@ -209,6 +197,100 @@
             <div class="sp-stat-icon" style="color: var(--status-green);">🏆</div>
             <div class="sp-stat-num" style="color: var(--status-green);" id="sp-stat-passed">0</div>
             <div class="sp-stat-label">Bài đạt chuẩn / xuất sắc</div>
+          </div>
+        </div>
+
+        <!-- ====================================================================
+             INTEGRATED READING RACE FOR STUDENT PORTAL (ĐƯỜNG ĐUA ĐỌC SÁCH 3A7)
+             ==================================================================== -->
+        <div class="card student-race-portal-card" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 2px solid #10b981; margin-bottom: 24px; border-radius: 20px; box-shadow: var(--shadow-sm);">
+          <div class="card-header" style="background: transparent; border-bottom: 1px solid #d1fae5; padding: 18px 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 28px;">🏁</span>
+                <div>
+                  <div class="card-title" style="color: #065f46; font-size: 19px; font-weight: 900;">
+                    Đường Đua 33 Quyển Sách • Lớp 3A7
+                  </div>
+                  <div style="font-size: 13px; color: #047857; font-weight: 600;">
+                    One Book, One Thought – Cùng chinh phục mục tiêu đọc sách của lớp!
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline" onclick="app.openChangePetModalFromPortal()" style="background: white; border-color: #10b981; color: #065f46; font-weight: 700; border-radius: 12px;">
+                🐾 Đổi Thú Cưng
+              </button>
+            </div>
+          </div>
+
+          <div style="padding: 20px 24px;">
+            <!-- 3 Mini Stats for Reading Race -->
+            <div class="sp-race-stats-grid">
+              <div class="sp-race-stat-item">
+                <div class="sp-race-icon">📖</div>
+                <div>
+                  <div class="sp-race-val" id="sp-race-books-count">0 / 33 cuốn</div>
+                  <div class="sp-race-lbl">Sách con đã đọc xong</div>
+                </div>
+              </div>
+              <div class="sp-race-stat-item">
+                <div class="sp-race-icon">🏆</div>
+                <div>
+                  <div class="sp-race-val" id="sp-race-class-rank">Hạng --</div>
+                  <div class="sp-race-lbl">Thứ hạng trong lớp 3A7</div>
+                </div>
+              </div>
+              <div class="sp-race-stat-item">
+                <div class="sp-race-icon" id="sp-race-pet-icon">🐶</div>
+                <div>
+                  <div class="sp-race-val" id="sp-race-pct-val">0%</div>
+                  <div class="sp-race-lbl">Tiến độ đường đua</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Visual Track for this student -->
+            <div class="sp-race-track-wrapper" style="margin-top: 18px; background: white; padding: 18px 20px; border-radius: 16px; border: 1px solid #d1fae5;">
+              <div class="sp-race-track-header">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #475569; margin-bottom: 6px;">
+                  <span>🚀 Khởi hành</span>
+                  <span style="color: #0284c7;">🎯 Mốc Tháng 12 (15 cuốn)</span>
+                  <span style="color: #b45309;">🏁 Đích Tháng 4 (33 cuốn)</span>
+                </div>
+              </div>
+              <div class="sp-race-bar-bg" style="position: relative; height: 18px; background: #e2e8f0; border-radius: 12px; margin: 10px 0;">
+                <div id="sp-race-bar-fill" class="sp-race-bar-fill" style="position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #059669); border-radius: 12px; transition: width 0.6s ease;"></div>
+                <!-- Milestone tick marks -->
+                <div style="position: absolute; left: 33.33%; top: -3px; width: 2px; height: 24px; background: #94a3b8;" title="11 cuốn"></div>
+                <div style="position: absolute; left: 45.45%; top: -5px; width: 3px; height: 28px; background: #0284c7;" title="15 cuốn (Mốc T12)"></div>
+                <div style="position: absolute; left: 66.66%; top: -3px; width: 2px; height: 24px; background: #94a3b8;" title="22 cuốn"></div>
+                <div style="position: absolute; right: 0; top: -5px; width: 3px; height: 28px; background: #b45309;" title="33 cuốn (Đích T4)"></div>
+                <!-- Runner Avatar -->
+                <div id="sp-race-runner" style="position: absolute; left: 0%; top: -14px; transform: translateX(-50%); font-size: 26px; transition: left 0.6s ease; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25)); pointer-events: none;">
+                  🐶
+                </div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">
+                <span>0</span>
+                <span>11</span>
+                <span style="color: #0284c7; font-weight: 900;">15 (T12)</span>
+                <span>22</span>
+                <span style="color: #b45309; font-weight: 900;">33 🏁 (T4)</span>
+              </div>
+              <div id="sp-race-motivational-msg" style="margin-top: 12px; font-size: 13.5px; font-weight: 700; color: #065f46; text-align: center;">
+                🌱 Cố lên con nhé! Cùng đọc sách mỗi ngày để sớm đạt mốc 15 quyển sách trước Tháng 12!
+              </div>
+            </div>
+
+            <!-- Books currently borrowed from Class Library -->
+            <div style="margin-top: 20px;">
+              <h4 style="font-size: 15px; font-weight: 800; color: #065f46; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                📚 Sách Con Đang Mượn Từ Tủ Sách Lớp 3A7:
+              </h4>
+              <div id="sp-borrowed-books-container">
+                <!-- Dynamically populated or empty message -->
+              </div>
+            </div>
           </div>
         </div>
 
@@ -933,6 +1015,35 @@
           </div>
         </div>
       </div>
+
+      <!-- Universal Student Password Management Card -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🔑 Quản Lý Mật Khẩu Học Sinh (29 Bạn Lớp 3A7)</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Mật khẩu riêng từng học sinh khi chạm tên vào cổng điểm & đường đua. Đồng bộ ngay lập tức giữa laptop, điện thoại và máy tính bảng. Mặc định: 1234
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="app.renderStudentPasswordTable()">🔄 Làm Mới</button>
+        </div>
+        <div class="table-responsive" style="max-height: 440px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 8%; text-align: center;">STT</th>
+                <th style="width: 14%;">Mã HS</th>
+                <th style="width: 28%;">Họ và tên</th>
+                <th style="width: 26%;">Mật khẩu hiện tại</th>
+                <th style="width: 24%; text-align: center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="settings-student-pwd-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <!-- ====================================================================
@@ -986,19 +1097,19 @@
 
         <!-- 3D Library Navigation Sub-Tabs -->
         <div class="lib-tabs-bar">
-          <button type="button" class="nav-tab-3d nav-tab-race active" onclick="app.switchLibSubTab('race')">
+          <button type="button" class="nav-tab-3d nav-tab-race active" id="btn-lib-tab-race" onclick="app.switchLibSubTab('race')">
             🎯 Hành Trình
           </button>
-          <button type="button" class="nav-tab-3d nav-tab-borrow" onclick="app.switchLibSubTab('borrow')">
+          <button type="button" class="nav-tab-3d nav-tab-borrow" id="btn-lib-tab-borrow" onclick="app.switchLibSubTab('borrow')">
             📥 Mượn Sách
           </button>
-          <button type="button" class="nav-tab-3d nav-tab-return" onclick="app.switchLibSubTab('return')">
+          <button type="button" class="nav-tab-3d nav-tab-return" id="btn-lib-tab-return" onclick="app.switchLibSubTab('return')">
             📤 Trả Sách
           </button>
-          <button type="button" class="nav-tab-3d nav-tab-library" onclick="app.switchLibSubTab('catalog')">
+          <button type="button" class="nav-tab-3d nav-tab-library" id="btn-lib-tab-catalog" onclick="app.switchLibSubTab('catalog')">
             📚 Kho Sách
           </button>
-          <button type="button" class="nav-tab-3d nav-tab-stats" onclick="app.switchLibSubTab('stats')">
+          <button type="button" class="nav-tab-3d nav-tab-stats" id="btn-lib-tab-stats" onclick="app.switchLibSubTab('stats')">
             📊 Thống Kê
           </button>
         </div>
@@ -1213,6 +1324,9 @@
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button class="btn btn-outline btn-sm" onclick="app.printAllBooksQrSheet()" style="font-weight: 800; border-color: #059669; color: #059669; background: #ecfdf5;">
                   🖨️ In QR Sách (PDF)
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="app.openImportExcelModal()" style="font-weight: 800; border-color: #0284c7; color: #0284c7; background: #f0f9ff;">
+                  📥 Nhập Từ Excel
                 </button>
                 <button class="btn btn-outline btn-sm" onclick="app.resetBooksCatalogToSeed()">
                   🔄 Khôi Phục 75 Cuốn Gốc
@@ -1679,6 +1793,176 @@
         <div style="display: flex; justify-content: center; gap: 10px;">
           <button class="btn btn-outline" onclick="app.closeBookQrModal()">Đóng</button>
           <button class="btn btn-primary" onclick="app.printCurrentBookQr()">🖨️ In Nhãn Sách</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NHẬP MẬT KHẨU HỌC SINH KHI CHẠM TÊN -->
+  <div id="modal-student-password" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="modal-st-pwd-avatar" style="font-size: 28px; width: 44px; height: 44px; border-radius: 12px; background: #ecfdf5; display: grid; place-items: center;">🐶</span>
+          <div>
+            <h3 class="modal-title" id="modal-st-pwd-title" style="margin: 0; font-size: 17px;">Nhập Mật Khẩu Học Sinh</h3>
+            <p id="modal-st-pwd-subtitle" style="font-size: 13px; color: var(--text-muted); margin: 2px 0 0;">Mã: HS01 • Lớp 3A7</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="app.closeStudentPasswordModal()">&times;</button>
+      </div>
+      <div style="padding: 16px 4px 6px;">
+        <p style="font-size: 13.5px; color: #475569; margin: 0 0 14px; line-height: 1.5;">
+          🔒 Nhập mật khẩu riêng của con để vào xem điểm số và đường đua đọc sách (tránh bạn khác bấm nhầm):
+        </p>
+        <form onsubmit="event.preventDefault(); app.submitStudentPassword();">
+          <input type="hidden" id="student-pwd-target-id" value="">
+          <div class="form-group">
+            <div style="position: relative;">
+              <input type="password" id="student-input-password" class="form-control" placeholder="Mật khẩu (Mặc định: 1234)" style="height: 48px; font-size: 18px; font-weight: 800; letter-spacing: 2px; text-align: center; border-radius: 14px;" autofocus>
+              <button type="button" onclick="app.togglePasswordVisibility('student-input-password')" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px;">👁️</button>
+            </div>
+            <div id="student-pwd-error" class="login-error-msg" style="display: none; margin-top: 8px;">
+              ❌ Mật khẩu chưa đúng! Hãy thử lại hoặc nhờ Cô Linh đặt lại giúp con nhé.
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 18px;">
+            <button type="button" class="btn btn-outline" style="flex: 1; border-radius: 12px;" onclick="app.closeStudentPasswordModal()">Hủy</button>
+            <button type="submit" class="btn btn-primary" style="flex: 1.5; font-weight: 800; border-radius: 12px;">Vào Xem Điểm ➔</button>
+          </div>
+        </form>
+        <div style="margin-top: 14px; text-align: center; font-size: 12px; color: #94a3b8;">
+          💡 Gợi ý: Nếu chưa đổi, mật khẩu mặc định là <strong>1234</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CHỈNH SỬA THÔNG TIN SÁCH -->
+  <div id="modal-edit-book" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Chỉnh Sửa Thông Tin Sách</h3>
+        <button class="modal-close" onclick="app.closeEditBookModal()">&times;</button>
+      </div>
+      <div>
+        <input type="hidden" id="eb-id" value="">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div><span style="font-size: 12px; color: #64748b;">Mã sách:</span> <strong id="eb-code-display" style="color: #059669; font-family: monospace;">SACH001</strong></div>
+          <div><span style="font-size: 12px; color: #64748b;">Số thứ tự:</span> <strong id="eb-stt-display">1</strong></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eb-title">Tên sách (*):</label>
+          <input type="text" id="eb-title" class="form-control" placeholder="Nhập tên sách...">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eb-author">Tác giả / Biên soạn:</label>
+          <input type="text" id="eb-author" class="form-control" placeholder="Tác giả...">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="eb-category">Thể loại:</label>
+            <select id="eb-category" class="form-control">
+              <option value="Truyện hay">Truyện hay</option>
+              <option value="Kỹ năng sống">Kỹ năng sống</option>
+              <option value="Tư duy">Tư duy - Khoa học</option>
+              <option value="Danh nhân">Danh nhân</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="eb-shelf">Mã kệ:</label>
+            <input type="text" id="eb-shelf" class="form-control" placeholder="K1">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="eb-contrib">Người đóng góp:</label>
+            <input type="text" id="eb-contrib" class="form-control" placeholder="Thư viện lớp">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="eb-condition">Tình trạng:</label>
+            <select id="eb-condition" class="form-control">
+              <option value="Tốt">Tốt</option>
+              <option value="Mới">Mới</option>
+              <option value="Cũ">Cũ</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eb-status">Trạng thái mượn:</label>
+          <select id="eb-status" class="form-control">
+            <option value="available">Có sẵn trong kho (Chưa mượn)</option>
+            <option value="borrowed">Đang được mượn</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+          <button type="button" class="btn btn-outline" style="color: #e11d48; border-color: #fecdd3;" onclick="app.deleteCurrentBook()">🗑️ Xóa Cuốn Sách</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-outline" onclick="app.closeEditBookModal()">Hủy</button>
+            <button type="button" class="btn btn-primary" onclick="app.saveEditedBook()">💾 Lưu Thay Đổi</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NHẬP SÁCH BẰNG FILE EXCEL -->
+  <div id="modal-import-excel-books" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📥 Nhập Danh Sách Sách Bằng File Excel</h3>
+        <button class="modal-close" onclick="app.closeImportExcelModal()">&times;</button>
+      </div>
+      <div>
+        <p style="font-size: 13.5px; color: #475569; margin: 0 0 16px; line-height: 1.5;">
+          Hệ thống hỗ trợ file <strong>.xlsx</strong> định dạng chuẩn thư viện (các cột: STT, Tên sách, Tác giả, Thể loại, Mã kệ, Người đóng góp, Tình trạng).
+        </p>
+
+        <!-- Mode selection -->
+        <div class="form-group" style="background: #f8fafc; padding: 12px 16px; border-radius: 14px; border: 1px solid #e2e8f0;">
+          <label class="form-label" style="font-weight: 800; margin-bottom: 8px;">Chế độ nhập sách:</label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+              <input type="radio" name="excel_import_mode" value="append" checked>
+              <span>➕ <strong>Thêm tiếp</strong> vào kho sách hiện tại (Giữ nguyên các sách đã có, STT nối tiếp)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #b91c1c;">
+              <input type="radio" name="excel_import_mode" value="replace">
+              <span>⚠️ <strong>Thay thế toàn bộ</strong> (Xóa kho sách hiện tại và thay bằng danh sách trong file)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- File Drag & Drop / Input -->
+        <div class="form-group">
+          <label class="form-label">Chọn file Excel (.xlsx):</label>
+          <div class="excel-drop-zone" id="excel-drop-zone" onclick="document.getElementById('excel-file-input').click()">
+            <div style="font-size: 32px; margin-bottom: 6px;">📑</div>
+            <div style="font-size: 14px; font-weight: 700; color: #0284c7;">Bấm để chọn file hoặc kéo thả file Excel vào đây</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Hỗ trợ: .xlsx (như file Danh_sach_sach_lop_3A7.xlsx)</div>
+            <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;" onchange="app.handleExcelFileSelected(event)">
+          </div>
+        </div>
+
+        <!-- Preview Card -->
+        <div id="excel-import-preview" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; padding: 12px 16px; margin-top: 14px;">
+          <div style="font-size: 14px; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px;">
+            <span>✅</span> <span id="excel-preview-file-name">Tên file</span>
+          </div>
+          <div id="excel-preview-count" style="font-size: 13px; color: #047857; margin-top: 4px; font-weight: 600;">
+            Đã đọc: 0 quyển sách hợp lệ
+          </div>
+          <div id="excel-preview-sample" style="font-size: 12px; color: #065f46; margin-top: 6px; font-style: italic;">
+            Ví dụ: "..."
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+          <button type="button" class="btn btn-outline" onclick="app.closeImportExcelModal()">Hủy</button>
+          <button type="button" id="btn-execute-excel-import" class="btn btn-primary" style="font-weight: 800;" disabled onclick="app.executeExcelImport()">
+            🚀 Bắt Đầu Nhập Sách
+          </button>
         </div>
       </div>
     </div>

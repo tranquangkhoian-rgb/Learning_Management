@@ -278,9 +278,95 @@ def test_all():
         assert f.read() == css_content, "docs/css/style.css not in sync with public/css/style.css"
     print(" -> PASS: All mirror files (public/, docs/, root) are 100% in sync.")
 
+    # 17. Test Universal Student Password Verification and Updates
+    # Reset to default '1234' to ensure idempotency
+    database.update_student_password("HS01", "1234")
+    assert database.verify_student_password("HS01", "1234") is True
+    assert database.verify_student_password("HS01", "wrong_pass") is False
+    # Update password for HS01
+    upd_res = database.update_student_password("HS01", "5678")
+    assert upd_res is True
+    assert database.verify_student_password("HS01", "5678") is True
+    assert database.verify_student_password("HS01", "1234") is False
+    # Reset back to 1234
+    database.update_student_password("HS01", "1234")
+    assert database.verify_student_password("HS01", "1234") is True
+    print(" -> PASS: Universal student password verification and update verified successfully (default: '1234').")
+
+    # 18. Test Student Reading Summary (Integration in Student Portal)
+    summary = database.get_student_reading_summary("HS01")
+    assert summary is not None
+    assert summary["student"]["code"] == "HS01"
+    assert "race" in summary
+    assert "active_loans" in summary
+    assert "target" in summary["race"]
+    assert summary["race"]["target"] == 33
+    assert "stats" in summary
+    print(f" -> PASS: Student reading summary for HS01 verified (Race completed: {summary['race']['completed']}/33, Active loans: {len(summary['active_loans'])}).")
+
+    # Clean up HS01 race test increment
+    conn = database.get_db()
+    c = conn.cursor()
+    c.execute("UPDATE reading_race SET completed = 0 WHERE student_id = ?", (st_first["id"],))
+    conn.commit()
+    conn.close()
+
+    # 19. Test Excel Book Parser and Import Engine
+    excel_path = "Danh_sach_sach_lop_3A7.xlsx"
+    parsed_books = database.parse_excel_books(excel_path)
+    assert len(parsed_books) >= 70, f"Expected at least 70 books parsed from Excel, got {len(parsed_books)}"
+    assert parsed_books[0]["title"] == "Quiz! Khoa học kì thú - Toán học đố mẹo"
+    print(f" -> PASS: Excel book parser successfully extracted {len(parsed_books)} books directly from OpenXML without external libraries.")
+
+    # Test Book update and import logic
+    test_update = database.update_book("SACH001", {"title": "Quiz! Khoa học kì thú - Tập 1 (Đã chỉnh sửa)", "author": "Nhiều tác giả", "category": "Khoa học"})
+    assert test_update is not None
+    b1_check = database.get_book_by_code("SACH001")
+    assert "Đã chỉnh sửa" in b1_check["title"]
+    # Revert back
+    database.update_book("SACH001", {"title": "Quiz! Khoa học kì thú - Toán học đố mẹo", "author": "Nhiều tác giả", "category": "Khoa học"})
+    b1_reverted = database.get_book_by_code("SACH001")
+    assert b1_reverted["title"] == "Quiz! Khoa học kì thú - Toán học đố mẹo"
+    print(" -> PASS: Book metadata editing and update verified successfully.")
+
+    # 20. Test UI Contracts: Student Private Password, Portal Race Widget, Teacher-only Borrow, Excel Import Modal
+    # 20a. No manual student code text input, only QR scan or tap name
+    assert 'id="student-code-form"' not in html_content, "Manual student code form must be removed from public/index.html"
+    assert "modal-student-password" in html_content, "Missing student password modal in public/index.html"
+    assert "promptStudentPassword" in js_content, "Missing promptStudentPassword in public/js/app.js"
+    assert "submitStudentPassword" in js_content, "Missing submitStudentPassword in public/js/app.js"
+
+    # 20b. Reading race integrated into Student Portal
+    assert "student-race-portal-card" in html_content, "Missing student race portal card in public/index.html"
+    assert "sp-race-runner" in html_content, "Missing runner avatar on portal track in public/index.html"
+    assert "sp-borrowed-books-container" in html_content, "Missing active borrowed books list in public/index.html"
+
+    # 20c. Teacher-only borrow and return tabs
+    assert 'id="btn-lib-tab-borrow"' in html_content, "Missing ID for borrow tab in public/index.html"
+    assert 'id="btn-lib-tab-return"' in html_content, "Missing ID for return tab in public/index.html"
+    assert "switchLibSubTab" in js_content, "Missing switchLibSubTab in public/js/app.js"
+
+    # 20d. Edit book modal & Excel import modal
+    assert "modal-edit-book" in html_content, "Missing modal-edit-book in public/index.html"
+    assert "modal-import-excel-books" in html_content, "Missing modal-import-excel-books in public/index.html"
+    assert "openEditBookModal" in js_content, "Missing openEditBookModal in public/js/app.js"
+    assert "openImportExcelModal" in js_content, "Missing openImportExcelModal in public/js/app.js"
+    assert "handleExcelFileSelected" in js_content, "Missing handleExcelFileSelected in public/js/app.js"
+
+    # 20e. Settings: Universal student password manager
+    assert "settings-student-pwd-tbody" in html_content, "Missing student password table in public/index.html"
+    assert "renderStudentPasswordTable" in js_content, "Missing renderStudentPasswordTable in public/js/app.js"
+    assert "resetStudentPassword" in js_content, "Missing resetStudentPassword in public/js/app.js"
+
+    # 20f. Live sync polling mechanism
+    assert "startLiveSync" in js_content, "Missing startLiveSync in public/js/app.js"
+    assert "silentSyncData" in js_content, "Missing silentSyncData in public/js/app.js"
+    print(" -> PASS: All UI contracts (No-manual-input login, Student portal race widget, Teacher-only borrow, Excel import, Universal password manager, Live sync) verified.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (16/16)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (20/20)")
     print("============================================================")
 
 if __name__ == "__main__":
     test_all()
+

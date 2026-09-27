@@ -12,6 +12,9 @@ import os
 import re
 import json
 import sqlite3
+import zipfile
+import io
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -44,6 +47,7 @@ def init_db():
         avatar TEXT DEFAULT '',
         class_name TEXT DEFAULT 'Lớp 3A',
         order_num INTEGER,
+        password TEXT DEFAULT '1234',
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -108,6 +112,12 @@ def init_db():
         last_updated TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    # Ensure password column exists on students table (Universal Password sync)
+    cursor.execute("PRAGMA table_info(students)")
+    st_cols = [col[1] for col in cursor.fetchall()]
+    if "password" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN password TEXT DEFAULT '1234'")
 
     # Seed Default Settings
     default_settings = {
@@ -352,6 +362,34 @@ def delete_student(student_id):
     conn.commit()
     conn.close()
     return True
+
+def update_student_password(student_id_or_code, new_password):
+    conn = get_db()
+    cursor = conn.cursor()
+    clean_pass = str(new_password).strip() if new_password else "1234"
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("UPDATE students SET password = ? WHERE id = ?", (clean_pass, int(val)))
+    else:
+        cursor.execute("UPDATE students SET password = ? WHERE code = ?", (clean_pass, val.upper()))
+    conn.commit()
+    conn.close()
+    return True
+
+def verify_student_password(student_id_or_code, input_password):
+    conn = get_db()
+    cursor = conn.cursor()
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("SELECT password FROM students WHERE id = ?", (int(val),))
+    else:
+        cursor.execute("SELECT password FROM students WHERE code = ?", (val.upper(),))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return False
+    saved = row["password"] if row["password"] is not None else "1234"
+    return str(input_password).strip() == str(saved).strip()
 
 def reset_students_to_default():
     conn = get_db()
@@ -1037,6 +1075,12 @@ def add_book(title, author="", category="Truyện hay", shelf_code="K1", contrib
 def update_book(book_id, data):
     conn = get_db()
     cursor = conn.cursor()
+    bid = book_id
+    if isinstance(book_id, str) and not book_id.isdigit():
+        cursor.execute("SELECT id FROM books WHERE code = ?", (book_id.strip().upper(),))
+        brow = cursor.fetchone()
+        if brow:
+            bid = brow["id"]
     fields = []
     params = []
     for k in ["title", "author", "category", "shelf_code", "contributed_by", "condition", "status"]:
@@ -1044,10 +1088,10 @@ def update_book(book_id, data):
             fields.append(f"{k} = ?")
             params.append(data[k])
     if fields:
-        params.append(book_id)
+        params.append(bid)
         cursor.execute(f"UPDATE books SET {', '.join(fields)} WHERE id = ?", params)
         conn.commit()
-    cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+    cursor.execute("SELECT * FROM books WHERE id = ?", (bid,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -1055,7 +1099,13 @@ def update_book(book_id, data):
 def delete_book(book_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
+    bid = book_id
+    if isinstance(book_id, str) and not book_id.isdigit():
+        cursor.execute("SELECT id FROM books WHERE code = ?", (book_id.strip().upper(),))
+        brow = cursor.fetchone()
+        if brow:
+            bid = brow["id"]
+    cursor.execute("DELETE FROM books WHERE id = ?", (bid,))
     conn.commit()
     conn.close()
     return True
@@ -1274,6 +1324,236 @@ def get_library_stats():
         "totalCompletedReadings": total_read,
         "categories": categories
     }
+
+def get_student_reading_summary(student_id_or_code):
+    """
+    Returns reading race metrics, active loans, and assignment completion
+    specifically tailored for the student portal view.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    val = str(student_id_or_code).strip()
+    if val.isdigit():
+        cursor.execute("SELECT id, code, full_name, order_num FROM students WHERE id = ?", (int(val),))
+    else:
+        cursor.execute("SELECT id, code, full_name, order_num FROM students WHERE code = ?", (val.upper(),))
+    st = cursor.fetchone()
+    if not st:
+        conn.close()
+        return None
+    sid = st["id"]
+
+    # Race entry & rank
+    all_race = get_reading_race()
+    my_race = next((r for r in all_race if r["student_id"] == sid), None)
+    if not my_race:
+        my_race = {
+            "student_id": sid,
+            "code": st["code"],
+            "name": st["full_name"],
+            "order_num": st["order_num"],
+            "completed": 0,
+            "avatar": "🐶",
+            "rank": len(all_race) + 1,
+            "percentage": 0.0
+        }
+
+    # Active loans for this student
+    cursor.execute("""
+        SELECT l.id, l.book_id, b.title as book_title, b.code as book_code, b.stt as book_stt,
+               l.borrow_date, l.due_date, l.notes,
+               CASE WHEN l.due_date < ? THEN 1 ELSE 0 END as is_overdue
+        FROM book_loans l
+        JOIN books b ON l.book_id = b.id
+        WHERE l.student_id = ? AND l.status = 'borrowed'
+        ORDER BY l.borrow_date DESC
+    """, (now_str, sid))
+    active_loans = [dict(r) for r in cursor.fetchall()]
+
+    # Assignment counts
+    cursor.execute("SELECT COUNT(*) FROM assignments WHERE is_active = 1")
+    total_assignments = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(DISTINCT assignment_id) FROM submission_events
+        WHERE student_id = ? AND event_type IN ('submit', 'resubmit')
+    """, (sid,))
+    submitted_assignments = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(DISTINCT assignment_id) FROM submission_events
+        WHERE student_id = ? AND event_type = 'grade' AND (status = 'Đã đạt' OR (score IS NOT NULL AND score >= 8.0))
+    """, (sid,))
+    passed_assignments = cursor.fetchone()[0]
+
+    conn.close()
+
+    my_race["target"] = 33
+
+    return {
+        "student": dict(st),
+        "race": my_race,
+        "active_loans": active_loans,
+        "stats": {
+            "total_assignments": total_assignments,
+            "submitted_assignments": submitted_assignments,
+            "passed_assignments": passed_assignments,
+            "completed_books": my_race["completed"],
+            "target_books": 33,
+            "milestone_15": 15,
+            "percentage": my_race["percentage"],
+            "rank": my_race["rank"]
+        }
+    }
+
+def parse_excel_books(file_bytes_or_path):
+    """
+    Parses an .xlsx file using only Python's standard library (zipfile, xml.etree).
+    Zero external dependencies (no openpyxl or pandas required).
+    Returns list of book dictionaries:
+    [{ 'title': ..., 'author': ..., 'category': ..., 'shelf_code': ..., 'contributed_by': ..., 'condition': ... }]
+    """
+    if isinstance(file_bytes_or_path, (bytes, bytearray)):
+        zfile = zipfile.ZipFile(io.BytesIO(file_bytes_or_path))
+    else:
+        zfile = zipfile.ZipFile(file_bytes_or_path)
+
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    strings = []
+    if "xl/sharedStrings.xml" in zfile.namelist():
+        tree = ET.fromstring(zfile.read("xl/sharedStrings.xml"))
+        for si in tree.findall(f".//{ns}si"):
+            t = "".join(elem.text for elem in si.findall(f".//{ns}t") if elem.text)
+            strings.append(t)
+
+    sheet_names = [n for n in zfile.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")]
+    if not sheet_names:
+        return []
+
+    sheet_tree = ET.fromstring(zfile.read(sheet_names[0]))
+
+    rows_data = []
+    for r in sheet_tree.findall(f".//{ns}row"):
+        cells = {}
+        for c in r.findall(f".//{ns}c"):
+            r_ref = c.get("r", "")
+            col = "".join(ch for ch in r_ref if ch.isalpha())
+            t_type = c.get("t")
+            v = c.find(f"{ns}v")
+            is_node = c.find(f"{ns}is")
+            val = ""
+            if is_node is not None:
+                val = "".join(elem.text for elem in is_node.findall(f"{ns}t") if elem.text)
+            elif v is not None and v.text:
+                if t_type == "s":
+                    idx = int(v.text)
+                    val = strings[idx] if idx < len(strings) else ""
+                else:
+                    val = v.text
+            cells[col] = val.strip()
+        if cells:
+            rows_data.append(cells)
+
+    # Detect header row
+    header_idx = -1
+    col_map = {}
+    for i, row in enumerate(rows_data[:6]):
+        combined = " ".join(row.values()).lower()
+        if "tên sách" in combined or "tác giả" in combined or "thể loại" in combined:
+            header_idx = i
+            for col, val in row.items():
+                vl = val.lower()
+                if "tên" in vl or "tựa" in vl or "tiêu đề" in vl: col_map["title"] = col
+                elif "tác giả" in vl or "biên soạn" in vl: col_map["author"] = col
+                elif "thể loại" in vl: col_map["category"] = col
+                elif "kệ" in vl or "vị trí" in vl: col_map["shelf_code"] = col
+                elif "đóng góp" in vl or "người" in vl: col_map["contributed_by"] = col
+                elif "tình trạng" in vl or "hiện trạng" in vl: col_map["condition"] = col
+            break
+
+    if "title" not in col_map:
+        col_map = {
+            "title": "B",
+            "author": "C",
+            "category": "D",
+            "shelf_code": "E",
+            "contributed_by": "F",
+            "condition": "G"
+        }
+        if header_idx == -1:
+            header_idx = 0
+
+    books = []
+    for row in rows_data[header_idx + 1:]:
+        title = row.get(col_map.get("title", "B"), "").strip()
+        if not title:
+            # Maybe title was in col A if there was no STT column
+            title = row.get("A", "").strip()
+            if not title or title.isdigit():
+                continue
+        books.append({
+            "title": title,
+            "author": row.get(col_map.get("author", "C"), "").strip(),
+            "category": row.get(col_map.get("category", "D"), "").strip() or "Truyện hay",
+            "shelf_code": row.get(col_map.get("shelf_code", "E"), "").strip() or "K1",
+            "contributed_by": row.get(col_map.get("contributed_by", "F"), "").strip() or "Thư viện lớp",
+            "condition": row.get(col_map.get("condition", "G"), "").strip() or "Tốt"
+        })
+    return books
+
+def import_books_from_rows(books_data, replace=False):
+    """
+    Inserts a list of book objects into the books table.
+    If replace=True, deletes existing books and active loans, resets STT from 1.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if replace:
+        cursor.execute("DELETE FROM book_loans")
+        cursor.execute("DELETE FROM books")
+        start_stt = 1
+    else:
+        cursor.execute("SELECT COALESCE(MAX(stt), 0) FROM books")
+        start_stt = cursor.fetchone()[0] + 1
+
+    inserted = []
+    current_stt = start_stt
+    for b in books_data:
+        title = b.get("title", "").strip()
+        if not title:
+            continue
+        code = f"SACH{current_stt:03d}"
+        author = b.get("author", "").strip()
+        cat = b.get("category", "Truyện hay").strip() or "Truyện hay"
+        shelf = b.get("shelf_code", "K1").strip() or "K1"
+        contrib = b.get("contributed_by", "Thư viện lớp").strip() or "Thư viện lớp"
+        cond = b.get("condition", "Tốt").strip() or "Tốt"
+
+        cursor.execute("""
+            INSERT INTO books (stt, code, title, author, category, shelf_code, contributed_by, condition, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available')
+        """, (current_stt, code, title, author, cat, shelf, contrib, cond))
+        b_id = cursor.lastrowid
+        inserted.append({
+            "id": b_id,
+            "stt": current_stt,
+            "code": code,
+            "title": title,
+            "author": author,
+            "category": cat,
+            "shelf_code": shelf,
+            "contributed_by": contrib,
+            "condition": cond,
+            "status": "available"
+        })
+        current_stt += 1
+
+    conn.commit()
+    conn.close()
+    return inserted
 
 # --- Quick Test when run directly ---
 if __name__ == "__main__":

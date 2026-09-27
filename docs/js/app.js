@@ -70,6 +70,8 @@ class LMSApp {
     this.loadStudentsList();
     this.loadAnalytics();
     this.loadStudentProfile();
+    this.renderStudentPasswordTable();
+    this.startLiveSync();
 
     // Check authentication session
     await this.checkAuthSession();
@@ -186,6 +188,7 @@ class LMSApp {
     }
     document.getElementById("stat-total-students").innerText = this.students.length;
     this.renderQuickStudentButtons();
+    this.renderStudentPasswordTable();
   }
 
   async loadAssignments() {
@@ -417,11 +420,92 @@ class LMSApp {
     }
   }
 
-  loginStudentById(studentId) {
+  promptStudentPassword(studentId) {
     const st = this.students.find(s => s.id == studentId);
-    if (st) {
+    if (!st) return;
+
+    const modal = document.getElementById("modal-student-password");
+    if (!modal) {
       this.loginStudent(st);
+      return;
     }
+
+    const avEl = document.getElementById("modal-st-pwd-avatar");
+    const titEl = document.getElementById("modal-st-pwd-title");
+    const subEl = document.getElementById("modal-st-pwd-subtitle");
+    const inpEl = document.getElementById("student-input-password");
+    const hidEl = document.getElementById("student-pwd-target-id");
+    const errEl = document.getElementById("student-pwd-error");
+
+    const raceItem = (this.readingRace || []).find(r => r.student_id == st.id || r.code === st.code);
+    if (avEl) avEl.innerText = raceItem ? raceItem.avatar : "🎒";
+    if (titEl) titEl.innerText = `${st.order_num}. ${st.full_name}`;
+    if (subEl) subEl.innerText = `Mã: ${st.code} • Lớp 3A7 • GVCN: Cô Linh`;
+    if (hidEl) hidEl.value = st.id;
+    if (inpEl) {
+      inpEl.value = "";
+      inpEl.type = "password";
+    }
+    if (errEl) errEl.style.display = "none";
+
+    modal.style.display = "flex";
+    setTimeout(() => {
+      if (inpEl) inpEl.focus();
+    }, 150);
+  }
+
+  closeStudentPasswordModal() {
+    const modal = document.getElementById("modal-student-password");
+    if (modal) modal.style.display = "none";
+    const errEl = document.getElementById("student-pwd-error");
+    if (errEl) errEl.style.display = "none";
+  }
+
+  async submitStudentPassword() {
+    const hidEl = document.getElementById("student-pwd-target-id");
+    const inpEl = document.getElementById("student-input-password");
+    const errEl = document.getElementById("student-pwd-error");
+    if (!hidEl || !inpEl) return;
+
+    const sid = hidEl.value;
+    const pwd = (inpEl.value || "").trim();
+    const st = this.students.find(s => s.id == sid);
+    if (!st) return;
+
+    let isValid = false;
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch("/api/students/verify-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: sid, password: pwd })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          isValid = data.valid;
+        } else {
+          isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
+        }
+      } else {
+        isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
+      }
+    } catch {
+      isValid = window.ClientDB.verifyStudentPassword(sid, pwd);
+    }
+
+    if (isValid) {
+      if (errEl) errEl.style.display = "none";
+      this.closeStudentPasswordModal();
+      this.loginStudent(st);
+    } else {
+      if (errEl) errEl.style.display = "block";
+      inpEl.value = "";
+      inpEl.focus();
+    }
+  }
+
+  loginStudentById(studentId) {
+    this.promptStudentPassword(studentId);
   }
 
   loginStudent(st) {
@@ -468,7 +552,7 @@ class LMSApp {
     const grid = document.getElementById("login-student-picker-grid");
     if (!grid) return;
     grid.innerHTML = this.students.map((s, idx) => `
-      <button type="button" class="login-student-chip" onclick="app.loginStudentById(${s.id})">
+      <button type="button" class="login-student-chip" onclick="app.promptStudentPassword(${s.id})">
         <span class="student-chip-order">${s.order_num || (idx + 1)}</span>
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.full_name}</span>
       </button>
@@ -637,6 +721,97 @@ class LMSApp {
       const statPas = document.getElementById("sp-stat-passed");
       if (statPas) statPas.innerText = passedList.length;
 
+      // ================================================================
+      // RENDER READING RACE & BORROWED BOOKS (Req 6)
+      // ================================================================
+      let readingSummary = null;
+      try {
+        if (this.serverAvailable) {
+          const sRes = await fetch(`/api/student-reading-summary/${student.id}`);
+          if (sRes.ok) readingSummary = await sRes.json();
+          else readingSummary = window.ClientDB.getStudentReadingSummary(student.id);
+        } else {
+          readingSummary = window.ClientDB.getStudentReadingSummary(student.id);
+        }
+      } catch {
+        readingSummary = window.ClientDB.getStudentReadingSummary(student.id);
+      }
+
+      if (readingSummary) {
+        const race = readingSummary.race || {};
+        const completed = Number(race.completed) || 0;
+        const target = 33;
+        const pct = Math.min(100, Math.round((completed / target) * 1000) / 10);
+        const avatar = race.avatar || "🐶";
+        const rank = race.rank || "--";
+
+        const bCountEl = document.getElementById("sp-race-books-count");
+        if (bCountEl) bCountEl.innerText = `${completed} / ${target} cuốn`;
+
+        const rRankEl = document.getElementById("sp-race-class-rank");
+        if (rRankEl) rRankEl.innerText = `Hạng #${rank} / 29 bạn`;
+
+        const rPetEl = document.getElementById("sp-race-pet-icon");
+        if (rPetEl) rPetEl.innerText = avatar;
+
+        const rPctEl = document.getElementById("sp-race-pct-val");
+        if (rPctEl) rPctEl.innerText = `${pct}%`;
+
+        const rBarFill = document.getElementById("sp-race-bar-fill");
+        if (rBarFill) rBarFill.style.width = `${pct}%`;
+
+        const rRunner = document.getElementById("sp-race-runner");
+        if (rRunner) {
+          const clampedPos = Math.min(97, Math.max(3, pct));
+          rRunner.style.left = `${clampedPos}%`;
+          rRunner.innerText = avatar;
+        }
+
+        const msgEl = document.getElementById("sp-race-motivational-msg");
+        if (msgEl) {
+          if (completed >= 33) {
+            msgEl.innerHTML = `🎉 <strong>CHÚC MỪNG CON!</strong> Con đã hoàn thành xuất sắc đường đua 33 quyển sách của Lớp 3A7! 🏆`;
+            msgEl.style.color = "#b45309";
+          } else if (completed >= 15) {
+            msgEl.innerHTML = `🌟 <strong>Tuyệt vời!</strong> Con đã vượt mốc Tháng 12 (${completed} cuốn). Hãy thẳng tiến 33 cuốn để về đích Tháng 4 nhé 🏁!`;
+            msgEl.style.color = "#0284c7";
+          } else {
+            msgEl.innerHTML = `🌱 <strong>Cố lên con nhé!</strong> Con đã đọc được ${completed} cuốn sách. Mục tiêu gần nhất là 15 quyển sách trước Tháng 12 🎯!`;
+            msgEl.style.color = "#065f46";
+          }
+        }
+
+        // Render Borrowed Books
+        const bContainer = document.getElementById("sp-borrowed-books-container");
+        if (bContainer) {
+          const loans = readingSummary.active_loans || [];
+          if (loans.length === 0) {
+            bContainer.innerHTML = `
+              <div style="background: white; border: 1px dashed #cbd5e1; border-radius: 14px; padding: 14px 18px; color: #64748b; font-size: 13.5px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 22px;">📚</span>
+                <span>Hiện tại con chưa mượn cuốn sách nào từ Thư viện Lớp 3A7. Con hãy chọn một cuốn sách yêu thích tại tủ sách của lớp nhé!</span>
+              </div>
+            `;
+          } else {
+            bContainer.innerHTML = loans.map(l => `
+              <div style="background: white; border: 1px solid #a7f3d0; border-radius: 14px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <strong style="color: #0f172a; font-size: 14.5px;">${l.book_title}</strong>
+                  <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                    Mã sách: <span style="font-family: monospace; font-weight: 700; color: #059669;">${l.book_code}</span> • Ngày mượn: ${l.borrow_date ? l.borrow_date.substring(0, 10) : "-"}
+                  </div>
+                </div>
+                <div>
+                  <span class="badge ${l.is_overdue ? 'badge-red' : 'badge-green'}" style="font-size: 12px; padding: 4px 10px;">
+                    ${l.is_overdue ? '⏰ Đã quá hạn' : '📖 Đang mượn'} (Hạn: ${l.due_date ? l.due_date.substring(0, 10) : "-"})
+                  </span>
+                </div>
+              </div>
+            `).join("");
+          }
+        }
+      }
+
       // Populate Quick Submit dropdown
       const selectEl = document.getElementById("sp-quick-asg-select");
       if (selectEl) {
@@ -700,6 +875,11 @@ class LMSApp {
     } catch (e) {
       console.error("Error rendering student portal:", e);
     }
+  }
+
+  openChangePetModalFromPortal() {
+    if (!this.currentStudent) return;
+    this.openPetAvatarModal(this.currentStudent.id);
   }
 
   async studentSubmitCurrentAssignment() {
@@ -2124,6 +2304,17 @@ class LMSApp {
       // 5. Populate dropdowns for borrowing
       this.populateLibraryDropdowns();
 
+      // Enforce teacher-only borrow & return tabs (Req 8)
+      const isTeacher = this.currentUserRole === "teacher";
+      const borrowTabBtn = document.getElementById("btn-lib-tab-borrow");
+      const returnTabBtn = document.getElementById("btn-lib-tab-return");
+      if (borrowTabBtn) borrowTabBtn.style.display = isTeacher ? "inline-flex" : "none";
+      if (returnTabBtn) returnTabBtn.style.display = isTeacher ? "inline-flex" : "none";
+
+      if (!isTeacher && (this.currentLibSubTab === "borrow" || this.currentLibSubTab === "return")) {
+        this.switchLibSubTab("race");
+      }
+
     } catch (e) {
       console.error("Error loading library data:", e);
     }
@@ -2351,6 +2542,11 @@ class LMSApp {
   }
 
   switchLibSubTab(tab) {
+    const isTeacher = this.currentUserRole === "teacher";
+    if (!isTeacher && (tab === "borrow" || tab === "return")) {
+      tab = "race";
+    }
+
     this.currentLibSubTab = tab;
     document.querySelectorAll(".nav-tab-3d").forEach(btn => btn.classList.remove("active"));
     document.querySelectorAll(".lib-sub-pane").forEach(pane => pane.classList.remove("active"));
@@ -2591,8 +2787,25 @@ class LMSApp {
       return;
     }
 
+    const isTeacher = this.currentUserRole === "teacher";
+
     container.innerHTML = booksList.map(b => {
       const isAvailable = b.status === "available";
+      const teacherActions = isTeacher ? `
+        <button type="button" class="btn btn-outline btn-sm" onclick="app.openEditBookModal(${b.id})" title="Chỉnh sửa thông tin sách" style="font-weight: 700;">
+          ✏️ Sửa
+        </button>
+        ${isAvailable ? `
+          <button type="button" class="btn btn-primary btn-sm" onclick="app.directBorrowBookModal(${b.id})" title="Cho mượn cuốn này">
+            📖 Mượn
+          </button>
+        ` : `
+          <button type="button" class="btn btn-outline btn-sm" style="color: #d97706; border-color: #fde68a;" onclick="app.quickReturnBook('${b.code || b.id}')" title="Trả cuốn này">
+            ↩️ Trả
+          </button>
+        `}
+      ` : "";
+
       return `
         <div class="book-card-item">
           <div class="book-stt-badge">
@@ -2615,19 +2828,11 @@ class LMSApp {
             <span class="book-status-tag ${isAvailable ? 'available' : 'borrowed'}">
               ${isAvailable ? '● Sẵn sàng' : '● Đang mượn'}
             </span>
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
               <button type="button" class="btn btn-outline btn-sm" onclick="app.openBookQrModal(${b.id})" title="Xem mã QR">
                 🏷️ Mã QR
               </button>
-              ${isAvailable ? `
-                <button type="button" class="btn btn-primary btn-sm" onclick="app.directBorrowBookModal(${b.id})" title="Cho mượn cuốn này">
-                  📖 Mượn
-                </button>
-              ` : `
-                <button type="button" class="btn btn-outline btn-sm" style="color: #d97706; border-color: #fde68a;" onclick="app.quickReturnBook('${b.code || b.id}')" title="Trả cuốn này">
-                  ↩️ Trả
-                </button>
-              `}
+              ${teacherActions}
             </div>
           </div>
         </div>
@@ -2832,6 +3037,10 @@ class LMSApp {
       }
       this.renderReadingRace(this.readingRace);
       this.closePetAvatarModal();
+
+      if (this.currentUserRole === "student" && this.currentStudent && this.currentStudent.id == sid) {
+        await this.renderStudentPortal(this.currentStudent);
+      }
     } catch (e) {
       alert("Lỗi khi lưu avatar: " + e.message);
     }
@@ -2946,6 +3155,420 @@ class LMSApp {
     }
     alert("✅ Đã khôi phục 75 cuốn sách gốc thành công!");
     this.loadLibraryData();
+  }
+
+  // --- Book Editing (Req 9) ---
+  openEditBookModal(bookId) {
+    const book = this.books.find(b => b.id == bookId);
+    if (!book) return;
+    const modal = document.getElementById("modal-edit-book");
+    if (!modal) return;
+
+    document.getElementById("eb-id").value = book.id;
+    document.getElementById("eb-code-display").innerText = book.code || `SACH${String(book.stt).padStart(3, '0')}`;
+    document.getElementById("eb-stt-display").innerText = book.stt || book.id;
+    document.getElementById("eb-title").value = book.title || "";
+    document.getElementById("eb-author").value = book.author || "";
+    document.getElementById("eb-category").value = book.category || "Truyện hay";
+    document.getElementById("eb-shelf").value = book.shelf_code || "K1";
+    document.getElementById("eb-contrib").value = book.contributed_by || "Thư viện lớp";
+    document.getElementById("eb-condition").value = book.condition || "Tốt";
+    document.getElementById("eb-status").value = book.status || "available";
+
+    modal.style.display = "flex";
+  }
+
+  closeEditBookModal() {
+    const modal = document.getElementById("modal-edit-book");
+    if (modal) modal.style.display = "none";
+  }
+
+  async saveEditedBook() {
+    const id = document.getElementById("eb-id").value;
+    const title = document.getElementById("eb-title").value.trim();
+    const author = document.getElementById("eb-author").value.trim();
+    const category = document.getElementById("eb-category").value;
+    const shelf = document.getElementById("eb-shelf").value.trim();
+    const contrib = document.getElementById("eb-contrib").value.trim();
+    const condition = document.getElementById("eb-condition").value;
+    const status = document.getElementById("eb-status").value;
+
+    if (!title) {
+      alert("Vui lòng nhập tên cuốn sách!");
+      return;
+    }
+
+    const payload = {
+      id: Number(id),
+      title,
+      author,
+      category,
+      shelf_code: shelf || "K1",
+      contributed_by: contrib || "Thư viện lớp",
+      condition: condition || "Tốt",
+      status
+    };
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/books/update`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Cập nhật sách thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.updateBook(id, payload);
+      }
+      this.closeEditBookModal();
+      alert(`✅ Đã lưu thay đổi cho cuốn sách "${title}"!`);
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("Lỗi khi lưu sách: " + e.message);
+    }
+  }
+
+  async deleteCurrentBook() {
+    const id = document.getElementById("eb-id").value;
+    const book = this.books.find(b => b.id == id);
+    const title = book ? book.title : "cuốn sách này";
+
+    if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa cuốn sách "${title}" khỏi kho thư viện không?`)) {
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/books/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        if (!res.ok) throw new Error("Xóa sách thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.deleteBook(id);
+      }
+      this.closeEditBookModal();
+      alert(`✅ Đã xóa cuốn sách "${title}" thành công!`);
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("Lỗi khi xóa sách: " + e.message);
+    }
+  }
+
+  // --- Excel Book Import (Req 9) ---
+  openImportExcelModal() {
+    const modal = document.getElementById("modal-import-excel-books");
+    if (!modal) return;
+    this._stagedExcelData = null;
+    const fileInp = document.getElementById("excel-file-input");
+    if (fileInp) fileInp.value = "";
+    const preview = document.getElementById("excel-import-preview");
+    if (preview) preview.style.display = "none";
+    const btn = document.getElementById("btn-execute-excel-import");
+    if (btn) btn.disabled = true;
+
+    modal.style.display = "flex";
+  }
+
+  closeImportExcelModal() {
+    const modal = document.getElementById("modal-import-excel-books");
+    if (modal) modal.style.display = "none";
+    this._stagedExcelData = null;
+  }
+
+  async handleExcelFileSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const btn = document.getElementById("btn-execute-excel-import");
+    const preview = document.getElementById("excel-import-preview");
+    const pName = document.getElementById("excel-preview-file-name");
+    const pCount = document.getElementById("excel-preview-count");
+    const pSample = document.getElementById("excel-preview-sample");
+
+    pName.innerText = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const arrayBuffer = e.target.result;
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      let parsedRows = [];
+      if (window.XLSX) {
+        try {
+          const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rawJson = window.XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+          let headerIdx = -1;
+          const colMap = {};
+          for (let i = 0; i < Math.min(6, rawJson.length); i++) {
+            const row = rawJson[i] || [];
+            const joined = row.join(" ").toLowerCase();
+            if (joined.includes("tên sách") || joined.includes("tác giả") || joined.includes("thể loại")) {
+              headerIdx = i;
+              row.forEach((colName, cIdx) => {
+                const cn = String(colName || "").toLowerCase();
+                if (cn.includes("tên") || cn.includes("tựa") || cn.includes("tiêu đề")) colMap.title = cIdx;
+                else if (cn.includes("tác giả") || cn.includes("biên soạn")) colMap.author = cIdx;
+                else if (cn.includes("thể loại")) colMap.category = cIdx;
+                else if (cn.includes("kệ") || cn.includes("vị trí")) colMap.shelf_code = cIdx;
+                else if (cn.includes("đóng góp") || cn.includes("người")) colMap.contributed_by = cIdx;
+                else if (cn.includes("tình trạng")) colMap.condition = cIdx;
+              });
+              break;
+            }
+          }
+
+          if (colMap.title === undefined) colMap.title = 1;
+          if (colMap.author === undefined) colMap.author = 2;
+          if (colMap.category === undefined) colMap.category = 3;
+          if (colMap.shelf_code === undefined) colMap.shelf_code = 4;
+          if (colMap.contributed_by === undefined) colMap.contributed_by = 5;
+          if (colMap.condition === undefined) colMap.condition = 6;
+          if (headerIdx === -1) headerIdx = 0;
+
+          for (let r = headerIdx + 1; r < rawJson.length; r++) {
+            const row = rawJson[r] || [];
+            const title = String(row[colMap.title] || row[0] || "").trim();
+            if (!title || /^\d+$/.test(title)) continue;
+            parsedRows.push({
+              title,
+              author: String(row[colMap.author] || "").trim(),
+              category: String(row[colMap.category] || "Truyện hay").trim() || "Truyện hay",
+              shelf_code: String(row[colMap.shelf_code] || "K1").trim() || "K1",
+              contributed_by: String(row[colMap.contributed_by] || "Thư viện lớp").trim() || "Thư viện lớp",
+              condition: String(row[colMap.condition] || "Tốt").trim() || "Tốt"
+            });
+          }
+        } catch (err) {
+          console.warn("Client XLSX parse error:", err);
+        }
+      }
+
+      this._stagedExcelData = {
+        base64,
+        rows: parsedRows,
+        fileName: file.name
+      };
+
+      const count = parsedRows.length;
+      pCount.innerText = count > 0 
+        ? `Đã nhận diện: ${count} cuốn sách hợp lệ sẵn sàng nhập!` 
+        : `Đã đọc file Excel thành công, sẵn sàng gửi máy chủ phân tích!`;
+      if (count > 0) {
+        pSample.innerText = `Ví dụ: "${parsedRows[0].title}" • Kệ: ${parsedRows[0].shelf_code}`;
+      } else {
+        pSample.innerText = "";
+      }
+      preview.style.display = "block";
+      btn.disabled = false;
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async executeExcelImport() {
+    if (!this._stagedExcelData) return;
+    const modeEl = document.querySelector('input[name="excel_import_mode"]:checked');
+    const replace = modeEl ? modeEl.value === "replace" : false;
+
+    if (replace) {
+      if (!confirm("⚠️ CẢNH BÁO: Bạn đã chọn 'Thay thế toàn bộ'. Toàn bộ kho sách hiện tại sẽ được thay thế bằng danh sách trong file Excel này. Bạn có chắc chắn không?")) {
+        return;
+      }
+    }
+
+    const btn = document.getElementById("btn-execute-excel-import");
+    btn.disabled = true;
+    btn.innerText = "⏳ Đang Nhập Dữ Liệu...";
+
+    try {
+      let importedCount = 0;
+      if (this.serverAvailable) {
+        const payload = {
+          file_base64: this._stagedExcelData.base64,
+          rows: this._stagedExcelData.rows,
+          replace
+        };
+        const res = await fetch("/api/books/import-excel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Nhập file thất bại");
+        }
+        const data = await res.json();
+        importedCount = data.count;
+      } else {
+        if (!this._stagedExcelData.rows || this._stagedExcelData.rows.length === 0) {
+          throw new Error("Không tìm thấy dòng sách nào trong file Excel.");
+        }
+        const res = window.ClientDB.importBooksFromRows(this._stagedExcelData.rows, replace);
+        importedCount = res.count;
+      }
+
+      this.closeImportExcelModal();
+      alert(`🎉 THÀNH CÔNG! Đã nhập thành công ${importedCount} đầu sách vào Thư viện Lớp 3A7!`);
+      await this.loadLibraryData();
+    } catch (e) {
+      alert("Lỗi khi nhập sách từ Excel: " + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "🚀 Bắt Đầu Nhập Sách";
+      }
+    }
+  }
+
+  // --- Real-time Live Synchronization (Req 7) ---
+  startLiveSync() {
+    if (this._syncInterval) clearInterval(this._syncInterval);
+    this._syncInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        this.silentSyncData();
+      }
+    }, 3500);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        this.silentSyncData();
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      this.silentSyncData();
+    });
+  }
+
+  async silentSyncData() {
+    if (!this.serverAvailable) return;
+    try {
+      const [resRace, resStats] = await Promise.all([
+        fetch("/api/race"),
+        fetch("/api/library/stats")
+      ]);
+      if (resRace.ok) {
+        const freshRace = await resRace.json();
+        const oldStr = JSON.stringify(this.readingRace);
+        const newStr = JSON.stringify(freshRace);
+        if (oldStr !== newStr) {
+          this.readingRace = freshRace;
+          if (this.currentLibSubTab === "race") {
+            this.applyRaceFilters();
+          }
+          if (this.currentUserRole === "student" && this.currentStudent) {
+            await this.renderStudentPortal(this.currentStudent);
+          }
+        }
+      }
+      if (resStats.ok) {
+        const freshStats = await resStats.json();
+        this.renderLibraryStats(freshStats);
+      }
+    } catch {
+      // background poll ignores errors
+    }
+  }
+
+  // --- Universal Student Password Manager (Cô Linh) ---
+  renderStudentPasswordTable() {
+    const tbody = document.getElementById("settings-student-pwd-tbody");
+    if (!tbody) return;
+    if (!this.students || this.students.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 18px;">Chưa có dữ liệu học sinh.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = this.students.map((s, idx) => {
+      const pwd = s.password || "1234";
+      return `
+        <tr>
+          <td style="text-align: center; font-weight: 700;">${s.order_num || (idx + 1)}</td>
+          <td><span class="badge badge-blue">${s.code}</span></td>
+          <td><strong>${s.full_name}</strong></td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="st-pwd-text-${s.id}" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #0f172a; letter-spacing: 1px;">${pwd}</span>
+            </div>
+          </td>
+          <td style="text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 6px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="app.updateStudentPasswordByTeacher(${s.id})" style="font-size: 11.5px; padding: 4px 8px;">
+                ✏️ Đổi
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="app.resetStudentPassword(${s.id})" style="font-size: 11.5px; padding: 4px 8px; color: #0284c7; border-color: #bae6fd;">
+                🔄 Về 1234
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async resetStudentPassword(studentId) {
+    const st = this.students.find(s => s.id == studentId);
+    const name = st ? st.full_name : `Học sinh #${studentId}`;
+    if (!confirm(`Đặt lại mật khẩu của "${name}" về mặc định "1234"?`)) return;
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/students/${studentId}/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "1234" })
+        });
+        if (!res.ok) throw new Error("Đặt lại mật khẩu thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.updateStudentPassword(studentId, "1234");
+      }
+      if (st) st.password = "1234";
+      if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, "1234");
+      alert(`✅ Đã đặt lại mật khẩu cho "${name}" về "1234"!`);
+      this.renderStudentPasswordTable();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  async updateStudentPasswordByTeacher(studentId) {
+    const st = this.students.find(s => s.id == studentId);
+    const name = st ? st.full_name : `Học sinh #${studentId}`;
+    const cur = st ? (st.password || "1234") : "1234";
+    const newPass = prompt(`Nhập mật khẩu mới cho "${name}":`, cur);
+    if (newPass === null) return;
+    const cleanPass = newPass.trim();
+    if (!cleanPass) {
+      alert("Mật khẩu không được để trống!");
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/students/${studentId}/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: cleanPass })
+        });
+        if (!res.ok) throw new Error("Đổi mật khẩu thất bại trên máy chủ.");
+      } else {
+        window.ClientDB.updateStudentPassword(studentId, cleanPass);
+      }
+      if (st) st.password = cleanPass;
+      if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, cleanPass);
+      alert(`✅ Đã đổi mật khẩu cho "${name}" thành công!`);
+      this.renderStudentPasswordTable();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
   }
 
   // --- Book QR Code Preview & Print ---

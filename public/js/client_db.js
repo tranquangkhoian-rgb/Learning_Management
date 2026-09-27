@@ -5,35 +5,35 @@
  */
 
 const DEFAULT_STUDENTS_3A7 = [
-  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7" },
-  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7" },
-  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7" },
-  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7" },
-  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7" },
-  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7" },
-  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7" },
-  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7" },
-  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7" },
-  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7" },
-  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7" },
-  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7" },
-  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7" },
-  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7" },
-  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7" },
-  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7" },
-  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7" },
-  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7" },
-  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7" },
-  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7" },
-  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7" },
-  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7" },
-  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7" },
-  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7" },
-  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7" },
-  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7" },
-  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7" },
-  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7" },
-  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7" }
+  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7", password: "1234" },
+  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7", password: "1234" },
+  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7", password: "1234" },
+  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7", password: "1234" },
+  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7", password: "1234" },
+  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7", password: "1234" },
+  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7", password: "1234" },
+  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7", password: "1234" },
+  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7", password: "1234" },
+  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7", password: "1234" },
+  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7", password: "1234" },
+  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7", password: "1234" },
+  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7", password: "1234" },
+  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7", password: "1234" },
+  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7", password: "1234" },
+  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7", password: "1234" },
+  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7", password: "1234" },
+  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7", password: "1234" },
+  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7", password: "1234" },
+  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7", password: "1234" },
+  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7", password: "1234" },
+  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7", password: "1234" },
+  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7", password: "1234" },
+  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7", password: "1234" },
+  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7", password: "1234" },
+  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7", password: "1234" },
+  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7", password: "1234" },
+  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7", password: "1234" },
+  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7", password: "1234" }
 ];
 
 const DEFAULT_BOOKS_3A7 = [
@@ -1228,6 +1228,7 @@ class ClientDBEngine {
       const list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_STUDENTS_3A7;
       return list.map((s, idx) => {
         if (!s.order_num) s.order_num = idx + 1;
+        if (!s.password) s.password = "1234";
         if (!s.gender) {
           const match = DEFAULT_STUDENTS_3A7.find(d => d.code === s.code);
           s.gender = match ? match.gender : "Học sinh";
@@ -1237,6 +1238,25 @@ class ClientDBEngine {
     } catch {
       return DEFAULT_STUDENTS_3A7;
     }
+  }
+
+  updateStudentPassword(studentIdOrCode, newPassword) {
+    const list = this.getStudents();
+    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
+    const idx = list.findIndex(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (idx === -1) return false;
+    list[idx].password = String(newPassword || "1234").trim();
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return true;
+  }
+
+  verifyStudentPassword(studentIdOrCode, inputPassword) {
+    const list = this.getStudents();
+    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
+    const st = list.find(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (!st) return false;
+    const expected = (st.password || "1234").trim();
+    return String(inputPassword || "").trim() === expected;
   }
 
   addStudent(code, fullName, gender = "Nam", orderNum = null) {
@@ -1253,7 +1273,8 @@ class ClientDBEngine {
       full_name: fullName.trim(),
       gender: gender || "Học sinh",
       order_num: orderNum !== null && orderNum !== undefined ? Number(orderNum) : (maxOrder + 1),
-      class_name: this.getSettings().class_name || "Lớp 3A7"
+      class_name: this.getSettings().class_name || "Lớp 3A7",
+      password: "1234"
     };
     list.push(st);
     list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
@@ -1867,6 +1888,82 @@ class ClientDBEngine {
   resetBooksToDefault() {
     localStorage.setItem("lms_books", JSON.stringify(DEFAULT_BOOKS_3A7));
     return DEFAULT_BOOKS_3A7;
+  }
+
+  importBooksFromRows(rows, replace = false) {
+    let list = replace ? [] : this.getBooks();
+    const startStt = list.length > 0 ? Math.max(...list.map(b => Number(b.stt) || 0)) + 1 : 1;
+    let nextId = list.length > 0 ? Math.max(...list.map(b => Number(b.id) || 0)) + 1 : 1;
+    let curStt = startStt;
+
+    const imported = [];
+    for (const r of rows) {
+      const title = (r.title || "").trim();
+      if (!title) continue;
+      const code = `SACH${String(curStt).padStart(3, '0')}`;
+      const item = {
+        id: nextId++,
+        stt: curStt++,
+        code: code,
+        title: title,
+        author: (r.author || "").trim(),
+        category: (r.category || "Truyện hay").trim() || "Truyện hay",
+        shelf_code: (r.shelf_code || "K1").trim() || "K1",
+        contributed_by: (r.contributed_by || "Thư viện lớp").trim() || "Thư viện lớp",
+        condition: (r.condition || "Tốt").trim() || "Tốt",
+        status: "available"
+      };
+      list.push(item);
+      imported.push(item);
+    }
+
+    if (replace) {
+      localStorage.setItem("lms_loans", JSON.stringify([]));
+    }
+    localStorage.setItem("lms_books", JSON.stringify(list));
+    return { count: imported.length, books: imported };
+  }
+
+  getStudentReadingSummary(studentIdOrCode) {
+    const students = this.getStudents();
+    const cleanSC = String(studentIdOrCode).trim().toUpperCase();
+    const st = students.find(s => String(s.id) === cleanSC || (s.code && s.code.toUpperCase() === cleanSC));
+    if (!st) return null;
+
+    const race = this.getReadingRace();
+    const myRace = race.find(r => r.student_id == st.id || r.code === st.code) || {
+      student_id: st.id,
+      code: st.code,
+      name: st.full_name,
+      order_num: st.order_num,
+      completed: 0,
+      avatar: "🐶",
+      rank: race.length + 1,
+      percentage: 0
+    };
+
+    const activeLoans = this.getActiveLoans().filter(l => l.student_id == st.id || l.student_code === st.code);
+    const asgs = this.getAssignments();
+    const events = this.getEvents();
+
+    const submittedAsgIds = new Set(events.filter(e => e.student_id == st.id && (e.event_type === 'submit' || e.event_type === 'resubmit')).map(e => e.assignment_id));
+    const passedAsgIds = new Set(events.filter(e => e.student_id == st.id && e.event_type === 'grade' && (e.status === 'Đã đạt' || (e.score !== null && e.score >= 8.0))).map(e => e.assignment_id));
+
+    return {
+      student: st,
+      race: myRace,
+      active_loans: activeLoans,
+      stats: {
+        total_assignments: asgs.length,
+        submitted_assignments: submittedAsgIds.size,
+        passed_assignments: passedAsgIds.size,
+        completed_books: myRace.completed,
+        target_books: 33,
+        milestone_15: 15,
+        percentage: myRace.percentage,
+        rank: myRace.rank
+      }
+    };
   }
 
   borrowBook(studentIdOrCode, bookIdOrCode, dueDays = 14, notes = "") {

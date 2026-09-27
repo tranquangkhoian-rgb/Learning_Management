@@ -55,6 +55,9 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
@@ -139,6 +142,16 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 return self.send_json(prof)
             except ValueError:
                 return self.send_json({"error": "Invalid student ID"}, 400)
+
+        elif path.startswith("/api/student-reading-summary/"):
+            try:
+                sid = path.split("/")[-1]
+                summary = database.get_student_reading_summary(sid)
+                if summary is None:
+                    return self.send_json({"error": "Student not found"}, 404)
+                return self.send_json(summary)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
 
         elif path == "/api/history":
             sid = query.get("student_id", [None])[0]
@@ -237,6 +250,23 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/students/reset":
             st_list = database.reset_students_to_default()
             return self.send_json(st_list)
+
+        elif path.startswith("/api/students/") and path.endswith("/password"):
+            try:
+                sid = path.split("/")[-2]
+                new_pwd = body.get("password", "1234")
+                database.update_student_password(sid, new_pwd)
+                return self.send_json({"success": True, "student_id": sid})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/students/verify-password":
+            sid = body.get("student_id") or body.get("code")
+            pwd = body.get("password", "")
+            if not sid:
+                return self.send_json({"error": "Thiếu mã hoặc ID học sinh"}, 400)
+            valid = database.verify_student_password(sid, pwd)
+            return self.send_json({"success": valid, "valid": valid})
 
         elif path == "/api/assignments":
             title = body.get("title", "")
@@ -409,6 +439,46 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             try:
                 race = database.update_reading_race(int(student_id), delta=delta, set_completed=set_completed, avatar=avatar)
                 return self.send_json(race)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/books/update":
+            book_id = body.get("id") or body.get("book_id")
+            if not book_id:
+                return self.send_json({"error": "Missing book_id"}, 400)
+            try:
+                updated_b = database.update_book(int(book_id), body)
+                return self.send_json(updated_b)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/books/delete":
+            book_id = body.get("id") or body.get("book_id")
+            if not book_id:
+                return self.send_json({"error": "Missing book_id"}, 400)
+            try:
+                database.delete_book(int(book_id))
+                return self.send_json({"success": True})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/books/import-excel":
+            replace = bool(body.get("replace", False))
+            if "file_base64" in body and body["file_base64"]:
+                import base64
+                try:
+                    raw_b = base64.b64decode(body["file_base64"])
+                    rows = database.parse_excel_books(raw_b)
+                except Exception as e:
+                    return self.send_json({"error": f"Lỗi đọc file Excel: {e}"}, 400)
+            elif "rows" in body and isinstance(body["rows"], list):
+                rows = body["rows"]
+            else:
+                return self.send_json({"error": "Thiếu dữ liệu file Excel (file_base64 hoặc rows)"}, 400)
+
+            try:
+                imported = database.import_books_from_rows(rows, replace=replace)
+                return self.send_json({"success": True, "count": len(imported), "books": imported})
             except Exception as e:
                 return self.send_json({"error": str(e)}, 400)
 
