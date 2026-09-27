@@ -5,6 +5,7 @@ Validates database logic, business rules, tracking calculations, and file integr
 
 import os
 import json
+from datetime import datetime
 import database
 
 def test_all():
@@ -58,10 +59,34 @@ def test_all():
     assert len(students) == 29, f"Expected 29 students, got {len(students)}"
     print(f" -> PASS: 29 students loaded successfully (HS01: {students[0]['full_name']} ... HS29: {students[28]['full_name']})")
 
+    # Verify test homework assignments exist
     assignments = database.get_assignments()
+    if len(assignments) < 2:
+        # Create test assignments for test suite
+        now = datetime.now()
+        database.add_assignment(
+            "Phiếu bài tập Toán: Phép nhân và phép chia",
+            "Toán",
+            now.strftime("%Y-%m-%d"),
+            now.strftime("%Y-%m-%d 23:59"),
+            10.0,
+            "Bài tập kiểm tra",
+            questions=["Question 1", "Question 2", "Question 3", "Question 4"]
+        )
+        database.add_assignment(
+            "Chính tả: Mùa thu quê em",
+            "Tiếng Việt",
+            now.strftime("%Y-%m-%d"),
+            now.strftime("%Y-%m-%d 23:59"),
+            10.0,
+            "Rèn chữ giữ vở",
+            questions=["Câu 1", "Câu 2", "Câu 3"]
+        )
+        assignments = database.get_assignments()
+
     assert len(assignments) >= 2, f"Expected at least 2 assignments, got {len(assignments)}"
     aid = assignments[0]["id"]
-    print(f" -> PASS: {len(assignments)} assignments found. First assignment: '{assignments[0]['title']}'")
+    print(f" -> PASS: {len(assignments)} test assignments active. Primary test assignment: '{assignments[0]['title']}' (ID: {aid})")
 
     st_hs29 = [s for s in students if s['code'] == 'HS29'][0]
     hs29_id = st_hs29["id"]
@@ -427,7 +452,7 @@ def test_all():
     assert hs05["animal_title"] == "Đại bàng tinh anh"
 
     # Verify tracking matrix includes animal group fields
-    matrix_data = database.get_assignment_tracking_matrix(1)
+    matrix_data = database.get_assignment_tracking_matrix(aid)
     rows = matrix_data.get("matrix", matrix_data.get("rows", []))
     assert len(rows) >= 29
     assert "animal_group" in rows[0]
@@ -489,10 +514,160 @@ def test_all():
     assert "updateDeviceStudentPassword" in client_db_content, "Missing updateDeviceStudentPassword in client_db.js"
     assert "resetDeviceAllPasswords" in client_db_content, "Missing resetDeviceAllPasswords in client_db.js"
     assert "lms_device_passwords" in client_db_content, "Missing lms_device_passwords storage key in client_db.js"
-    print(" -> PASS: Teacher Animal Group & Ranking System and Device-Specific Password contracts verified successfully.")
+    # 23. Test Question Evaluation, Grading Animal Mascot Customization, and Team Management
+    print("\n--- 23. Test Question Evaluation, Animal Grading & Team Management ---")
+    # 23a. Test Assignment Questions CRUD
+    asg_q = database.add_assignment(
+        "Toán 3: Luyện tập chung chương 1",
+        "Toán",
+        datetime.now().strftime("%Y-%m-%d"),
+        datetime.now().strftime("%Y-%m-%d 23:59"),
+        10.0,
+        "Làm bài đầy đủ",
+        questions=["Question 1", "Question 2", "Question 3", "Question 4"]
+    )
+    assert asg_q is not None
+    assert "questions" in asg_q
+    assert len(asg_q["questions"]) == 4
+    assert asg_q["questions"][0] == "Question 1"
+
+    # Update assignment questions
+    up_asg_q = database.update_assignment(
+        asg_q["id"],
+        asg_q["title"],
+        asg_q["subject"],
+        asg_q["assigned_date"],
+        asg_q["due_date"],
+        asg_q["max_score"],
+        asg_q["notes"],
+        questions=["Question 1", "Question 2", "Question 3", "Question 4", "Question 5"]
+    )
+    assert len(up_asg_q["questions"]) == 5
+    print(" -> PASS: Assignment custom questions CRUD verified.")
+
+    # 23b. Test Grading with Question Details and Animal Mascot Customization
+    st_hs02 = next(s for s in database.get_students() if s["code"] == "HS02")
+    grade_res = database.record_grading(
+        st_hs02["id"],
+        asg_q["id"],
+        9.0,
+        "Đã đạt",
+        teacher_note="Bài làm rất tốt!",
+        operator="Cô Linh",
+        question_details={"Question 1": "correct", "Question 2": "correct", "Question 3": "need_fix"},
+        animal_group="dolphin"
+    )
+    assert grade_res["success"] is True
+    assert grade_res["animal_group"] == "dolphin"
+    assert "Question 1" in grade_res["question_details"]
+
+    # Verify student was updated in students table
+    st_hs02_after = next(s for s in database.get_students() if s["code"] == "HS02")
+    assert st_hs02_after["animal_group"] == "dolphin"
+    # Restore HS02 back to monkey for idempotent test suite runs
+    database.update_student_animal_group("HS02", "monkey")
+    print(" -> PASS: Grading with question breakdown and student animal mascot update verified.")
+
+    # 23c. Test Teams CRUD in Database
+    t1 = database.create_team(
+        "Biệt Đội Ánh Dương",
+        color="#7C3AED",
+        icon="🚀",
+        image="",
+        motto="Vươn tới những vì sao!",
+        member_ids=["HS01", "HS02", "HS03", "HS04"]
+    )
+    assert t1 is not None
+    assert t1["name"] == "Biệt Đội Ánh Dương"
+    assert t1["color"] == "#7C3AED"
+    assert t1["icon"] == "🚀"
+    assert len(t1["members"]) == 4
+
+    teams_list = database.get_teams()
+    assert any(t["id"] == t1["id"] for t in teams_list)
+
+    # Update team
+    up_t1 = database.update_team(
+        t1["id"],
+        "Biệt Đội Ánh Dương Pro",
+        color="#059669",
+        icon="🔥",
+        image="",
+        motto="Đoàn kết và bứt phá!",
+        member_ids=["HS01", "HS02", "HS05", "HS06", "HS07"]
+    )
+    assert up_t1["name"] == "Biệt Đội Ánh Dương Pro"
+    assert up_t1["color"] == "#059669"
+    assert up_t1["icon"] == "🔥"
+    assert len(up_t1["members"]) == 5
+
+    # Delete team
+    del_ok = database.delete_team(t1["id"])
+    assert del_ok is True
+    assert not any(t["id"] == t1["id"] for t in database.get_teams())
+    print(" -> PASS: Team management CRUD in database verified.")
+
+    # 23d. Test Teams API Server Endpoints
+    post_team_body = json.dumps({
+        "name": "Team Rồng Xanh",
+        "color": "#0284C7",
+        "icon": "🐬",
+        "motto": "Bơi nhanh về đích",
+        "member_ids": ["HS01", "HS02"]
+    }).encode("utf-8")
+    req_pt = (
+        b"POST /api/teams HTTP/1.1\r\nHost: localhost\r\n"
+        b"Content-Type: application/json\r\nContent-Length: " + str(len(post_team_body)).encode() + b"\r\n\r\n" + post_team_body
+    )
+    sock_pt = MockSocket(req_pt)
+    server.LMSRequestHandler(sock_pt, ("127.0.0.1", 12345), None)
+    out_pt = sock_pt.out.getvalue().decode("utf-8", errors="ignore")
+    assert "201 Created" in out_pt
+    team_data = json.loads(out_pt.split("\r\n\r\n", 1)[1])
+    created_team_id = team_data["id"]
+
+    # GET /api/teams
+    req_gt = b"GET /api/teams HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_gt = MockSocket(req_gt)
+    server.LMSRequestHandler(sock_gt, ("127.0.0.1", 12345), None)
+    out_gt = sock_gt.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_gt
+    assert "Team Rồng Xanh" in out_gt
+
+    # DELETE /api/teams/<id>
+    req_dt = f"DELETE /api/teams/{created_team_id} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_dt = MockSocket(req_dt)
+    server.LMSRequestHandler(sock_dt, ("127.0.0.1", 12345), None)
+    out_dt = sock_dt.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_dt
+    print(" -> PASS: Teams API endpoints (GET, POST, DELETE) verified.")
+
+    # 23e. Client Code Contracts (HTML, JS, CSS)
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_c = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_c = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_c = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_c = f.read()
+
+    assert "pane-teams" in html_c, "Missing pane-teams in public/index.html"
+    assert "team-editor-modal" in html_c, "Missing team-editor-modal in public/index.html"
+    assert "grade-questions-container" in html_c, "Missing grade-questions-container in public/index.html"
+    assert "loadTeams" in js_c, "Missing loadTeams in public/js/app.js"
+    assert "renderTeams" in js_c, "Missing renderTeams in public/js/app.js"
+    assert "openCreateTeamModal" in js_c, "Missing openCreateTeamModal in public/js/app.js"
+    assert "selectGradingAnimal" in js_c, "Missing selectGradingAnimal in public/js/app.js"
+    assert "renderGradingQuestions" in js_c, "Missing renderGradingQuestions in public/js/app.js"
+    assert "getTeams" in db_c, "Missing getTeams in public/js/client_db.js"
+    assert "createTeam" in db_c, "Missing createTeam in public/js/client_db.js"
+    assert "team-card" in css_c, "Missing team-card in public/css/style.css"
+    assert "q-btn-correct" in css_c, "Missing q-btn-correct in public/css/style.css"
+    print(" -> PASS: Client UI, JS, and CSS contracts for questions, animals, and teams verified.")
 
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (22/22)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (23/23)")
     print("============================================================")
 
 if __name__ == "__main__":

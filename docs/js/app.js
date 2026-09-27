@@ -71,6 +71,7 @@ class LMSApp {
     this.loadAnalytics();
     this.loadStudentProfile();
     this.renderStudentPasswordTable();
+    this.loadTeams();
     this.startLiveSync();
 
     // Check authentication session
@@ -1013,6 +1014,8 @@ class LMSApp {
       this.startGradeCamera();
     } else if (paneId === "pane-homework") {
       this.loadHomeworkList();
+    } else if (paneId === "pane-teams") {
+      this.loadTeams();
     } else if (paneId === "pane-tracking") {
       this.loadTrackingMatrix();
     } else if (paneId === "pane-analytics") {
@@ -1273,6 +1276,19 @@ class LMSApp {
     document.getElementById("grade-note-input").value = "";
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
 
+    // Initialize Animal Mascot selection for this student
+    this.selectedGradingAnimalGroup = st.animal_group || "orange_cat";
+    this.renderGradingAnimalSelector();
+
+    // Initialize and render Questions Breakdown for current assignment
+    const asg = (this.assignments || []).find(a => a.id == asgId);
+    let questions = asg && asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
+      ? asg.questions
+      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    this.gradingQuestions = questions;
+    this.gradingQuestionStatus = {};
+    this.renderGradingQuestions();
+
     // Fetch previous history
     try {
       let history;
@@ -1307,6 +1323,102 @@ class LMSApp {
     }
 
     document.getElementById("grade-score-input").focus();
+  }
+
+  selectGradingAnimal(groupKey, symbol, title) {
+    this.selectedGradingAnimalGroup = groupKey;
+    this.selectedGradingAnimalSymbol = symbol;
+    this.selectedGradingAnimalTitle = title;
+    this.renderGradingAnimalSelector();
+  }
+
+  renderGradingAnimalSelector() {
+    const groupKey = this.selectedGradingAnimalGroup || "orange_cat";
+    const labelEl = document.getElementById("grade-selected-animal-label");
+    const nameMap = {
+      "dolphin": "🐬 Cá heo thông thái (Smart)",
+      "monkey": "🐵 Khỉ con nhanh nhẹn (Kinda smart)",
+      "orange_cat": "🐱 Mèo cam chăm chỉ (Ordinary)",
+      "turtle_snail": "🐢 Rùa / Ốc sên (Need improvement)"
+    };
+    if (labelEl) {
+      labelEl.innerText = nameMap[groupKey] || "🐱 Mèo cam chăm chỉ";
+    }
+    document.querySelectorAll(".animal-tier-btn").forEach(btn => {
+      if (btn.getAttribute("data-group") === groupKey) {
+        btn.classList.add("selected");
+      } else {
+        btn.classList.remove("selected");
+      }
+    });
+  }
+
+  renderGradingQuestions() {
+    const container = document.getElementById("grade-questions-container");
+    if (!container) return;
+    const questions = this.gradingQuestions || [];
+    if (questions.length === 0) {
+      container.innerHTML = `<div style="color: var(--text-muted); font-size: 13px;">Bài tập này chưa có danh sách câu hỏi cụ thể.</div>`;
+      return;
+    }
+    container.innerHTML = questions.map((q, idx) => {
+      const currentStatus = this.gradingQuestionStatus[q] || "";
+      return `
+        <div class="grade-question-row">
+          <div class="grade-question-title">${q}</div>
+          <div class="grade-question-actions">
+            <button type="button" class="q-btn q-btn-correct ${currentStatus === 'correct' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'correct')">
+              🟢 Đúng
+            </button>
+            <button type="button" class="q-btn q-btn-needfix ${currentStatus === 'need_fix' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'need_fix')">
+              🟡 Cần sửa
+            </button>
+            <button type="button" class="q-btn q-btn-wrong ${currentStatus === 'incorrect' ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
+              🔴 Chưa đạt
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  setGradeQuestionStatus(qName, status) {
+    if (this.gradingQuestionStatus[qName] === status) {
+      delete this.gradingQuestionStatus[qName];
+    } else {
+      this.gradingQuestionStatus[qName] = status;
+    }
+    this.renderGradingQuestions();
+    this.recomputeScoreFromQuestions();
+  }
+
+  markAllGradeQuestionsCorrect() {
+    (this.gradingQuestions || []).forEach(q => {
+      this.gradingQuestionStatus[q] = "correct";
+    });
+    this.renderGradingQuestions();
+    this.setQuickScore(10);
+    this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
+  }
+
+  recomputeScoreFromQuestions() {
+    const questions = this.gradingQuestions || [];
+    if (questions.length === 0) return;
+    let answered = 0;
+    let points = 0;
+    questions.forEach(q => {
+      const st = this.gradingQuestionStatus[q];
+      if (st) {
+        answered++;
+        if (st === 'correct') points += 1.0;
+        else if (st === 'need_fix') points += 0.5;
+        else if (st === 'incorrect') points += 0.0;
+      }
+    });
+    if (answered > 0) {
+      const calcScore = Math.round((points / questions.length) * 10 * 10) / 10;
+      this.setQuickScore(calcScore);
+    }
   }
 
   setQuickScore(val) {
@@ -1360,6 +1472,8 @@ class LMSApp {
             score: score,
             status: status,
             teacher_note: note,
+            question_details: this.gradingQuestionStatus,
+            animal_group: this.selectedGradingAnimalGroup,
             operator: this.settings.teacher_name || "Cô Linh"
           })
         });
@@ -1371,7 +1485,9 @@ class LMSApp {
           score,
           status,
           note,
-          this.settings.teacher_name || "Cô Linh"
+          this.settings.teacher_name || "Cô Linh",
+          this.gradingQuestionStatus,
+          this.selectedGradingAnimalGroup
         );
       }
       if (!data || data.error || data.success === false) {
@@ -1379,9 +1495,24 @@ class LMSApp {
         return;
       }
 
+      // Update student's animal group locally so all UI reflects it immediately
+      if (this.selectedGradingAnimalGroup && this.currentlyGradingStudent) {
+        const targetSt = (this.students || []).find(s => s.id == this.currentlyGradingStudent.id);
+        if (targetSt) {
+          targetSt.animal_group = this.selectedGradingAnimalGroup;
+          if (data.student) {
+            targetSt.animal_symbol = data.student.animal_symbol || targetSt.animal_symbol;
+            targetSt.animal_title = data.student.animal_title || targetSt.animal_title;
+          }
+        }
+      }
+
       alert(`✅ Đã lưu điểm cho học sinh ${this.currentlyGradingStudent.full_name} (${status})!`);
       this.cancelGrading();
       this.loadTrackingMatrix();
+      this.renderQuickGradeStudentList();
+      this.renderStudentList();
+      if (this.renderTeams) this.renderTeams();
     } catch (e) {
       alert("Lỗi: " + e.message);
     }
@@ -1751,6 +1882,51 @@ class LMSApp {
     document.getElementById("new-asg-assigned").value = now.toISOString().split("T")[0];
     const tomorrow = new Date(now.getTime() + 86400000);
     document.getElementById("new-asg-due").value = tomorrow.toISOString().slice(0, 16);
+    this.newAsgQuestions = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    this.renderNewAsgQuestions();
+  }
+
+  setNewAsgQuestionPreset(count) {
+    this.newAsgQuestions = [];
+    for (let i = 1; i <= count; i++) {
+      this.newAsgQuestions.push(`Câu ${i}`);
+    }
+    this.renderNewAsgQuestions();
+  }
+
+  addNewAsgQuestionRow() {
+    const nextNum = (this.newAsgQuestions ? this.newAsgQuestions.length : 0) + 1;
+    if (!this.newAsgQuestions) this.newAsgQuestions = [];
+    this.newAsgQuestions.push(`Câu ${nextNum}`);
+    this.renderNewAsgQuestions();
+  }
+
+  removeNewAsgQuestionRow(idx) {
+    if (!this.newAsgQuestions || this.newAsgQuestions.length <= 1) return;
+    this.newAsgQuestions.splice(idx, 1);
+    this.renderNewAsgQuestions();
+  }
+
+  renderNewAsgQuestions() {
+    const container = document.getElementById("new-asg-questions-container");
+    if (!container) return;
+    container.innerHTML = (this.newAsgQuestions || []).map((q, idx) => `
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); width: 24px;">#${idx + 1}</span>
+        <input type="text" class="form-control form-control-sm new-asg-q-input" value="${q}" style="flex: 1; font-weight: 600;">
+        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeNewAsgQuestionRow(${idx})" title="Xóa câu này">🗑️</button>
+      </div>
+    `).join("");
+  }
+
+  collectNewAsgQuestions() {
+    const inputs = document.querySelectorAll(".new-asg-q-input");
+    const res = [];
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) res.push(val);
+    });
+    return res.length > 0 ? res : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
   }
 
   closeNewAssignmentModal() {
@@ -1764,6 +1940,7 @@ class LMSApp {
     const due_date = document.getElementById("new-asg-due").value.replace("T", " ");
     const max_score = document.getElementById("new-asg-maxscore").value;
     const notes = document.getElementById("new-asg-notes").value;
+    const questions = this.collectNewAsgQuestions();
 
     if (!title || !due_date) {
       alert("Vui lòng nhập Tên bài tập và Hạn nộp!");
@@ -1776,11 +1953,11 @@ class LMSApp {
         const res = await fetch("/api/assignments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes })
+          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions })
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes);
+        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes, questions);
       }
       if (!data || data.error) {
         alert((data && data.error) || "Lỗi khi tạo bài tập!");
@@ -1902,7 +2079,56 @@ class LMSApp {
     document.getElementById("edit-asg-maxscore").value = asg.max_score || 10;
     document.getElementById("edit-asg-notes").value = asg.notes || asg.description || "";
 
+    const questions = asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
+      ? asg.questions
+      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    this.editAsgQuestions = [...questions];
+    this.renderEditAsgQuestions();
+
     document.getElementById("edit-assignment-modal").style.display = "flex";
+  }
+
+  setEditAsgQuestionPreset(count) {
+    this.editAsgQuestions = [];
+    for (let i = 1; i <= count; i++) {
+      this.editAsgQuestions.push(`Câu ${i}`);
+    }
+    this.renderEditAsgQuestions();
+  }
+
+  addEditAsgQuestionRow() {
+    const nextNum = (this.editAsgQuestions ? this.editAsgQuestions.length : 0) + 1;
+    if (!this.editAsgQuestions) this.editAsgQuestions = [];
+    this.editAsgQuestions.push(`Câu ${nextNum}`);
+    this.renderEditAsgQuestions();
+  }
+
+  removeEditAsgQuestionRow(idx) {
+    if (!this.editAsgQuestions || this.editAsgQuestions.length <= 1) return;
+    this.editAsgQuestions.splice(idx, 1);
+    this.renderEditAsgQuestions();
+  }
+
+  renderEditAsgQuestions() {
+    const container = document.getElementById("edit-asg-questions-container");
+    if (!container) return;
+    container.innerHTML = (this.editAsgQuestions || []).map((q, idx) => `
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); width: 24px;">#${idx + 1}</span>
+        <input type="text" class="form-control form-control-sm edit-asg-q-input" value="${q}" style="flex: 1; font-weight: 600;">
+        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeEditAsgQuestionRow(${idx})" title="Xóa câu này">🗑️</button>
+      </div>
+    `).join("");
+  }
+
+  collectEditAsgQuestions() {
+    const inputs = document.querySelectorAll(".edit-asg-q-input");
+    const res = [];
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) res.push(val);
+    });
+    return res.length > 0 ? res : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
   }
 
   closeEditAssignmentModal() {
@@ -1917,6 +2143,7 @@ class LMSApp {
     const due_date = document.getElementById("edit-asg-due").value.replace("T", " ");
     const max_score = parseFloat(document.getElementById("edit-asg-maxscore").value) || 10;
     const notes = document.getElementById("edit-asg-notes").value.trim();
+    const questions = this.collectEditAsgQuestions();
 
     if (!title || !due_date) {
       alert("Vui lòng nhập Tên bài tập và Hạn nộp!");
@@ -1928,11 +2155,11 @@ class LMSApp {
         const res = await fetch(`/api/assignments/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes })
+          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions })
         });
         if (!res.ok) throw new Error("Cập nhật bài tập thất bại trên máy chủ.");
       } else {
-        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes);
+        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes, questions);
       }
 
       alert(`✅ Đã cập nhật bài tập "${title}" thành công!`);
@@ -4403,6 +4630,287 @@ class LMSApp {
     }
 
     this.loadLibraryData();
+  }
+
+  // ====================================================================
+  // --- SECTION: TEAMS MANAGEMENT CONTROLLER ---
+  // ====================================================================
+  async loadTeams() {
+    try {
+      let teams;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/teams");
+        teams = await res.json();
+      } else {
+        teams = window.ClientDB.getTeams();
+      }
+      this.teams = Array.isArray(teams) ? teams : [];
+      this.renderTeams();
+    } catch (e) {
+      console.warn("Could not load teams:", e);
+      this.teams = window.ClientDB.getTeams();
+      this.renderTeams();
+    }
+  }
+
+  renderTeams() {
+    const grid = document.getElementById("teams-grid");
+    if (!grid) return;
+
+    const list = this.teams || [];
+    const totalEl = document.getElementById("teams-stat-total");
+    const assignedEl = document.getElementById("teams-stat-assigned");
+    const maxEl = document.getElementById("teams-stat-max");
+
+    let assignedStudentIds = new Set();
+    let maxMembers = 0;
+
+    list.forEach(t => {
+      const members = t.members || [];
+      if (members.length > maxMembers) maxMembers = members.length;
+      members.forEach(m => assignedStudentIds.add(m.id || m.code));
+    });
+
+    if (totalEl) totalEl.innerText = list.length;
+    if (assignedEl) assignedEl.innerText = assignedStudentIds.size;
+    if (maxEl) maxEl.innerText = maxMembers;
+
+    if (list.length === 0) {
+      grid.innerHTML = `
+        <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--text-muted); border: 2px dashed var(--border);">
+          <div style="font-size: 48px; margin-bottom: 12px;">🏆</div>
+          <h3 style="font-size: 18px; color: #1E293B; margin-bottom: 6px; font-weight: 700;">Chưa Có Nhóm Học Tập Nào</h3>
+          <p style="font-size: 14px; max-width: 440px; margin: 0 auto 16px;">
+            Thầy cô hãy bấm nút <strong>"Tạo Nhóm Mới"</strong> để thành lập các đội thi đua cho các em học sinh lớp 3A7 nhé!
+          </p>
+          <button class="btn btn-primary" onclick="app.openCreateTeamModal()">
+            ➕ Thành Lập Nhóm Đầu Tiên
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = list.map(t => {
+      const color = t.color || "#3B82F6";
+      const icon = t.icon || "⭐";
+      const members = t.members || [];
+      const mottoHtml = t.motto ? `<div class="team-motto">“${t.motto}”</div>` : "";
+      
+      const membersHtml = members.length > 0
+        ? members.map(m => {
+            const animalSym = m.animal_symbol || "🐱";
+            return `
+              <div class="team-member-pill" title="${m.full_name} (${m.code})">
+                <span class="member-symbol">${animalSym}</span>
+                <span class="member-name">${m.order_num ? m.order_num + '.' : ''} ${m.full_name}</span>
+              </div>
+            `;
+          }).join("")
+        : `<div style="font-size: 12px; color: var(--text-muted); font-style: italic;">Chưa có học sinh nào trong nhóm này.</div>`;
+
+      return `
+        <div class="team-card" style="--team-color: ${color};">
+          <div class="team-card-header" style="background: linear-gradient(135deg, ${color}15, ${color}25); border-left: 5px solid ${color};">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              ${t.image 
+                ? `<img src="${t.image}" alt="${t.name}" class="team-avatar-img" onerror="this.style.display='none'">` 
+                : `<div class="team-icon-circle" style="background: ${color}20; color: ${color};">${icon}</div>`
+              }
+              <div>
+                <h3 class="team-card-title">${t.name}</h3>
+                <div class="team-member-badge" style="color: ${color}; font-weight: 700; font-size: 12px;">
+                  👥 ${members.length} thành viên
+                </div>
+              </div>
+            </div>
+            <div class="team-card-actions">
+              <button class="btn btn-outline btn-xs" onclick="app.openEditTeamModal(${t.id})" title="Chỉnh sửa nhóm">✏️ Sửa</button>
+              <button class="btn btn-danger btn-xs" onclick="app.deleteTeam(${t.id})" title="Xóa nhóm">🗑️</button>
+            </div>
+          </div>
+          <div class="team-card-body">
+            ${mottoHtml}
+            <div class="team-members-header">
+              <span>Thành viên nhóm:</span>
+              <span class="badge" style="background: ${color}15; color: ${color}; font-size: 11px;">${members.length} học sinh</span>
+            </div>
+            <div class="team-members-list">
+              ${membersHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  openCreateTeamModal() {
+    this.currentEditingTeamId = null;
+    document.getElementById("team-modal-id").value = "";
+    document.getElementById("team-modal-name").value = "";
+    document.getElementById("team-modal-icon").value = "⭐";
+    document.getElementById("team-modal-color").value = "#2563EB";
+    document.getElementById("team-modal-image").value = "";
+    document.getElementById("team-modal-motto").value = "";
+    document.getElementById("team-modal-title").innerText = "🏆 Tạo Nhóm Học Tập Mới";
+    this.selectedTeamMemberIds = new Set();
+    this.renderTeamStudentChecklist();
+    document.getElementById("team-editor-modal").style.display = "flex";
+  }
+
+  openEditTeamModal(teamId) {
+    const team = (this.teams || []).find(t => t.id == teamId);
+    if (!team) return;
+
+    this.currentEditingTeamId = team.id;
+    document.getElementById("team-modal-id").value = team.id;
+    document.getElementById("team-modal-name").value = team.name || "";
+    document.getElementById("team-modal-icon").value = team.icon || "⭐";
+    document.getElementById("team-modal-color").value = team.color || "#2563EB";
+    document.getElementById("team-modal-image").value = team.image || "";
+    document.getElementById("team-modal-motto").value = team.motto || "";
+    document.getElementById("team-modal-title").innerText = `✏️ Chỉnh Sửa Nhóm "${team.name}"`;
+
+    const memberIds = (team.members || []).map(m => m.id);
+    this.selectedTeamMemberIds = new Set(memberIds);
+    this.renderTeamStudentChecklist();
+    document.getElementById("team-editor-modal").style.display = "flex";
+  }
+
+  closeTeamModal() {
+    document.getElementById("team-editor-modal").style.display = "none";
+  }
+
+  setTeamIcon(icon) {
+    document.getElementById("team-modal-icon").value = icon;
+  }
+
+  setTeamColor(color) {
+    document.getElementById("team-modal-color").value = color;
+  }
+
+  renderTeamStudentChecklist() {
+    const container = document.getElementById("team-modal-student-list");
+    if (!container) return;
+
+    const countEl = document.getElementById("team-modal-selected-count");
+    if (countEl) countEl.innerText = this.selectedTeamMemberIds ? this.selectedTeamMemberIds.size : 0;
+
+    const students = this.students || [];
+    container.innerHTML = students.map(s => {
+      const isChecked = this.selectedTeamMemberIds && this.selectedTeamMemberIds.has(s.id);
+      const animalSym = s.animal_symbol || "🐱";
+      return `
+        <label class="team-student-item ${isChecked ? 'selected' : ''}" data-search="${s.code.toLowerCase()} ${s.full_name.toLowerCase()}">
+          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="app.toggleTeamMember(${s.id}, this.checked)">
+          <span class="student-item-sym">${animalSym}</span>
+          <span class="student-item-name"><strong>${s.code}</strong> - ${s.full_name}</span>
+        </label>
+      `;
+    }).join("");
+  }
+
+  toggleTeamMember(studentId, isChecked) {
+    if (!this.selectedTeamMemberIds) this.selectedTeamMemberIds = new Set();
+    if (isChecked) {
+      this.selectedTeamMemberIds.add(studentId);
+    } else {
+      this.selectedTeamMemberIds.delete(studentId);
+    }
+    const countEl = document.getElementById("team-modal-selected-count");
+    if (countEl) countEl.innerText = this.selectedTeamMemberIds.size;
+  }
+
+  toggleAllTeamStudents(select) {
+    if (!this.selectedTeamMemberIds) this.selectedTeamMemberIds = new Set();
+    const students = this.students || [];
+    if (select) {
+      students.forEach(s => this.selectedTeamMemberIds.add(s.id));
+    } else {
+      this.selectedTeamMemberIds.clear();
+    }
+    this.renderTeamStudentChecklist();
+  }
+
+  filterTeamStudentSelection() {
+    const query = (document.getElementById("team-modal-student-search")?.value || "").toLowerCase().trim();
+    document.querySelectorAll(".team-student-item").forEach(item => {
+      const text = item.getAttribute("data-search") || "";
+      if (!query || text.includes(query)) {
+        item.style.display = "flex";
+      } else {
+        item.style.display = "none";
+      }
+    });
+  }
+
+  async saveTeam() {
+    const name = document.getElementById("team-modal-name").value.trim();
+    const icon = document.getElementById("team-modal-icon").value.trim() || "⭐";
+    const color = document.getElementById("team-modal-color").value || "#2563EB";
+    const image = document.getElementById("team-modal-image").value.trim();
+    const motto = document.getElementById("team-modal-motto").value.trim();
+    const memberIds = Array.from(this.selectedTeamMemberIds || []);
+
+    if (!name) {
+      alert("Vui lòng nhập Tên nhóm!");
+      document.getElementById("team-modal-name").focus();
+      return;
+    }
+
+    try {
+      if (this.currentEditingTeamId) {
+        if (this.serverAvailable) {
+          const res = await fetch(`/api/teams/${this.currentEditingTeamId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds })
+          });
+          if (!res.ok) throw new Error("Cập nhật nhóm thất bại!");
+        } else {
+          window.ClientDB.updateTeam(this.currentEditingTeamId, name, color, icon, image, motto, memberIds);
+        }
+        alert(`✅ Đã cập nhật thành công nhóm "${name}"!`);
+      } else {
+        if (this.serverAvailable) {
+          const res = await fetch("/api/teams", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds })
+          });
+          if (!res.ok) throw new Error("Tạo nhóm thất bại!");
+        } else {
+          window.ClientDB.createTeam(name, color, icon, image, motto, memberIds);
+        }
+        alert(`✅ Đã thành lập thành công nhóm "${name}" (${memberIds.length} thành viên)!`);
+      }
+
+      this.closeTeamModal();
+      await this.loadTeams();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  async deleteTeam(teamId) {
+    const team = (this.teams || []).find(t => t.id == teamId);
+    const title = team ? team.name : `Nhóm #${teamId}`;
+    if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa nhóm "${title}"?`)) {
+      return;
+    }
+
+    try {
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/teams/${teamId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Xóa nhóm thất bại!");
+      } else {
+        window.ClientDB.deleteTeam(teamId);
+      }
+      alert(`🗑️ Đã xóa nhóm "${title}" thành công!`);
+      await this.loadTeams();
+    } catch (e) {
+      alert("Lỗi khi xóa nhóm: " + e.message);
+    }
   }
 
   exitPublicLibrary() {

@@ -1219,28 +1219,7 @@ const DEFAULT_SETTINGS = {
   google_sheet_url: ""
 };
 
-const DEFAULT_ASSIGNMENTS = [
-  {
-    id: 1,
-    title: "Chính tả & Luyện từ và câu: Mùa thu yêu thương",
-    subject: "Tiếng Việt",
-    description: "Viết bài chính tả trang 45 và hoàn thành 3 bài tập từ ngữ về mùa thu.",
-    assigned_date: "2026-09-18",
-    due_date: "2026-09-20 17:00:00",
-    max_score: 10.0,
-    created_at: "2026-09-18 08:00:00"
-  },
-  {
-    id: 2,
-    title: "Toán: Bảng nhân 7 và bài toán giải bằng hai phép tính",
-    subject: "Toán",
-    description: "Học thuộc bảng nhân 7, làm bài tập 1, 2, 3 trang 52 Vở bài tập Toán.",
-    assigned_date: "2026-09-19",
-    due_date: "2026-09-22 17:00:00",
-    max_score: 10.0,
-    created_at: "2026-09-19 08:00:00"
-  }
-];
+const DEFAULT_ASSIGNMENTS = [];
 
 class ClientDBEngine {
   constructor() {
@@ -1273,6 +1252,25 @@ class ClientDBEngine {
       localStorage.setItem(MATCH_DEFAULT_KEY, "true");
     }
 
+    // Purge example homework assignments and start completely clean
+    const CLEAR_EXAMPLE_HOMEWORK_KEY = "lms_clear_example_homework_v2";
+    if (localStorage.getItem(CLEAR_EXAMPLE_HOMEWORK_KEY) !== "true") {
+      try {
+        const rawAsg = localStorage.getItem("lms_assignments");
+        let asgs = rawAsg ? JSON.parse(rawAsg) : [];
+        asgs = asgs.filter(a => a.id !== 1 && a.id !== 2 && !a.title?.includes("Mùa thu yêu thương") && !a.title?.includes("Bảng nhân 7") && !a.title?.includes("Phép nhân và phép chia"));
+        localStorage.setItem("lms_assignments", JSON.stringify(asgs));
+
+        const rawEvents = localStorage.getItem("lms_events");
+        let events = rawEvents ? JSON.parse(rawEvents) : [];
+        events = events.filter(e => e.assignment_id !== 1 && e.assignment_id !== 2);
+        localStorage.setItem("lms_events", JSON.stringify(events));
+      } catch (e) {
+        console.warn(e);
+      }
+      localStorage.setItem(CLEAR_EXAMPLE_HOMEWORK_KEY, "true");
+    }
+
     if (!localStorage.getItem("lms_students")) {
       localStorage.setItem("lms_students", JSON.stringify(DEFAULT_STUDENTS_3A7));
     }
@@ -1280,7 +1278,10 @@ class ClientDBEngine {
       localStorage.setItem("lms_settings", JSON.stringify(DEFAULT_SETTINGS));
     }
     if (!localStorage.getItem("lms_assignments")) {
-      localStorage.setItem("lms_assignments", JSON.stringify(DEFAULT_ASSIGNMENTS));
+      localStorage.setItem("lms_assignments", JSON.stringify([]));
+    }
+    if (!localStorage.getItem("lms_teams")) {
+      localStorage.setItem("lms_teams", JSON.stringify([]));
     }
     if (!localStorage.getItem("lms_events")) {
       localStorage.setItem("lms_events", JSON.stringify([]));
@@ -1528,27 +1529,32 @@ class ClientDBEngine {
   getAssignments() {
     try {
       const raw = JSON.parse(localStorage.getItem("lms_assignments"));
-      const list = (Array.isArray(raw) && raw.length > 0) ? raw : DEFAULT_ASSIGNMENTS;
+      const list = Array.isArray(raw) ? raw : [];
       return list.map(a => {
         if (!a.subject || a.subject === "undefined") {
           a.subject = (a.title && a.title.toLowerCase().includes("toán")) ? "Toán" : "Tiếng Việt";
         }
+        if (!a.questions || !Array.isArray(a.questions) || a.questions.length === 0) {
+          a.questions = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+        }
         return a;
       });
     } catch {
-      return DEFAULT_ASSIGNMENTS;
+      return [];
     }
   }
 
-  createAssignment(title, subject, assignedDate, dueDate, maxScore = 10, notes = "") {
+  createAssignment(title, subject, assignedDate, dueDate, maxScore = 10, notes = "", questions = null) {
     const list = this.getAssignments();
     const newId = list.length > 0 ? Math.max(...list.map(a => a.id)) + 1 : 1;
+    const qList = (Array.isArray(questions) && questions.length > 0) ? questions : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
     const item = {
       id: newId,
       title: title.trim(),
       subject: subject ? subject.trim() : "Bài tập",
       description: notes ? notes.trim() : "",
       notes: notes ? notes.trim() : "",
+      questions: qList,
       assigned_date: assignedDate,
       due_date: dueDate.length <= 10 ? `${dueDate} 23:59:59` : dueDate,
       max_score: parseFloat(maxScore) || 10,
@@ -1559,11 +1565,11 @@ class ClientDBEngine {
     return item;
   }
 
-  updateAssignment(id, title, subject, assignedDate, dueDate, maxScore, notes) {
+  updateAssignment(id, title, subject, assignedDate, dueDate, maxScore, notes, questions = null) {
     const list = this.getAssignments();
     const idx = list.findIndex(a => a.id == id);
     if (idx === -1) return null;
-    list[idx] = Object.assign({}, list[idx], {
+    const patch = {
       title: title.trim(),
       subject: subject ? subject.trim() : "Bài tập",
       assigned_date: assignedDate,
@@ -1571,7 +1577,11 @@ class ClientDBEngine {
       max_score: parseFloat(maxScore) || 10,
       description: notes ? notes.trim() : "",
       notes: notes ? notes.trim() : ""
-    });
+    };
+    if (questions !== null && Array.isArray(questions)) {
+      patch.questions = questions;
+    }
+    list[idx] = Object.assign({}, list[idx], patch);
     localStorage.setItem("lms_assignments", JSON.stringify(list));
     return list[idx];
   }
@@ -1664,10 +1674,15 @@ class ClientDBEngine {
     };
   }
 
-  recordGrading(studentId, assignmentId, score, status, teacherNote = "", operator = "Cô Linh") {
+  recordGrading(studentId, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null) {
     const students = this.getStudents();
     const st = students.find(s => s.id == studentId);
     if (!st) return { error: "Không tìm thấy học sinh!" };
+
+    // If teacher customized student's animal group during grading, update it immediately
+    if (animalGroup) {
+      this.updateStudentAnimalGroup(studentId, animalGroup);
+    }
 
     const assignments = this.getAssignments();
     const asg = assignments.find(a => a.id == assignmentId);
@@ -1693,6 +1708,8 @@ class ClientDBEngine {
       status: status,
       score: scoreVal,
       teacher_note: teacherNote.trim(),
+      question_details: questionDetails,
+      animal_group: animalGroup || st.animal_group,
       operator: operator,
       score_change_delta: delta,
       timestamp: timestamp
@@ -1717,13 +1734,16 @@ class ClientDBEngine {
 
     return {
       success: true,
-      student: st,
+      student: this.getStudents().find(s => s.id == studentId) || st,
       assignment: asg,
       attempt_number: attemptNumber,
       score: scoreVal,
       score_change_delta: delta,
       status: status,
-      timestamp: timestamp
+      teacher_note: teacherNote.trim(),
+      question_details: questionDetails,
+      animal_group: animalGroup || st.animal_group,
+      graded_at: timestamp
     };
   }
 
@@ -2376,6 +2396,76 @@ class ClientDBEngine {
     entry.last_updated = this.nowStr();
     localStorage.setItem("lms_reading_race", JSON.stringify(raceList));
     return this.getReadingRace();
+  }
+
+  // --- Teams CRUD ---
+  getTeams() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("lms_teams") || "[]");
+      const students = this.getStudents();
+      return (Array.isArray(raw) ? raw : []).map(t => {
+        const memberIds = Array.isArray(t.member_ids) ? t.member_ids : [];
+        const members = memberIds.map(sid => {
+          return students.find(s => s.id == sid || s.code === String(sid).toUpperCase()) || null;
+        }).filter(Boolean);
+        return {
+          ...t,
+          members: members,
+          member_count: members.length
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  getTeamById(id) {
+    const teams = this.getTeams();
+    return teams.find(t => t.id == id) || null;
+  }
+
+  createTeam(name, color = "#3B82F6", icon = "⭐", image = "", motto = "", member_ids = []) {
+    const raw = JSON.parse(localStorage.getItem("lms_teams") || "[]");
+    const list = Array.isArray(raw) ? raw : [];
+    const newId = list.length > 0 ? Math.max(...list.map(t => t.id || 0)) + 1 : 1;
+    const team = {
+      id: newId,
+      name: (name || "").trim(),
+      color: color || "#3B82F6",
+      icon: icon || "⭐",
+      image: (image || "").trim(),
+      motto: (motto || "").trim(),
+      member_ids: Array.isArray(member_ids) ? member_ids : [],
+      created_at: this.nowStr()
+    };
+    list.push(team);
+    localStorage.setItem("lms_teams", JSON.stringify(list));
+    return this.getTeamById(newId);
+  }
+
+  updateTeam(id, name, color, icon, image, motto, member_ids) {
+    const raw = JSON.parse(localStorage.getItem("lms_teams") || "[]");
+    let list = Array.isArray(raw) ? raw : [];
+    const idx = list.findIndex(t => t.id == id);
+    if (idx === -1) return null;
+    list[idx] = {
+      ...list[idx],
+      name: name !== undefined ? name.trim() : list[idx].name,
+      color: color || list[idx].color || "#3B82F6",
+      icon: icon || list[idx].icon || "⭐",
+      image: image !== undefined ? image.trim() : (list[idx].image || ""),
+      motto: motto !== undefined ? motto.trim() : (list[idx].motto || ""),
+      member_ids: member_ids !== undefined ? (Array.isArray(member_ids) ? member_ids : []) : (list[idx].member_ids || [])
+    };
+    localStorage.setItem("lms_teams", JSON.stringify(list));
+    return this.getTeamById(id);
+  }
+
+  deleteTeam(id) {
+    const raw = JSON.parse(localStorage.getItem("lms_teams") || "[]");
+    let list = (Array.isArray(raw) ? raw : []).filter(t => t.id != id);
+    localStorage.setItem("lms_teams", JSON.stringify(list));
+    return true;
   }
 
   getLibraryStats() {

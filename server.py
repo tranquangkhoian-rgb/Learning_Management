@@ -185,6 +185,17 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/library/stats":
             return self.send_json(database.get_library_stats())
 
+        elif path == "/api/teams":
+            return self.send_json(database.get_teams())
+
+        elif path.startswith("/api/teams/"):
+            try:
+                tid = int(path.split("/")[-1])
+                t = database.get_team_by_id(tid)
+                return self.send_json(t if t else {"error": "Team not found"}, 200 if t else 404)
+            except ValueError:
+                return self.send_json({"error": "Invalid team ID"}, 400)
+
         elif path == "/api/export-csv":
             aid = query.get("assignment_id", [None])[0]
             if not aid:
@@ -290,6 +301,18 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             valid = database.verify_student_password(sid, pwd)
             return self.send_json({"success": valid, "valid": valid})
 
+        elif path == "/api/teams":
+            name = body.get("name", "").strip()
+            if not name:
+                return self.send_json({"error": "Tên nhóm là bắt buộc!"}, 400)
+            color = body.get("color", "#3B82F6")
+            icon = body.get("icon", "⭐")
+            image = body.get("image", "")
+            motto = body.get("motto", "")
+            member_ids = body.get("member_ids", [])
+            team = database.create_team(name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids)
+            return self.send_json(team, 201)
+
         elif path == "/api/assignments":
             title = body.get("title", "")
             subject = body.get("subject", "Toán")
@@ -297,11 +320,12 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             due_date = body.get("due_date", "")
             max_score = body.get("max_score", 10.0)
             notes = body.get("notes", "")
+            questions = body.get("questions")
 
             if not title or not due_date:
                 return self.send_json({"error": "Tên bài tập và Hạn nộp là bắt buộc!"}, 400)
 
-            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes)
+            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes, questions=questions)
             return self.send_json(asg, 201)
 
         elif path == "/api/scan-submit":
@@ -348,11 +372,13 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             status = body.get("status", "Đã đạt")
             teacher_note = body.get("teacher_note", "")
             operator = body.get("operator", "Cô Linh")
+            question_details = body.get("question_details")
+            animal_group = body.get("animal_group")
 
             if not student_id or not assignment_id:
                 return self.send_json({"error": "Thiếu student_id hoặc assignment_id!"}, 400)
 
-            res = database.record_grading(int(student_id), int(assignment_id), score, status, teacher_note, operator=operator)
+            res = database.record_grading(int(student_id), int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group)
             if not res.get("success"):
                 return self.send_json(res, 400)
 
@@ -525,6 +551,22 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             except ValueError:
                 return self.send_json({"error": "Invalid ID"}, 400)
 
+        elif path.startswith("/api/teams/"):
+            try:
+                tid = int(path.split("/")[-1])
+                name = body.get("name", "").strip()
+                if not name:
+                    return self.send_json({"error": "Tên nhóm không được để trống!"}, 400)
+                color = body.get("color", "#3B82F6")
+                icon = body.get("icon", "⭐")
+                image = body.get("image", "")
+                motto = body.get("motto", "")
+                member_ids = body.get("member_ids")
+                updated = database.update_team(tid, name, color=color, icon=icon, image=image, motto=motto, member_ids=member_ids)
+                return self.send_json(updated)
+            except ValueError:
+                return self.send_json({"error": "Invalid team ID"}, 400)
+
         elif path.startswith("/api/assignments/"):
             try:
                 aid = int(path.split("/")[-1])
@@ -535,7 +577,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                     body.get("assigned_date", ""),
                     body.get("due_date", ""),
                     body.get("max_score", 10.0),
-                    body.get("notes", "")
+                    body.get("notes", ""),
+                    questions=body.get("questions")
                 )
                 return self.send_json(asg)
             except ValueError:
@@ -555,7 +598,15 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path.startswith("/api/students/"):
+        if path.startswith("/api/teams/"):
+            try:
+                tid = int(path.split("/")[-1])
+                database.delete_team(tid)
+                return self.send_json({"success": True})
+            except ValueError:
+                return self.send_json({"error": "Invalid team ID"}, 400)
+
+        elif path.startswith("/api/students/"):
             try:
                 sid = int(path.split("/")[-1])
                 database.delete_student(sid)

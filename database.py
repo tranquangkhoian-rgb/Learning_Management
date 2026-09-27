@@ -128,6 +128,7 @@ def init_db():
         due_date TEXT NOT NULL,
         max_score REAL DEFAULT 10.0,
         notes TEXT DEFAULT '',
+        questions TEXT DEFAULT '[]',
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -143,8 +144,28 @@ def init_db():
         score REAL DEFAULT NULL,
         status TEXT DEFAULT 'Đã nộp', -- 'Đã nộp', 'Đã đạt', 'Cần sửa', 'Cần nộp lại', 'Chưa hoàn thành', 'Chưa nộp'
         teacher_note TEXT DEFAULT '',
+        question_details TEXT DEFAULT '{}',
         operator TEXT DEFAULT 'Học sinh',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS teams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#3B82F6',
+        icon TEXT DEFAULT '⭐',
+        image TEXT DEFAULT '',
+        motto TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS team_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        role TEXT DEFAULT 'Thành viên',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(team_id, student_id)
     );
 
     CREATE TABLE IF NOT EXISTS books (
@@ -192,6 +213,31 @@ def init_db():
         cursor.execute("ALTER TABLE students ADD COLUMN animal_symbol TEXT DEFAULT '🐱'")
     if "animal_title" not in st_cols:
         cursor.execute("ALTER TABLE students ADD COLUMN animal_title TEXT DEFAULT 'Mèo cam chăm chỉ'")
+
+    # Ensure questions column exists on assignments table
+    cursor.execute("PRAGMA table_info(assignments)")
+    asg_cols = [col[1] for col in cursor.fetchall()]
+    if "questions" not in asg_cols:
+        cursor.execute("ALTER TABLE assignments ADD COLUMN questions TEXT DEFAULT '[]'")
+
+    # Ensure question_details column exists on submission_events table
+    cursor.execute("PRAGMA table_info(submission_events)")
+    sub_cols = [col[1] for col in cursor.fetchall()]
+    if "question_details" not in sub_cols:
+        cursor.execute("ALTER TABLE submission_events ADD COLUMN question_details TEXT DEFAULT '{}'")
+
+    # Ensure all example homework assignments and sample events are purged (start clean)
+    cursor.execute("""
+        DELETE FROM submission_events 
+        WHERE assignment_id IN (1, 2) 
+           OR assignment_id IN (SELECT id FROM assignments WHERE title LIKE '%Phép nhân%' OR title LIKE '%Mùa thu yêu thương%')
+    """)
+    cursor.execute("""
+        DELETE FROM assignments 
+        WHERE id IN (1, 2) 
+           OR title LIKE '%Phép nhân%' 
+           OR title LIKE '%Mùa thu yêu thương%'
+    """)
 
     # Initial seed distribution for animal groups
     initial_groups = {
@@ -278,74 +324,6 @@ def init_db():
             "INSERT INTO students (code, full_name, gender, order_num, class_name) VALUES (?, ?, ?, ?, 'Lớp 3A7')",
             seed_students
         )
-
-    # Check if assignments exist, if not seed 2 sample assignments
-    cursor.execute("SELECT COUNT(*) FROM assignments")
-    asgn_count = cursor.fetchone()[0]
-    if asgn_count == 0:
-        now = datetime.now()
-        cursor.execute("""
-            INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            "Phiếu bài tập Toán: Phép nhân và phép chia trong phạm vi 1000",
-            "Toán",
-            now.strftime("%Y-%m-%d"),
-            now.strftime("%Y-%m-%d 23:59"),
-            10.0,
-            "Học sinh hoàn thành các bài tập trong phiếu và nộp vở tại góc nộp bài."
-        ))
-        asgn_id1 = cursor.lastrowid
-
-        yesterday = datetime.fromtimestamp(now.timestamp() - 86400)
-        cursor.execute("""
-            INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            "Chính tả & Luyện từ và câu: Mùa thu yêu thương",
-            "Tiếng Việt",
-            yesterday.strftime("%Y-%m-%d"),
-            yesterday.strftime("%Y-%m-%d 17:00"),
-            10.0,
-            "Viết bài chính tả sạch đẹp, rèn chữ giữ vở."
-        ))
-        asgn_id2 = cursor.lastrowid
-
-        # Add some initial sample submission events to demonstrate the workflow
-        # HS01: On-time -> Graded Đã đạt 10
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (1, ?, 'submit', 1, ?, 0, NULL, 'Đã nộp', '', 'Học sinh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 08:30:00")))
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (1, ?, 'grade', 1, ?, 0, 10.0, 'Đã đạt', 'Bài làm rất sạch đẹp và chuẩn xác!', 'Cô Linh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 09:15:00")))
-
-        # HS02: Submit 1 -> Graded 6 (Cần sửa) -> Resubmit 2 -> Graded 9.5 (Đã đạt)
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (2, ?, 'submit', 1, ?, 0, NULL, 'Đã nộp', '', 'Học sinh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 08:35:00")))
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (2, ?, 'grade', 1, ?, 0, 6.0, 'Cần sửa', 'Em xem lại câu 3 tính nhầm phép chia nhé.', 'Cô Linh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 09:20:00")))
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (2, ?, 'submit', 2, ?, 0, NULL, 'Đã nộp lại', '', 'Học sinh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 10:10:00")))
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (2, ?, 'grade', 2, ?, 0, 9.5, 'Đã đạt', 'Đã sửa chính xác câu 3, rất tiến bộ!', 'Cô Linh')
-        """, (asgn_id1, now.strftime("%Y-%m-%d 10:30:00")))
-
-        # HS03: Late submission
-        cursor.execute("""
-            INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-            VALUES (3, ?, 'submit', 1, ?, 1, NULL, 'Đã nộp', '', 'Học sinh')
-        """, (asgn_id2, now.strftime("%Y-%m-%d 08:45:00")))
-
     # Seed 75 Books from data/books_seed.json
     cursor.execute("SELECT COUNT(*) FROM books")
     book_count = cursor.fetchone()[0]
@@ -623,6 +601,19 @@ def reset_students_to_default():
     return get_students()
 
 # --- Assignments ---
+def _format_assignment_row(row_dict):
+    if not row_dict:
+        return row_dict
+    raw_q = row_dict.get("questions")
+    if isinstance(raw_q, str):
+        try:
+            row_dict["questions"] = json.loads(raw_q)
+        except Exception:
+            row_dict["questions"] = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+    elif not isinstance(raw_q, list):
+        row_dict["questions"] = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+    return row_dict
+
 def get_assignments(include_inactive=False):
     conn = get_db()
     cursor = conn.cursor()
@@ -630,7 +621,7 @@ def get_assignments(include_inactive=False):
         cursor.execute("SELECT * FROM assignments ORDER BY id DESC")
     else:
         cursor.execute("SELECT * FROM assignments WHERE is_active = 1 ORDER BY id DESC")
-    rows = [dict(r) for r in cursor.fetchall()]
+    rows = [_format_assignment_row(dict(r)) for r in cursor.fetchall()]
     conn.close()
     return rows
 
@@ -640,28 +631,58 @@ def get_assignment_by_id(assignment_id):
     cursor.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    return _format_assignment_row(dict(row)) if row else None
 
-def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes=""):
+def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes="", questions=None):
     conn = get_db()
     cursor = conn.cursor()
+    if questions is None:
+        q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+    elif isinstance(questions, list):
+        q_list = questions
+    elif isinstance(questions, str):
+        try:
+            q_list = json.loads(questions)
+        except Exception:
+            q_list = [q.strip() for q in questions.split(",") if q.strip()]
+    else:
+        q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+    q_str = json.dumps(q_list, ensure_ascii=False)
+
     cursor.execute("""
-        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip()))
+        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes, questions)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return get_assignment_by_id(new_id)
 
-def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes):
+def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes, questions=None):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE assignments
-        SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?
-        WHERE id = ?
-    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), assignment_id))
+    if questions is not None:
+        if isinstance(questions, list):
+            q_list = questions
+        elif isinstance(questions, str):
+            try:
+                q_list = json.loads(questions)
+            except Exception:
+                q_list = [q.strip() for q in questions.split(",") if q.strip()]
+        else:
+            q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+        q_str = json.dumps(q_list, ensure_ascii=False)
+        cursor.execute("""
+            UPDATE assignments
+            SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?
+            WHERE id = ?
+        """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, assignment_id))
+    else:
+        cursor.execute("""
+            UPDATE assignments
+            SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?
+            WHERE id = ?
+        """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), assignment_id))
     conn.commit()
     conn.close()
     return get_assignment_by_id(assignment_id)
@@ -747,10 +768,11 @@ def record_submission(student_code_or_id, assignment_id, operator="Học sinh"):
         "submitted_at": now_str
     }
 
-def record_grading(student_id, assignment_id, score, status, teacher_note="", operator="Cô Linh"):
+def record_grading(student_id, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None):
     """
     Teacher grades a student's work.
     Saves a new 'grade' event without overwriting previous attempts.
+    Supports storing question breakdown details and updating student's animal mascot tier.
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -760,6 +782,14 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
     if not student or not assignment:
         conn.close()
         return {"success": False, "error": "Học sinh hoặc bài tập không hợp lệ!"}
+
+    # If teacher customized student's animal group during grading, update it immediately
+    if animal_group and str(animal_group).strip():
+        try:
+            update_student_animal_group(student_id, animal_group)
+            student = get_student_by_id(student_id)
+        except Exception as e:
+            print("Error updating student animal group during grading:", e)
 
     # Find the current attempt number (based on latest submit)
     cursor.execute("""
@@ -776,10 +806,17 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
     if status not in valid_statuses:
         status = 'Đã đạt'
 
+    q_details_str = "{}"
+    if question_details is not None:
+        if isinstance(question_details, (dict, list)):
+            q_details_str = json.dumps(question_details, ensure_ascii=False)
+        elif isinstance(question_details, str):
+            q_details_str = question_details
+
     cursor.execute("""
-        INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
-        VALUES (?, ?, 'grade', ?, ?, 0, ?, ?, ?, ?)
-    """, (student["id"], assignment["id"], attempt_num, now_str, score_val, status, teacher_note.strip(), operator))
+        INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, question_details, operator)
+        VALUES (?, ?, 'grade', ?, ?, 0, ?, ?, ?, ?, ?)
+    """, (student["id"], assignment["id"], attempt_num, now_str, score_val, status, teacher_note.strip(), q_details_str, operator))
     event_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -793,6 +830,8 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
         "score": score_val,
         "status": status,
         "teacher_note": teacher_note,
+        "question_details": q_details_str,
+        "animal_group": student.get("animal_group"),
         "graded_at": now_str
     }
 
@@ -1734,7 +1773,105 @@ def import_books_from_rows(books_data, replace=False):
 
     conn.commit()
     conn.close()
-    return inserted
+# --- Team Management Engine ---
+def get_teams():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM teams ORDER BY id ASC")
+    team_rows = [dict(r) for r in cursor.fetchall()]
+    for t in team_rows:
+        cursor.execute("""
+            SELECT s.id, s.code, s.full_name, s.gender, s.animal_group, s.animal_symbol, s.animal_title, tm.role
+            FROM team_members tm
+            JOIN students s ON tm.student_id = s.id
+            WHERE tm.team_id = ?
+            ORDER BY s.order_num ASC, s.id ASC
+        """, (t["id"],))
+        t["members"] = [dict(m) for m in cursor.fetchall()]
+        t["member_count"] = len(t["members"])
+    conn.close()
+    return team_rows
+
+def get_team_by_id(team_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM teams WHERE id = ?", (team_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    team = dict(row)
+    cursor.execute("""
+        SELECT s.id, s.code, s.full_name, s.gender, s.animal_group, s.animal_symbol, s.animal_title, tm.role
+        FROM team_members tm
+        JOIN students s ON tm.student_id = s.id
+        WHERE tm.team_id = ?
+        ORDER BY s.order_num ASC, s.id ASC
+    """, (team["id"],))
+    team["members"] = [dict(m) for m in cursor.fetchall()]
+    team["member_count"] = len(team["members"])
+    conn.close()
+    return team
+
+def _resolve_student_id(cursor, sid_or_code):
+    if isinstance(sid_or_code, int) or (isinstance(sid_or_code, str) and sid_or_code.isdigit()):
+        cursor.execute("SELECT id FROM students WHERE id = ?", (int(sid_or_code),))
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+    cursor.execute("SELECT id FROM students WHERE code = ?", (str(sid_or_code).strip().upper(),))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+def create_team(name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO teams (name, color, icon, image, motto)
+        VALUES (?, ?, ?, ?, ?)
+    """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip()))
+    team_id = cursor.lastrowid
+    if member_ids and isinstance(member_ids, list):
+        for sid in member_ids:
+            real_sid = _resolve_student_id(cursor, sid)
+            if real_sid:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO team_members (team_id, student_id)
+                    VALUES (?, ?)
+                """, (team_id, real_sid))
+    conn.commit()
+    conn.close()
+    return get_team_by_id(team_id)
+
+def update_team(team_id, name, color="#3B82F6", icon="⭐", image="", motto="", member_ids=None):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE teams
+        SET name = ?, color = ?, icon = ?, image = ?, motto = ?
+        WHERE id = ?
+    """, (name.strip(), color.strip() if color else "#3B82F6", icon.strip() if icon else "⭐", (image or "").strip(), (motto or "").strip(), int(team_id)))
+    if member_ids is not None and isinstance(member_ids, list):
+        cursor.execute("DELETE FROM team_members WHERE team_id = ?", (int(team_id),))
+        for sid in member_ids:
+            real_sid = _resolve_student_id(cursor, sid)
+            if real_sid:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO team_members (team_id, student_id)
+                    VALUES (?, ?)
+                """, (int(team_id), real_sid))
+    conn.commit()
+    conn.close()
+    return get_team_by_id(team_id)
+
+def delete_team(team_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM team_members WHERE team_id = ?", (int(team_id),))
+    cursor.execute("DELETE FROM teams WHERE id = ?", (int(team_id),))
+    conn.commit()
+    conn.close()
+    return True
 
 # --- Quick Test when run directly ---
 if __name__ == "__main__":
