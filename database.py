@@ -234,11 +234,43 @@ def init_db():
     if "max_capacity" not in teams_cols:
         cursor.execute("ALTER TABLE teams ADD COLUMN max_capacity INTEGER DEFAULT 0")
 
-    # Ensure question_details column exists on submission_events table
+    # Ensure question_details, spelling_errors, spelling_error_types, writing_rubrics exist on submission_events table
     cursor.execute("PRAGMA table_info(submission_events)")
     sub_cols = [col[1] for col in cursor.fetchall()]
     if "question_details" not in sub_cols:
         cursor.execute("ALTER TABLE submission_events ADD COLUMN question_details TEXT DEFAULT '{}'")
+    if "spelling_errors" not in sub_cols:
+        cursor.execute("ALTER TABLE submission_events ADD COLUMN spelling_errors INTEGER DEFAULT 0")
+    if "spelling_error_types" not in sub_cols:
+        cursor.execute("ALTER TABLE submission_events ADD COLUMN spelling_error_types TEXT DEFAULT '[]'")
+    if "writing_rubrics" not in sub_cols:
+        cursor.execute("ALTER TABLE submission_events ADD COLUMN writing_rubrics TEXT DEFAULT '{}'")
+
+    # Ensure questions_data and subject_type columns exist on assignments table
+    if "questions_data" not in asg_cols:
+        cursor.execute("ALTER TABLE assignments ADD COLUMN questions_data TEXT DEFAULT '[]'")
+    if "subject_type" not in asg_cols:
+        cursor.execute("ALTER TABLE assignments ADD COLUMN subject_type TEXT DEFAULT 'toan'")
+
+    # Ensure remediation_plans table exists
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS remediation_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        assignment_id INTEGER REFERENCES assignments(id) ON DELETE SET NULL,
+        target_code TEXT NOT NULL,
+        target_name TEXT DEFAULT '',
+        skill_name TEXT DEFAULT '',
+        group_name TEXT NOT NULL,
+        student_ids TEXT NOT NULL,
+        supplementary_task TEXT DEFAULT '',
+        start_date TEXT DEFAULT '',
+        status TEXT DEFAULT 'active',
+        reassessments TEXT DEFAULT '[]',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
 
     # Ensure all example homework assignments and sample events are purged (start clean)
     cursor.execute("""
@@ -768,6 +800,35 @@ def _format_assignment_row(row_dict):
     elif not isinstance(raw_q, list):
         row_dict["questions"] = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
     row_dict["goals"] = row_dict.get("goals") or ""
+    row_dict["subject_type"] = row_dict.get("subject_type") or "toan"
+
+    raw_qd = row_dict.get("questions_data")
+    if isinstance(raw_qd, str):
+        try:
+            row_dict["questions_data"] = json.loads(raw_qd)
+        except Exception:
+            row_dict["questions_data"] = []
+    elif not isinstance(raw_qd, list):
+        row_dict["questions_data"] = []
+
+    if not row_dict["questions_data"] and row_dict.get("questions"):
+        # Auto-synthesize question items with MT and skill
+        synthesized = []
+        q_count = len(row_dict["questions"])
+        per_score = round(float(row_dict.get("max_score") or 10.0) / max(1, q_count), 2)
+        for i, q in enumerate(row_dict["questions"]):
+            mt_idx = 1 if i < 3 else (2 if i < 5 else 3)
+            synthesized.append({
+                "num": i + 1,
+                "label": f"C{i + 1}",
+                "name": str(q),
+                "target": f"MT{mt_idx}",
+                "target_name": f"Mục tiêu {mt_idx}",
+                "skill": f"Kĩ năng C{i + 1}",
+                "max_score": per_score
+            })
+        row_dict["questions_data"] = synthesized
+
     return row_dict
 
 def get_assignments(include_inactive=False):
@@ -789,11 +850,25 @@ def get_assignment_by_id(assignment_id):
     conn.close()
     return _format_assignment_row(dict(row)) if row else None
 
-def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes="", questions=None, goals=""):
+def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, notes="", questions=None, goals="", questions_data=None, subject_type="toan"):
     conn = get_db()
     cursor = conn.cursor()
+
+    qd_list = []
+    if questions_data is not None:
+        if isinstance(questions_data, list):
+            qd_list = questions_data
+        elif isinstance(questions_data, str):
+            try:
+                qd_list = json.loads(questions_data)
+            except Exception:
+                qd_list = []
+
     if questions is None:
-        q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+        if qd_list:
+            q_list = [q.get("name", f"Câu {i+1}") for i, q in enumerate(qd_list)]
+        else:
+            q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
     elif isinstance(questions, list):
         q_list = questions
     elif isinstance(questions, str):
@@ -803,20 +878,62 @@ def add_assignment(title, subject, assigned_date, due_date, max_score=10.0, note
             q_list = [q.strip() for q in questions.split(",") if q.strip()]
     else:
         q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+
+    if not qd_list and q_list:
+        per_score = round(float(max_score or 10.0) / max(1, len(q_list)), 2)
+        for i, q in enumerate(q_list):
+            mt_idx = 1 if i < 3 else (2 if i < 5 else 3)
+            qd_list.append({
+                "num": i + 1,
+                "label": f"C{i + 1}",
+                "name": str(q),
+                "target": f"MT{mt_idx}",
+                "target_name": f"Mục tiêu {mt_idx}",
+                "skill": f"Kĩ năng C{i + 1}",
+                "max_score": per_score
+            })
+
+    if qd_list:
+        for i, item in enumerate(qd_list):
+            if "num" not in item:
+                item["num"] = i + 1
+            if "label" not in item:
+                item["label"] = f"C{item['num']}"
+            if "target" not in item:
+                item["target"] = "MT1"
+            if "target_name" not in item:
+                item["target_name"] = f"Mục tiêu {item['target']}"
+        calc_max = sum(float(q.get("max_score", 0)) for q in qd_list)
+        if calc_max > 0:
+            max_score = round(calc_max, 2)
+
     q_str = json.dumps(q_list, ensure_ascii=False)
+    qd_str = json.dumps(qd_list, ensure_ascii=False)
 
     cursor.execute("""
-        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes, questions, goals)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, (goals or "").strip()))
+        INSERT INTO assignments (title, subject, assigned_date, due_date, max_score, notes, questions, goals, questions_data, subject_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, (goals or "").strip(), qd_str, subject_type))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return get_assignment_by_id(new_id)
 
-def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes, questions=None, goals=None):
+def update_assignment(assignment_id, title, subject, assigned_date, due_date, max_score, notes, questions=None, goals=None, questions_data=None, subject_type=None):
     conn = get_db()
     cursor = conn.cursor()
+
+    qd_list = None
+    if questions_data is not None:
+        if isinstance(questions_data, list):
+            qd_list = questions_data
+        elif isinstance(questions_data, str):
+            try:
+                qd_list = json.loads(questions_data)
+            except Exception:
+                qd_list = []
+
+    q_str = None
     if questions is not None:
         if isinstance(questions, list):
             q_list = questions
@@ -828,31 +945,49 @@ def update_assignment(assignment_id, title, subject, assigned_date, due_date, ma
         else:
             q_list = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
         q_str = json.dumps(q_list, ensure_ascii=False)
-        if goals is not None:
-            cursor.execute("""
-                UPDATE assignments
-                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?, goals = ?
-                WHERE id = ?
-            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, goals.strip(), assignment_id))
-        else:
-            cursor.execute("""
-                UPDATE assignments
-                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?
-                WHERE id = ?
-            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), q_str, assignment_id))
+
+    if qd_list is not None:
+        for i, item in enumerate(qd_list):
+            if "num" not in item:
+                item["num"] = i + 1
+            if "label" not in item:
+                item["label"] = f"C{item['num']}"
+            if "target" not in item:
+                item["target"] = "MT1"
+            if "target_name" not in item:
+                item["target_name"] = f"Mục tiêu {item['target']}"
+        calc_max = sum(float(q.get("max_score", 0)) for q in qd_list)
+        if calc_max > 0:
+            max_score = round(calc_max, 2)
+        qd_str = json.dumps(qd_list, ensure_ascii=False)
     else:
-        if goals is not None:
-            cursor.execute("""
-                UPDATE assignments
-                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, goals = ?
-                WHERE id = ?
-            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), goals.strip(), assignment_id))
-        else:
-            cursor.execute("""
-                UPDATE assignments
-                SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?
-                WHERE id = ?
-            """, (title.strip(), subject.strip(), assigned_date, due_date, float(max_score), notes.strip(), assignment_id))
+        qd_str = None
+
+    # Fetch existing
+    cursor.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,))
+    cur_row = cursor.fetchone()
+    if not cur_row:
+        conn.close()
+        return None
+
+    cur_asg = dict(cur_row)
+    final_title = title.strip() if title is not None else cur_asg["title"]
+    final_subject = subject.strip() if subject is not None else cur_asg["subject"]
+    final_assigned = assigned_date if assigned_date is not None else cur_asg["assigned_date"]
+    final_due = due_date if due_date is not None else cur_asg["due_date"]
+    final_score = float(max_score) if max_score is not None else cur_asg["max_score"]
+    final_notes = notes.strip() if notes is not None else cur_asg["notes"]
+    final_q = q_str if q_str is not None else cur_asg.get("questions", "[]")
+    final_goals = goals.strip() if goals is not None else cur_asg.get("goals", "")
+    final_qd = qd_str if qd_str is not None else cur_asg.get("questions_data", "[]")
+    final_stype = subject_type if subject_type is not None else cur_asg.get("subject_type", "toan")
+
+    cursor.execute("""
+        UPDATE assignments
+        SET title = ?, subject = ?, assigned_date = ?, due_date = ?, max_score = ?, notes = ?, questions = ?, goals = ?, questions_data = ?, subject_type = ?
+        WHERE id = ?
+    """, (final_title, final_subject, final_assigned, final_due, final_score, final_notes, final_q, final_goals, final_qd, final_stype, assignment_id))
+
     conn.commit()
     conn.close()
     return get_assignment_by_id(assignment_id)
@@ -938,11 +1073,11 @@ def record_submission(student_code_or_id, assignment_id, operator="Học sinh"):
         "submitted_at": now_str
     }
 
-def record_grading(student_id, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None):
+def record_grading(student_id, assignment_id, score=None, status=None, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None, spelling_errors=0, spelling_error_types=None, writing_rubrics=None):
     """
     Teacher grades a student's work.
     Saves a new 'grade' event without overwriting previous attempts.
-    Supports storing question breakdown details and updating student's animal mascot (globally and per-subject).
+    Supports storing question breakdown details, spelling errors, writing rubrics, and updating student's animal mascot.
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -971,24 +1106,68 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
     attempt_num = cursor.fetchone()[0]
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    score_val = float(score) if (score is not None and str(score).strip() != "") else None
 
-    # Valid statuses: 'Đã đạt', 'Cần sửa', 'Cần nộp lại', 'Chưa hoàn thành'
-    valid_statuses = ['Đã đạt', 'Cần sửa', 'Cần nộp lại', 'Chưa hoàn thành']
-    if status not in valid_statuses:
-        status = 'Đã đạt'
-
+    # Process question_details and auto-calculate score if question breakdown is provided
     q_details_str = "{}"
+    calc_score = None
     if question_details is not None:
         if isinstance(question_details, (dict, list)):
+            if isinstance(question_details, list):
+                q_list = question_details
+                tot = sum(float(q.get("score", 0.0)) for q in q_list)
+                max_tot = sum(float(q.get("max_score", 1.0)) for q in q_list) or float(assignment.get("max_score", 10.0))
+                pct = round((tot / max_tot) * 100, 1) if max_tot > 0 else 0.0
+                question_details = {
+                    "questions": q_list,
+                    "total_score": round(tot, 2),
+                    "max_score": round(max_tot, 2),
+                    "percentage": pct
+                }
+                calc_score = round(tot, 2)
+            elif isinstance(question_details, dict) and "questions" in question_details:
+                q_list = question_details["questions"]
+                tot = sum(float(q.get("score", 0.0)) for q in q_list)
+                max_tot = float(question_details.get("max_score") or sum(float(q.get("max_score", 1.0)) for q in q_list) or assignment.get("max_score", 10.0))
+                pct = round((tot / max_tot) * 100, 1) if max_tot > 0 else 0.0
+                question_details["total_score"] = round(tot, 2)
+                question_details["max_score"] = round(max_tot, 2)
+                question_details["percentage"] = pct
+                calc_score = round(tot, 2)
             q_details_str = json.dumps(question_details, ensure_ascii=False)
         elif isinstance(question_details, str):
             q_details_str = question_details
+            try:
+                parsed_q = json.loads(question_details)
+                if isinstance(parsed_q, dict) and "total_score" in parsed_q:
+                    calc_score = float(parsed_q["total_score"])
+            except Exception:
+                pass
+
+    if score is not None and str(score).strip() != "":
+        score_val = float(score)
+    elif calc_score is not None:
+        score_val = calc_score
+    else:
+        score_val = None
+
+    asg_max = float(assignment.get("max_score") or 10.0)
+
+    # Valid statuses: 'Đã đạt', 'Cần sửa', 'Cần nộp lại', 'Chưa hoàn thành'
+    valid_statuses = ['Đã đạt', 'Cần sửa', 'Cần nộp lại', 'Chưa hoàn thành']
+    if not status or status not in valid_statuses:
+        if score_val is not None and asg_max > 0:
+            status = 'Đã đạt' if (score_val / asg_max) >= 0.7 else 'Cần sửa'
+        else:
+            status = 'Đã đạt'
+
+    sp_errors_val = int(spelling_errors or 0)
+    sp_types_str = json.dumps(spelling_error_types if isinstance(spelling_error_types, list) else [], ensure_ascii=False)
+    rubrics_str = json.dumps(writing_rubrics if isinstance(writing_rubrics, dict) else {}, ensure_ascii=False)
 
     cursor.execute("""
-        INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, question_details, operator)
-        VALUES (?, ?, 'grade', ?, ?, 0, ?, ?, ?, ?, ?)
-    """, (student["id"], assignment["id"], attempt_num, now_str, score_val, status, teacher_note.strip(), q_details_str, operator))
+        INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, question_details, spelling_errors, spelling_error_types, writing_rubrics, operator)
+        VALUES (?, ?, 'grade', ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (student["id"], assignment["id"], attempt_num, now_str, score_val, status, teacher_note.strip(), q_details_str, sp_errors_val, sp_types_str, rubrics_str, operator))
     event_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -1003,11 +1182,14 @@ def record_grading(student_id, assignment_id, score, status, teacher_note="", op
         "status": status,
         "teacher_note": teacher_note,
         "question_details": q_details_str,
+        "spelling_errors": sp_errors_val,
+        "spelling_error_types": sp_types_str,
+        "writing_rubrics": rubrics_str,
         "animal_group": student.get("animal_group"),
         "graded_at": now_str
     }
 
-def record_grading_batch(student_ids, assignment_id, score, status, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None):
+def record_grading_batch(student_ids, assignment_id, score=None, status=None, teacher_note="", operator="Cô Linh", question_details=None, animal_group=None, animal_symbol=None, animal_title=None, spelling_errors=0, spelling_error_types=None, writing_rubrics=None):
     """
     Teacher grades multiple students in a single batch operation.
     Iterates over student_ids (numeric IDs or string codes) and records grading for each student.
@@ -1020,7 +1202,7 @@ def record_grading_batch(student_ids, assignment_id, score, status, teacher_note
     errors = []
     for sid in student_ids:
         try:
-            res = record_grading(sid, assignment_id, score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
+            res = record_grading(sid, assignment_id, score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title, spelling_errors=spelling_errors, spelling_error_types=spelling_error_types, writing_rubrics=writing_rubrics)
             if res.get("success"):
                 results.append(res)
             else:
@@ -1048,6 +1230,663 @@ def get_submission_history(student_id, assignment_id):
     events = [dict(r) for r in cursor.fetchall()]
     conn.close()
     return events
+
+# --- 3-Tier Pedagogical Analysis & Matrix Heatmap ---
+def get_assignment_analysis(assignment_id):
+    """
+    3-Tier Pedagogical Analysis for an assignment:
+    - Tier 1 (Toàn bài): submission/grading metrics, average score, %, passing rate, score distributions
+    - Tier 2 (Theo Mục Tiêu - MT): target mastery percentage, pass/fail status, list of students failing each MT
+    - Tier 3 (Theo Từng Câu): success rate per question, error causes breakdown, list of students who failed each question with specific causes
+    - Heatmap Matrix: 29 students x questions with status (correct/incorrect/need_fix/pending), scores, cause, and bottom summary row.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    assignment = get_assignment_by_id(assignment_id)
+    if not assignment:
+        conn.close()
+        return None
+
+    students = get_students(include_inactive=False)
+    questions_data = assignment.get("questions_data") or []
+    if not questions_data and assignment.get("questions"):
+        # Synthesize questions_data if not yet present
+        per_score = round(float(assignment.get("max_score", 10.0)) / max(1, len(assignment["questions"])), 2)
+        for i, q in enumerate(assignment["questions"]):
+            mt_idx = 1 if i < 3 else (2 if i < 5 else 3)
+            questions_data.append({
+                "num": i + 1,
+                "label": f"C{i + 1}",
+                "name": str(q),
+                "target": f"MT{mt_idx}",
+                "target_name": f"Mục tiêu {mt_idx}",
+                "skill": f"Kĩ năng C{i + 1}",
+                "max_score": per_score
+            })
+
+    for i, q in enumerate(questions_data):
+        if "num" not in q:
+            q["num"] = i + 1
+        if "label" not in q:
+            q["label"] = f"C{q['num']}"
+        if "target" not in q:
+            q["target"] = "MT1"
+        if "target_name" not in q:
+            q["target_name"] = f"Mục tiêu {q['target']}"
+
+    # Fetch latest grade event for each student in this assignment
+    cursor.execute("""
+        SELECT se.*, s.code, s.full_name, s.gender, s.group_name, s.group_color, s.order_num
+        FROM submission_events se
+        JOIN students s ON se.student_id = s.id
+        WHERE se.assignment_id = ? AND se.event_type = 'grade'
+        AND se.id = (
+            SELECT MAX(id) FROM submission_events 
+            WHERE student_id = se.student_id AND assignment_id = ? AND event_type = 'grade'
+        )
+    """, (assignment_id, assignment_id))
+    grade_rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    grades_by_student = {r["student_id"]: r for r in grade_rows}
+
+    # Prepare Tier 1 metrics
+    total_students = len(students)
+    graded_count = len(grade_rows)
+    asg_max = float(assignment.get("max_score") or 10.0)
+
+    scores = [r["score"] for r in grade_rows if r["score"] is not None]
+    avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+    avg_percentage = round((avg_score / asg_max) * 100, 1) if asg_max > 0 else 0.0
+
+    passed_count = sum(1 for s in scores if (s / asg_max) >= 0.7)
+    failed_count = graded_count - passed_count
+    pass_rate = round((passed_count / max(1, graded_count)) * 100, 1) if graded_count > 0 else 0.0
+
+    score_dist = {
+        "gioi": sum(1 for s in scores if (s / asg_max) >= 0.85),
+        "kha": sum(1 for s in scores if 0.70 <= (s / asg_max) < 0.85),
+        "can_co_gang": sum(1 for s in scores if (s / asg_max) < 0.70)
+    }
+
+    tier1 = {
+        "total_students": total_students,
+        "graded_count": graded_count,
+        "average_score": avg_score,
+        "max_score": asg_max,
+        "average_percentage": avg_percentage,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "pass_rate": pass_rate,
+        "score_distribution": score_dist
+    }
+
+    # Group questions by target (MT)
+    targets_map = {}
+    for q in questions_data:
+        t_code = q.get("target") or "MT1"
+        if t_code not in targets_map:
+            targets_map[t_code] = {
+                "code": t_code,
+                "name": q.get("target_name") or f"Mục tiêu {t_code}",
+                "questions": [],
+                "skills": set(),
+                "max_score": 0.0
+            }
+        targets_map[t_code]["questions"].append(q["num"])
+        if q.get("skill"):
+            targets_map[t_code]["skills"].add(q["skill"])
+        targets_map[t_code]["max_score"] += float(q.get("max_score", 1.0))
+
+    # Evaluate student question responses
+    student_q_evals = {}
+    for r in grade_rows:
+        sid = r["student_id"]
+        raw_qd = r.get("question_details") or "{}"
+        parsed_qd = {}
+        if isinstance(raw_qd, str):
+            try:
+                parsed_qd = json.loads(raw_qd)
+            except Exception:
+                parsed_qd = {}
+        elif isinstance(raw_qd, dict):
+            parsed_qd = raw_qd
+
+        q_list = parsed_qd.get("questions") if isinstance(parsed_qd, dict) else []
+        eval_map = {}
+        if isinstance(q_list, list):
+            for item in q_list:
+                num = item.get("num")
+                if num is not None:
+                    eval_map[num] = item
+
+        student_q_evals[sid] = eval_map
+
+    # Process Tier 3: Theo từng câu
+    tier3_questions = []
+    for q in questions_data:
+        q_num = q["num"]
+        q_label = q.get("label", f"C{q_num}")
+        q_max = float(q.get("max_score", 1.0))
+        t_code = q.get("target", "MT1")
+        t_name = q.get("target_name", "")
+        skill = q.get("skill", "")
+
+        correct_c = 0
+        incorrect_c = 0
+        need_fix_c = 0
+        causes_map = {}
+        failed_studs = []
+
+        for st in students:
+            sid = st["id"]
+            if sid not in grades_by_student:
+                continue
+            ev = student_q_evals.get(sid, {}).get(q_num)
+            if not ev:
+                st_score = grades_by_student[sid].get("score") or 0.0
+                if (st_score / asg_max) >= 0.7:
+                    q_st = "correct"
+                    q_sc = q_max
+                    cause = ""
+                else:
+                    q_st = "incorrect"
+                    q_sc = 0.0
+                    cause = "Chưa hiểu bản chất"
+            else:
+                q_st = ev.get("status", "correct")
+                q_sc = float(ev.get("score", q_max if q_st == "correct" else 0.0))
+                cause = ev.get("cause", "")
+
+            if q_st == "correct":
+                correct_c += 1
+            elif q_st == "need_fix":
+                need_fix_c += 1
+                if cause:
+                    causes_map[cause] = causes_map.get(cause, 0) + 1
+                failed_studs.append({
+                    "student_id": sid,
+                    "code": st["code"],
+                    "full_name": st["full_name"],
+                    "status": "need_fix",
+                    "score": q_sc,
+                    "max_score": q_max,
+                    "cause": cause or "Cần hoàn thiện"
+                })
+            else:
+                incorrect_c += 1
+                if cause:
+                    causes_map[cause] = causes_map.get(cause, 0) + 1
+                failed_studs.append({
+                    "student_id": sid,
+                    "code": st["code"],
+                    "full_name": st["full_name"],
+                    "status": "incorrect",
+                    "score": q_sc,
+                    "max_score": q_max,
+                    "cause": cause or "Sai"
+                })
+
+        evaluated_total = correct_c + incorrect_c + need_fix_c
+        pct = round((correct_c / max(1, evaluated_total)) * 100, 1) if evaluated_total > 0 else 0.0
+
+        tier3_questions.append({
+            "num": q_num,
+            "label": q_label,
+            "name": q.get("name", f"Câu {q_num}"),
+            "target": t_code,
+            "target_name": t_name,
+            "skill": skill,
+            "max_score": q_max,
+            "total_evaluated": evaluated_total,
+            "correct_count": correct_c,
+            "incorrect_count": incorrect_c,
+            "need_fix_count": need_fix_c,
+            "correct_percentage": pct,
+            "is_passed": pct >= 70.0,
+            "causes_summary": causes_map,
+            "failed_students": failed_studs
+        })
+
+    # Process Tier 2: Theo mục tiêu (MT)
+    tier2_targets = []
+    for t_code, t_info in targets_map.items():
+        t_qnums = t_info["questions"]
+        t_max = t_info["max_score"]
+        t_name = t_info["name"]
+        skills_str = ", ".join(sorted(list(t_info["skills"])))
+
+        total_pts_possible = 0.0
+        total_pts_earned = 0.0
+        failed_studs = []
+
+        for st in students:
+            sid = st["id"]
+            if sid not in grades_by_student:
+                continue
+            st_t_earned = 0.0
+            st_causes = []
+
+            for q_num in t_qnums:
+                ev = student_q_evals.get(sid, {}).get(q_num)
+                q_def = next((x for x in questions_data if x["num"] == q_num), None)
+                q_m = float(q_def.get("max_score", 1.0)) if q_def else 1.0
+
+                if ev:
+                    sc = float(ev.get("score", q_m if ev.get("status") == "correct" else 0.0))
+                    if ev.get("cause"):
+                        st_causes.append(ev.get("cause"))
+                else:
+                    st_score = grades_by_student[sid].get("score") or 0.0
+                    sc = q_m if (st_score / asg_max) >= 0.7 else 0.0
+
+                st_t_earned += sc
+
+            total_pts_possible += t_max
+            total_pts_earned += st_t_earned
+            st_pct = round((st_t_earned / max(0.1, t_max)) * 100, 1)
+
+            if st_pct < 70.0:
+                failed_studs.append({
+                    "student_id": sid,
+                    "code": st["code"],
+                    "full_name": st["full_name"],
+                    "group_name": st.get("group_name", "Nhóm 1"),
+                    "group_color": st.get("group_color", "#3B82F6"),
+                    "score": round(st_t_earned, 2),
+                    "max_score": round(t_max, 2),
+                    "percentage": st_pct,
+                    "causes": list(set(st_causes))
+                })
+
+        t_overall_pct = round((total_pts_earned / max(0.1, total_pts_possible)) * 100, 1) if total_pts_possible > 0 else 0.0
+
+        tier2_targets.append({
+            "target_code": t_code,
+            "target_name": t_name,
+            "skills": skills_str,
+            "question_nums": t_qnums,
+            "max_score": round(t_max, 2),
+            "total_students": graded_count,
+            "failed_count": len(failed_studs),
+            "percentage": t_overall_pct,
+            "is_passed": t_overall_pct >= 70.0,
+            "failed_students": failed_studs
+        })
+
+    # Prepare Heatmap Matrix (29 HS x Questions)
+    heatmap_matrix = []
+    for st in students:
+        sid = st["id"]
+        gr = grades_by_student.get(sid)
+        eval_map = student_q_evals.get(sid, {})
+
+        q_cells = []
+        for q in questions_data:
+            q_num = q["num"]
+            q_max = float(q.get("max_score", 1.0))
+            if not gr:
+                q_cells.append({
+                    "num": q_num,
+                    "label": q.get("label", f"C{q_num}"),
+                    "status": "pending",
+                    "score": None,
+                    "max_score": q_max,
+                    "cause": ""
+                })
+            else:
+                ev = eval_map.get(q_num)
+                if ev:
+                    q_cells.append({
+                        "num": q_num,
+                        "label": q.get("label", f"C{q_num}"),
+                        "status": ev.get("status", "correct"),
+                        "score": ev.get("score"),
+                        "max_score": q_max,
+                        "cause": ev.get("cause", "")
+                    })
+                else:
+                    is_ok = (gr.get("score", 0) / asg_max) >= 0.7
+                    q_cells.append({
+                        "num": q_num,
+                        "label": q.get("label", f"C{q_num}"),
+                        "status": "correct" if is_ok else "incorrect",
+                        "score": q_max if is_ok else 0.0,
+                        "max_score": q_max,
+                        "cause": "" if is_ok else "Chưa hiểu bản chất"
+                    })
+
+        st_sc = gr.get("score") if gr else None
+        st_pct = round((st_sc / asg_max) * 100, 1) if (gr and st_sc is not None and asg_max > 0) else None
+        st_status = gr.get("status") if gr else "Chưa nộp"
+
+        heatmap_matrix.append({
+            "stt": st["order_num"],
+            "student_id": sid,
+            "code": st["code"],
+            "full_name": st["full_name"],
+            "gender": st["gender"],
+            "group_name": st.get("group_name", "Nhóm 1"),
+            "group_color": st.get("group_color", "#3B82F6"),
+            "is_graded": gr is not None,
+            "score": st_sc,
+            "max_score": asg_max,
+            "percentage": st_pct,
+            "status": st_status,
+            "questions": q_cells
+        })
+
+    # Bottom summary row for Heatmap
+    bottom_summary = []
+    for q_item in tier3_questions:
+        bottom_summary.append({
+            "num": q_item["num"],
+            "label": q_item["label"],
+            "correct_percentage": q_item["correct_percentage"],
+            "is_passed": q_item["is_passed"]
+        })
+
+    return {
+        "assignment": assignment,
+        "tier1": tier1,
+        "tier2": tier2_targets,
+        "tier3": tier3_questions,
+        "heatmap": {
+            "matrix": heatmap_matrix,
+            "summary_row": bottom_summary
+        }
+    }
+
+# --- Bottleneck Detection & Clustering ---
+def get_learning_bottlenecks(assignment_id=None):
+    """
+    Identifies learning bottlenecks where success rate < 70% or where error clusters exist.
+    Groups students requiring intervention and suggests remediation groups.
+    """
+    assignments_to_check = []
+    if assignment_id:
+        asg = get_assignment_by_id(assignment_id)
+        if asg:
+            assignments_to_check.append(asg)
+    else:
+        assignments_to_check = get_assignments()
+
+    bottlenecks = []
+    for asg in assignments_to_check:
+        aid = asg["id"]
+        analysis = get_assignment_analysis(aid)
+        if not analysis:
+            continue
+
+        for t in analysis["tier2"]:
+            if len(t["failed_students"]) > 0 or not t["is_passed"]:
+                cause_counts = {}
+                for fs in t["failed_students"]:
+                    for c in fs.get("causes", []):
+                        cause_counts[c] = cause_counts.get(c, 0) + 1
+
+                sorted_causes = sorted(cause_counts.items(), key=lambda x: x[1], reverse=True)
+
+                bottlenecks.append({
+                    "id": f"bn_{aid}_{t['target_code']}",
+                    "assignment_id": aid,
+                    "assignment_title": asg["title"],
+                    "subject": asg["subject"],
+                    "target_code": t["target_code"],
+                    "target_name": t["target_name"],
+                    "skills": t["skills"],
+                    "percentage": t["percentage"],
+                    "is_passed": t["is_passed"],
+                    "failed_count": len(t["failed_students"]),
+                    "total_students": t["total_students"],
+                    "dominant_causes": sorted_causes,
+                    "students": t["failed_students"]
+                })
+
+    return bottlenecks
+
+# --- Remediation Plans & Historical Reassessments ---
+def create_remediation_plan(assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task="", start_date="", notes=""):
+    """
+    Creates a temporary intervention / remediation group for students struggling with a bottleneck.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    if not start_date:
+        start_date = datetime.now().strftime("%Y-%m-%d")
+
+    sids_list = student_ids if isinstance(student_ids, list) else []
+    if isinstance(student_ids, str):
+        try:
+            sids_list = json.loads(student_ids)
+        except Exception:
+            sids_list = [int(s.strip()) for s in student_ids.split(",") if s.strip().isdigit()]
+
+    sids_str = json.dumps(sids_list)
+    cursor.execute("""
+        INSERT INTO remediation_plans (assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+    """, (assignment_id, str(target_code).strip(), str(target_name).strip(), str(skill_name).strip(), str(group_name).strip(), sids_str, str(supplementary_task).strip(), start_date, str(notes).strip()))
+    plan_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return get_remediation_plan_by_id(plan_id)
+
+def get_remediation_plan_by_id(plan_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM remediation_plans WHERE id = ?", (plan_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    p = dict(row)
+    try:
+        p["student_ids"] = json.loads(p.get("student_ids") or "[]")
+    except Exception:
+        p["student_ids"] = []
+    try:
+        p["reassessments"] = json.loads(p.get("reassessments") or "[]")
+    except Exception:
+        p["reassessments"] = []
+
+    students_map = {s["id"]: s for s in get_students()}
+    p["students"] = [students_map[sid] for sid in p["student_ids"] if sid in students_map]
+    return p
+
+def get_remediation_plans(assignment_id=None, status=None):
+    conn = get_db()
+    cursor = conn.cursor()
+    query = "SELECT * FROM remediation_plans WHERE 1=1"
+    params = []
+    if assignment_id:
+        query += " AND assignment_id = ?"
+        params.append(assignment_id)
+    if status:
+        query += " AND status = ?"
+        params.append(status)
+    query += " ORDER BY id DESC"
+    cursor.execute(query, tuple(params))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    students_map = {s["id"]: s for s in get_students()}
+    plans = []
+    for r in rows:
+        try:
+            r["student_ids"] = json.loads(r.get("student_ids") or "[]")
+        except Exception:
+            r["student_ids"] = []
+        try:
+            r["reassessments"] = json.loads(r.get("reassessments") or "[]")
+        except Exception:
+            r["reassessments"] = []
+        r["students"] = [students_map[sid] for sid in r["student_ids"] if sid in students_map]
+        plans.append(r)
+    return plans
+
+def record_reassessment(plan_id, student_id, score, max_score=10.0, status='Đã đạt', note='', operator='Cô Linh'):
+    """
+    Teacher re-evaluates a student after remediation.
+    Strictly preserves historical evidence (Never overwrites earlier evaluations).
+    Logs timeline: Lần 1: 50% -> Lần 2 (Sau rèn): 85% ĐÃ ĐẠT.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM remediation_plans WHERE id = ?", (plan_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return {"success": False, "error": "Kế hoạch rèn không tồn tại!"}
+
+    plan = dict(row)
+    try:
+        reassessments = json.loads(plan.get("reassessments") or "[]")
+    except Exception:
+        reassessments = []
+
+    st_id = int(student_id)
+    score_f = float(score)
+    max_score_f = float(max_score) if max_score and float(max_score) > 0 else 10.0
+    pct = round((score_f / max_score_f) * 100, 1)
+
+    prev_count = sum(1 for ra in reassessments if ra.get("student_id") == st_id)
+
+    new_entry = {
+        "attempt": prev_count + 1,
+        "student_id": st_id,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "score": score_f,
+        "max_score": max_score_f,
+        "percentage": pct,
+        "status": status,
+        "note": note.strip(),
+        "operator": operator
+    }
+    reassessments.append(new_entry)
+    reassessments_str = json.dumps(reassessments, ensure_ascii=False)
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute("""
+        UPDATE remediation_plans
+        SET reassessments = ?, updated_at = ?
+        WHERE id = ?
+    """, (reassessments_str, now_str, plan_id))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "plan_id": plan_id,
+        "reassessment": new_entry,
+        "plan": get_remediation_plan_by_id(plan_id)
+    }
+
+# --- Spelling Statistics & Student Growth ---
+def get_spelling_statistics(student_id=None):
+    """
+    Aggregates spelling errors for a student or entire class:
+    - Total spelling errors across assignments
+    - Breakdown of error types: Âm đầu / Vần / Dấu thanh / Viết hoa / Dấu câu / Trình bày / Chưa hoàn thành
+    - Common repeated error patterns (e.g., tr/ch: 5 lần, viết hoa: 3 lần)
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    query = """
+        SELECT se.*, s.code, s.full_name
+        FROM submission_events se
+        JOIN students s ON se.student_id = s.id
+        WHERE se.event_type = 'grade' AND (se.spelling_errors > 0 OR (se.spelling_error_types IS NOT NULL AND se.spelling_error_types != '[]' AND se.spelling_error_types != ''))
+    """
+    params = []
+    if student_id:
+        query += " AND se.student_id = ?"
+        params.append(int(student_id))
+    query += " ORDER BY se.id ASC"
+    cursor.execute(query, tuple(params))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    total_errors = sum(r.get("spelling_errors", 0) for r in rows)
+    type_counts = {}
+    word_patterns = {}
+
+    for r in rows:
+        raw_types = r.get("spelling_error_types") or "[]"
+        parsed_types = []
+        if isinstance(raw_types, str):
+            try:
+                parsed_types = json.loads(raw_types)
+            except Exception:
+                parsed_types = []
+        elif isinstance(raw_types, list):
+            parsed_types = raw_types
+
+        for t in parsed_types:
+            if isinstance(t, dict):
+                cat = t.get("category", "Khác")
+                word = t.get("pattern") or t.get("word")
+            else:
+                cat = str(t)
+                word = None
+            type_counts[cat] = type_counts.get(cat, 0) + 1
+            if word:
+                word_patterns[word] = word_patterns.get(word, 0) + 1
+
+    return {
+        "student_id": student_id,
+        "total_errors": total_errors,
+        "error_types": type_counts,
+        "repeated_patterns": sorted(word_patterns.items(), key=lambda x: x[1], reverse=True),
+        "total_graded_spelling_events": len(rows)
+    }
+
+def get_student_growth_profile(student_id):
+    """
+    Consolidates a student's full historical growth:
+    - All submissions and scores
+    - Remediation history (before vs after intervention)
+    - Spelling error trends
+    """
+    student = get_student_by_id(student_id)
+    if not student:
+        return None
+
+    all_plans = get_remediation_plans()
+    student_remediations = []
+    for p in all_plans:
+        if student["id"] in p.get("student_ids", []):
+            st_reassessments = [ra for ra in p.get("reassessments", []) if ra.get("student_id") == int(student["id"])]
+            student_remediations.append({
+                "plan_id": p["id"],
+                "target_code": p["target_code"],
+                "target_name": p["target_name"],
+                "group_name": p["group_name"],
+                "start_date": p["start_date"],
+                "reassessments": st_reassessments
+            })
+
+    spelling_stats = get_spelling_statistics(student_id)
+
+    assignments = get_assignments()
+    timeline = []
+    for asg in assignments:
+        history = get_submission_history(student_id, asg["id"])
+        if history:
+            timeline.append({
+                "assignment_id": asg["id"],
+                "assignment_title": asg["title"],
+                "subject": asg["subject"],
+                "max_score": asg["max_score"],
+                "history": history
+            })
+
+    return {
+        "student": student,
+        "timeline": timeline,
+        "remediations": student_remediations,
+        "spelling": spelling_stats
+    }
 
 # --- Section 6: Bảng theo dõi nhanh của từng bài ---
 def get_assignment_tracking_matrix(assignment_id):

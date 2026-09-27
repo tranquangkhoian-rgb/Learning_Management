@@ -126,6 +126,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/assignments":
             return self.send_json(database.get_assignments())
 
+        elif path.startswith("/api/assignments/") and path.endswith("/analysis"):
+            try:
+                aid = int(path.split("/")[3])
+                analysis = database.get_assignment_analysis(aid)
+                return self.send_json(analysis if analysis else {"error": "Not found"}, 200 if analysis else 404)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
         elif path.startswith("/api/assignments/"):
             try:
                 aid = int(path.split("/")[-1])
@@ -133,6 +141,27 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 return self.send_json(asg if asg else {"error": "Not found"}, 200 if asg else 404)
             except ValueError:
                 return self.send_json({"error": "Invalid assignment ID"}, 400)
+
+        elif path == "/api/bottlenecks":
+            aid = query.get("assignment_id", [None])[0]
+            return self.send_json(database.get_learning_bottlenecks(int(aid) if aid and aid.isdigit() else None))
+
+        elif path == "/api/remediation-plans":
+            aid = query.get("assignment_id", [None])[0]
+            status = query.get("status", [None])[0]
+            return self.send_json(database.get_remediation_plans(int(aid) if aid and aid.isdigit() else None, status))
+
+        elif path == "/api/spelling-stats":
+            sid = query.get("student_id", [None])[0]
+            return self.send_json(database.get_spelling_statistics(int(sid) if sid and sid.isdigit() else None))
+
+        elif path.startswith("/api/student-growth/"):
+            try:
+                sid = int(path.split("/")[-1])
+                growth = database.get_student_growth_profile(sid)
+                return self.send_json(growth if growth else {"error": "Not found"}, 200 if growth else 404)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
 
         elif path.startswith("/api/tracking/"):
             try:
@@ -353,12 +382,41 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             notes = body.get("notes", "")
             questions = body.get("questions")
             goals = body.get("goals", "")
+            questions_data = body.get("questions_data")
+            subject_type = body.get("subject_type", "toan")
 
             if not title or not due_date:
                 return self.send_json({"error": "Tên bài tập và Hạn nộp là bắt buộc!"}, 400)
 
-            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes, questions=questions, goals=goals)
+            asg = database.add_assignment(title, subject, assigned_date, due_date, max_score, notes, questions=questions, goals=goals, questions_data=questions_data, subject_type=subject_type)
             return self.send_json(asg, 201)
+
+        elif path == "/api/remediation-plans":
+            asg_id = body.get("assignment_id")
+            target_code = body.get("target_code", "MT1")
+            target_name = body.get("target_name", "")
+            skill_name = body.get("skill_name", "")
+            group_name = body.get("group_name", "Nhóm rèn luyện")
+            student_ids = body.get("student_ids", [])
+            supplementary_task = body.get("supplementary_task", "")
+            start_date = body.get("start_date", datetime.now().strftime("%Y-%m-%d"))
+            notes = body.get("notes", "")
+            plan = database.create_remediation_plan(asg_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, notes)
+            return self.send_json(plan, 201)
+
+        elif path.startswith("/api/remediation-plans/") and path.endswith("/reassess"):
+            try:
+                plan_id = int(path.split("/")[3])
+                st_id = body.get("student_id")
+                score = body.get("score")
+                max_score = body.get("max_score", 10.0)
+                status = body.get("status", "Đã đạt")
+                note = body.get("note", "")
+                operator = body.get("operator", "Cô Linh")
+                res = database.record_reassessment(plan_id, st_id, score, max_score=max_score, status=status, note=note, operator=operator)
+                return self.send_json(res)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
 
         elif path == "/api/scan-submit":
             # Student or teacher scans QR code
@@ -402,19 +460,22 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             student_id = body.get("student_id")
             assignment_id = body.get("assignment_id")
             score = body.get("score")
-            status = body.get("status", "Đã đạt")
+            status = body.get("status")
             teacher_note = body.get("teacher_note", "")
             operator = body.get("operator", "Cô Linh")
             question_details = body.get("question_details")
             animal_group = body.get("animal_group")
             animal_symbol = body.get("animal_symbol")
             animal_title = body.get("animal_title")
+            spelling_errors = body.get("spelling_errors", 0)
+            spelling_error_types = body.get("spelling_error_types")
+            writing_rubrics = body.get("writing_rubrics")
 
             if not assignment_id or (not student_id and not student_ids):
                 return self.send_json({"error": "Thiếu student_id/student_ids hoặc assignment_id!"}, 400)
 
             if student_ids and isinstance(student_ids, list):
-                res = database.record_grading_batch(student_ids, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
+                res = database.record_grading_batch(student_ids, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title, spelling_errors=spelling_errors, spelling_error_types=spelling_error_types, writing_rubrics=writing_rubrics)
                 for item in res.get("results", []):
                     st = item.get("student")
                     asg = item.get("assignment")
@@ -438,7 +499,7 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                         async_sync_to_google_sheet(sync_payload)
                 return self.send_json(res)
 
-            res = database.record_grading(student_id, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title)
+            res = database.record_grading(student_id, int(assignment_id), score, status, teacher_note, operator=operator, question_details=question_details, animal_group=animal_group, animal_symbol=animal_symbol, animal_title=animal_title, spelling_errors=spelling_errors, spelling_error_types=spelling_error_types, writing_rubrics=writing_rubrics)
             if not res.get("success"):
                 return self.send_json(res, 400)
 
@@ -640,7 +701,9 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                     body.get("max_score", 10.0),
                     body.get("notes", ""),
                     questions=body.get("questions"),
-                    goals=body.get("goals")
+                    goals=body.get("goals"),
+                    questions_data=body.get("questions_data"),
+                    subject_type=body.get("subject_type")
                 )
                 return self.send_json(asg)
             except ValueError:

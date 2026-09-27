@@ -382,18 +382,21 @@
       </div>
     </header>
 
-  <!-- Navigation Bar (Teacher Mode) -->
+  <!-- Navigation Bar (Teacher Mode: 4 Primary Core Tabs + Secondary Tools) -->
   <nav class="app-nav" id="teacher-nav">
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="app.switchTab('pane-kiosk')">🎯 Góc Nộp Bài</button>
-      <button class="nav-tab highlight" onclick="app.switchTab('pane-grade')">✍️ Chấm Bài Nhanh</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-homework')">📚 Quản Lý Bài Tập</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-tracking')">📋 Bảng Theo Dõi Bài</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-analytics')">📊 Thống Kê 3 Chiều</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-students')">👥 Quản Lý Học Sinh</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-print')">🏷️ In Thẻ QR Mini (A4)</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-library')">📖 Thư Viện & Đọc Sách</button>
-      <button class="nav-tab" onclick="app.switchTab('pane-settings')">⚙️ Cài Đặt & Google Sheets</button>
+      <button class="nav-tab highlight core-tab active" onclick="app.switchTab('pane-grade')">✍️ 1. CHẤM NHANH</button>
+      <button class="nav-tab core-tab" onclick="app.switchTab('pane-analytics')">📊 2. PHÂN TÍCH BÀI</button>
+      <button class="nav-tab core-tab" onclick="app.switchTab('pane-bottlenecks')">🎯 3. ĐIỂM NGHẼN & RÈN</button>
+      <button class="nav-tab core-tab" onclick="app.switchTab('pane-growth')">📈 4. HỒ SƠ TIẾN BỘ</button>
+      <span style="display: inline-block; width: 1px; height: 24px; background: #CBD5E1; margin: 0 4px; align-self: center;"></span>
+      <button class="nav-tab" onclick="app.switchTab('pane-homework')">📚 Bài Tập</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-tracking')">📋 Bảng Theo Dõi</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-students')">👥 Học Sinh</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-library')">📖 Thư Viện</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-kiosk')">🎯 Kiosk Nộp</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-print')">🏷️ In QR</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-settings')">⚙️ Cài Đặt</button>
     </div>
   </nav>
 
@@ -635,23 +638,125 @@
                 </div>
               </div>
 
-              <!-- Questions Breakdown (Mục câu hỏi bài tập - Bảng ma trận ngang) -->
-              <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-                  <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
-                    📝 Đánh giá từng câu hỏi bài tập (Bảng ngang):
+              <!-- Realtime Score Indicator Banner (CÂU HỎI ↔ MỤC TIÊU ↔ ĐIỂM) -->
+              <div id="fast-realtime-banner" class="realtime-score-banner" style="display: none;">
+                <div>
+                  <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">📊 Điểm bài làm tự động tính:</div>
+                  <div class="realtime-score-main">
+                    <span id="fast-earned-score" class="realtime-score-val">10.0</span>
+                    <span style="opacity: 0.6; font-size: 20px;">/</span>
+                    <span id="fast-max-score" style="opacity: 0.9; font-size: 20px;">10.0</span>
+                    <span id="fast-percentage" class="realtime-score-pct">(100%)</span>
+                  </div>
+                </div>
+                <div id="fast-status-badge" class="realtime-score-status pass">🟢 ĐÃ ĐẠT</div>
+              </div>
+
+              <!-- Questions Breakdown (Mục câu hỏi bài tập - Bảng ngang từng câu) -->
+              <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                  <label class="form-label" style="margin-bottom: 0; font-weight: 800; color: #1E293B; font-size: 13px;">
+                    📝 Đánh giá từng câu (Câu hỏi ↔ Mục tiêu ↔ Điểm ↔ Kĩ năng):
                   </label>
                   <div style="display: flex; gap: 6px;">
-                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsCorrect()" style="font-size: 11px; padding: 2px 8px; color: #059669; border-color: #A7F3D0; background: #ECFDF5; font-weight: 700;">
-                      ✅ Tất cả ĐÚNG
+                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsCorrect()" style="font-size: 11px; padding: 4px 10px; color: #059669; border-color: #A7F3D0; background: #ECFDF5; font-weight: 800;">
+                      ✅ [✓ Tất cả ĐÚNG]
                     </button>
-                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsWrong()" style="font-size: 11px; padding: 2px 8px; color: #DC2626; border-color: #FECACA; background: #FEF2F2; font-weight: 700;">
-                      ❌ Tất cả SAI
+                    <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsWrong()" style="font-size: 11px; padding: 4px 10px; color: #DC2626; border-color: #FECACA; background: #FEF2F2; font-weight: 800;">
+                      ❌ [✕ Tất cả SAI]
                     </button>
                   </div>
                 </div>
                 <div id="grade-questions-container" class="grade-questions-horizontal-wrapper">
-                  <!-- Dynamically rendered horizontal matrix table: Questions, Correct, Incorrect, Need fix, Notes -->
+                  <!-- Dynamically rendered horizontal questions: Question + Target + Skill + Choice + Cause -->
+                </div>
+              </div>
+
+              <!-- Specialized Section for Subject (Chính Tả & Viết Sáng Tạo) -->
+              <div id="grade-subject-special-box" style="display: none; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 14px;">
+                <!-- Spelling box -->
+                <div id="grade-spelling-box" style="display: none;">
+                  <div style="font-weight: 800; font-size: 13px; color: #1E293B; margin-bottom: 8px;">
+                    ✍️ Đánh giá Chính tả:
+                  </div>
+                  <div style="margin-bottom: 8px;">
+                    <label class="form-label" style="font-size: 12px;">Số lỗi mắc phải:</label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn active" data-err="0" onclick="app.setSpellingErrors(0)">0 lỗi</button>
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn" data-err="1" onclick="app.setSpellingErrors(1)">1 lỗi</button>
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn" data-err="2" onclick="app.setSpellingErrors(2)">2 lỗi</button>
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn" data-err="3" onclick="app.setSpellingErrors(3)">3 lỗi</button>
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn" data-err="4" onclick="app.setSpellingErrors(4)">4 lỗi</button>
+                      <button type="button" class="btn btn-outline btn-xs sp-err-btn" data-err="5" onclick="app.setSpellingErrors(5)">5+ lỗi</button>
+                    </div>
+                  </div>
+                  <div style="margin-bottom: 8px;">
+                    <label class="form-label" style="font-size: 12px;">Phân loại loại lỗi mắc phải:</label>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <label class="sp-type-check"><input type="checkbox" value="Âm đầu" onchange="app.toggleSpellingType(this)"> Âm đầu (tr/ch, s/x, d/r...)</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Vần" onchange="app.toggleSpellingType(this)"> Vần (iêu/yêu, an/ang...)</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Dấu thanh" onchange="app.toggleSpellingType(this)"> Dấu thanh (ngã/hỏi...)</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Viết hoa" onchange="app.toggleSpellingType(this)"> Viết hoa (đầu câu, tên riêng)</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Dấu câu" onchange="app.toggleSpellingType(this)"> Dấu câu (chấm, phẩy)</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Trình bày" onchange="app.toggleSpellingType(this)"> Trình bày / Chữ chưa rõ</label>
+                      <label class="sp-type-check"><input type="checkbox" value="Chưa hoàn thành" onchange="app.toggleSpellingType(this)"> Chưa hoàn thành</label>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size: 12px;">Từ viết sai cụ thể (để thống kê lặp lại):</label>
+                    <input type="text" id="grade-spelling-words-input" class="form-control" style="font-size: 12px;" placeholder="Ví dụ: tr/ch, sông/xông, viết hoa hoa/Hoa...">
+                  </div>
+                </div>
+
+                <!-- Writing rubrics box -->
+                <div id="grade-writing-box" style="display: none;">
+                  <div style="font-weight: 800; font-size: 13px; color: #1E293B; margin-bottom: 8px;">
+                    📝 Đánh giá Viết Sáng Tạo (Theo Rubric):
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">1. Nội dung (Ý tưởng, chi tiết):</label>
+                      <select id="rubric-content" class="form-control" style="font-size: 12px;">
+                        <option value="Tốt">Tốt (Ý phong phú, sinh động)</option>
+                        <option value="Đạt">Đạt (Đủ ý cơ bản)</option>
+                        <option value="Cần rèn">Cần rèn (Sơ sài, lạc đề)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">2. Dùng từ / Đặt câu:</label>
+                      <select id="rubric-words" class="form-control" style="font-size: 12px;">
+                        <option value="Tốt">Tốt (Từ gợi tả, câu đúng ngữ pháp)</option>
+                        <option value="Đạt">Đạt (Câu rõ ý, từ phù hợp)</option>
+                        <option value="Cần rèn">Cần rèn (Lặp từ, câu què cụt)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">3. Diễn đạt / Trình bày:</label>
+                      <select id="rubric-expression" class="form-control" style="font-size: 12px;">
+                        <option value="Tốt">Tốt (Mạch lạc, sạch đẹp)</option>
+                        <option value="Đạt">Đạt (Rõ ràng, dễ đọc)</option>
+                        <option value="Cần rèn">Cần rèn (Tẩy xóa nhiều, lộn xộn)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">4. Cảm xúc / Sáng tạo:</label>
+                      <select id="rubric-creativity" class="form-control" style="font-size: 12px;">
+                        <option value="Tốt">Tốt (Có chi tiết độc đáo, cảm xúc chân thật)</option>
+                        <option value="Đạt">Đạt (Có cảm xúc)</option>
+                        <option value="Cần rèn">Cần rèn (Rập khuôn)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">Điểm làm tốt:</label>
+                      <input type="text" id="rubric-good-point" class="form-control" style="font-size: 12px;" placeholder="Ví dụ: Dùng nhiều từ láy hay...">
+                    </div>
+                    <div>
+                      <label class="form-label" style="font-size: 11px;">Điểm cần rèn thêm:</label>
+                      <input type="text" id="rubric-fix-point" class="form-control" style="font-size: 12px;" placeholder="Ví dụ: Chấm câu đúng chỗ...">
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -663,8 +768,8 @@
 
               <!-- Score Input -->
               <div class="form-group">
-                <label class="form-label">Điểm số (Thang điểm 10):</label>
-                <input type="number" id="grade-score-input" class="form-control" style="font-size: 20px; font-weight: 800; text-align: center; color: var(--primary);" min="0" max="10" step="0.5" placeholder="Nhập điểm...">
+                <label class="form-label">Điểm số cả bài (Hệ thống tự động cộng dồn hoặc cô có thể điều chỉnh):</label>
+                <input type="number" id="grade-score-input" class="form-control" style="font-size: 20px; font-weight: 800; text-align: center; color: var(--primary);" min="0" max="100" step="0.25" placeholder="Nhập điểm...">
                 <div class="quick-scores">
                   <div class="score-chip" onclick="app.setQuickScore(10)">10</div>
                   <div class="score-chip" onclick="app.setQuickScore(9.5)">9.5</div>
@@ -679,7 +784,7 @@
 
               <!-- Result Status Selection (Mục 4) -->
               <div class="form-group">
-                <label class="form-label">Kết quả đánh giá:</label>
+                <label class="form-label">Đánh giá chung:</label>
                 <div class="grade-btn-group">
                   <div class="grade-status-option selected" data-status="Đã đạt" onclick="app.selectGradeStatus(this, 'Đã đạt')">
                     🟢 Đã đạt
@@ -709,9 +814,13 @@
                 </div>
               </div>
 
-              <div style="display: flex; gap: 10px; margin-top: 18px;">
-                <button id="btn-submit-grading" class="btn btn-success btn-lg" style="flex: 1;" onclick="app.submitGrading()">
-                  💾 Lưu Điểm & Chấm Tiếp
+              <!-- Fast Save Buttons (LƯU & CHẤM HS TIẾP THEO) -->
+              <div style="display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap;">
+                <button id="btn-submit-grading-next" class="btn btn-success btn-lg" style="flex: 2; font-weight: 800; font-size: 15px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);" onclick="app.submitGradingAndNext()">
+                  💾 LƯU & CHẤM HS TIẾP THEO ➔
+                </button>
+                <button id="btn-submit-grading" class="btn btn-primary" style="flex: 1; font-weight: 700;" onclick="app.submitGrading()">
+                  💾 Lưu Bài Này
                 </button>
                 <button class="btn btn-outline" onclick="app.cancelGrading()">Hủy</button>
               </div>
@@ -720,7 +829,7 @@
             <div id="grade-placeholder" class="card" style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
               <div style="font-size: 40px; margin-bottom: 12px;">📑</div>
               <h4 style="font-size: 16px; color: #334155; margin-bottom: 6px;">Chưa chọn học sinh</h4>
-              <p style="font-size: 13px;">Hãy quét mã QR trên vở hoặc bấm vào tên học sinh ở danh sách bên trái để chấm bài.</p>
+              <p style="font-size: 13px;">Hãy quét mã QR trên vở hoặc bấm vào tên học sinh ở danh sách bên trái để chấm bài nhanh.</p>
             </div>
           </div>
         </div>
@@ -907,109 +1016,226 @@
 
 
     <!-- ====================================================================
-         TAB 4: THỐNG KÊ TỔNG HỢP 3 CHIỀU (MỤC 7)
+         TAB 2: PHÂN TÍCH BÀI (3 TẦNG: TOÀN BÀI ↔ MỤC TIÊU ↔ TỪNG CÂU & MA TRẬN NHIỆT)
          ==================================================================== -->
     <section id="pane-analytics" class="tab-pane">
-      <!-- Top Overview Numbers -->
-      <div class="stats-cards-grid">
-        <div class="stat-card">
-          <div class="stat-card-title">Sĩ Số Lớp</div>
-          <div class="stat-card-value" id="stat-total-students">29</div>
-          <div class="stat-card-sub">Học sinh lớp 3A7</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-title">Tổng Số Bài Tập</div>
-          <div class="stat-card-value" id="stat-total-assignments">0</div>
-          <div class="stat-card-sub">Đã được giao</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-title">Tỷ Lệ Hoàn Thành Cả Lớp</div>
-          <div class="stat-card-value" id="stat-completion-rate" style="color: var(--status-green);">0%</div>
-          <div class="stat-card-sub">Mức độ hoàn thành đạt chuẩn</div>
-        </div>
-      </div>
-
-      <!-- Highlights of Whole Class (Mục 7.3) -->
-      <div class="highlight-group">
-        <div class="highlight-card">
-          <h4 style="color: #047857;">🌟 Nộp đủ & Đúng hạn</h4>
-          <ul class="highlight-list" id="analytics-top-on-time">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-        <div class="highlight-card">
-          <h4 style="color: #B91C1C;">⚠️ Còn thiếu bài tập</h4>
-          <ul class="highlight-list" id="analytics-top-missing">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-        <div class="highlight-card">
-          <h4 style="color: #B45309;">⏰ Thường nộp trễ hạn</h4>
-          <ul class="highlight-list" id="analytics-top-late">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-        <div class="highlight-card">
-          <h4 style="color: #4338CA;">👏 Có tiến bộ sau khi sửa</h4>
-          <ul class="highlight-list" id="analytics-top-improved">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-      </div>
-
-      <!-- Tabbed tables: By Student vs By Assignment -->
-      <div class="card" style="margin-top: 24px;">
-        <div class="card-header">
-          <div class="card-title">📊 Bảng Chi Tiết Thống Kê</div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-outline btn-sm active" id="btn-sub-student" onclick="app.showAnalyticsSubTab('student')">Theo Từng Học Sinh</button>
-            <button class="btn btn-outline btn-sm" id="btn-sub-assignment" onclick="app.showAnalyticsSubTab('assignment')">Theo Từng Bài Tập</button>
+      <div class="card">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="card-title">📊 Phân Tích Bài 3 Tầng & Ma Trận Nhiệt (Heatmap)</div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Phân tích sâu dữ liệu 29 HS: Toàn bài ➔ Từng Mục Tiêu (MT) ➔ Từng câu (C1..Cn).
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm active" id="btn-ana-mode-3tier" onclick="app.setAnalyticsMode('3tier')">🎯 3 Tầng Phân Tích</button>
+            <button class="btn btn-outline btn-sm" id="btn-ana-mode-heatmap" onclick="app.setAnalyticsMode('heatmap')">🔥 Ma Trận Nhiệt (Heatmap)</button>
+            <button class="btn btn-outline btn-sm" id="btn-ana-mode-legacy" onclick="app.setAnalyticsMode('legacy')">📈 Toàn Khóa Học</button>
           </div>
         </div>
 
-        <div id="analytics-student-view" class="table-responsive">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Mã</th>
-                <th>Họ Tên</th>
-                <th>Đã Nộp</th>
-                <th>Chưa Nộp</th>
-                <th>Đúng Hạn</th>
-                <th>Nộp Trễ</th>
-                <th>Cần Làm Lại</th>
-                <th>Hoàn Thành</th>
-                <th>ĐTB</th>
-                <th>Tiến Bộ</th>
-              </tr>
-            </thead>
-            <tbody id="analytics-student-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
+        <!-- Assignment Selector for Analysis -->
+        <div style="max-width: 520px; margin-bottom: 16px;">
+          <label class="form-label" for="analytics-assignment-select" style="font-weight: 700;">Chọn bài tập cần phân tích:</label>
+          <select id="analytics-assignment-select" class="form-control" onchange="app.onAnalyticsAssignmentChange()">
+            <!-- Filled dynamically -->
+          </select>
         </div>
 
-        <div id="analytics-assignment-view" class="table-responsive" style="display: none;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Tên Bài Tập</th>
-                <th>Môn</th>
-                <th>Hạn Nộp</th>
-                <th>Đã Nộp</th>
-                <th>Chưa Nộp</th>
-                <th>Đúng Hạn</th>
-                <th>Trễ Hạn</th>
-                <th>Cần Sửa</th>
-                <th>Đã Nộp Lại</th>
-                <th>Hoàn Thành</th>
-                <th>Điểm TB Lớp</th>
-              </tr>
-            </thead>
-            <tbody id="analytics-assignment-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
+        <!-- VIEW 1: 3-TIER PEDAGOGICAL ANALYSIS -->
+        <div id="analytics-3tier-view">
+          <!-- TẦNG 1: TOÀN BÀI -->
+          <div class="tier-section-title">
+            <span>🏛️ TẦNG 1: Tổng Quan Toàn Bài</span>
+          </div>
+          <div class="stats-cards-grid">
+            <div class="stat-card">
+              <div class="stat-card-title">Sĩ Số Đã Chấm</div>
+              <div class="stat-card-value" id="tier1-graded-count">0 / 29</div>
+              <div class="stat-card-sub" id="tier1-graded-sub">Đã hoàn tất đánh giá</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">Điểm Trung Bình Cả Lớp</div>
+              <div class="stat-card-value" id="tier1-avg-score" style="color: var(--primary);">0.0 / 10</div>
+              <div class="stat-card-sub" id="tier1-avg-pct">Đạt 0%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">Tỷ Lệ Đạt Yêu Cầu (≥ 70%)</div>
+              <div class="stat-card-value" id="tier1-pass-rate" style="color: var(--status-green);">0%</div>
+              <div class="stat-card-sub" id="tier1-pass-count">0 Đạt • 0 Chưa đạt</div>
+            </div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 16px; margin-top: 10px; display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="font-size: 13px; font-weight: 700; color: #334155;">Phân phối mức độ:</div>
+            <div style="font-size: 13px; color: #166534;">🟢 <strong>Giỏi (≥ 85%):</strong> <span id="tier1-dist-gioi">0</span> HS</div>
+            <div style="font-size: 13px; color: #1E40AF;">🔵 <strong>Khá (70% - 84%):</strong> <span id="tier1-dist-kha">0</span> HS</div>
+            <div style="font-size: 13px; color: #991B1B;">🔴 <strong>Cần sửa (< 70%):</strong> <span id="tier1-dist-canco">0</span> HS</div>
+          </div>
+
+          <!-- TẦNG 2: THEO MỤC TIÊU (MT) -->
+          <div class="tier-section-title" style="margin-top: 26px;">
+            <span>🎯 TẦNG 2: Phân Tích Theo Mục Tiêu (MT)</span>
+          </div>
+          <div id="analytics-tier2-container">
+            <!-- Dynamically populated target cards -->
+          </div>
+
+          <!-- TẦNG 3: THEO TỪNG CÂU HỎI -->
+          <div class="tier-section-title" style="margin-top: 26px;">
+            <span>📝 TẦNG 3: Phân Tích Theo Từng Câu Hỏi (C1, C2, C3...)</span>
+          </div>
+          <div id="analytics-tier3-container">
+            <!-- Dynamically populated question cards -->
+          </div>
+        </div>
+
+        <!-- VIEW 2: HEATMAP 2D MATRIX (29 HS x QUESTIONS) -->
+        <div id="analytics-heatmap-view" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h4 style="font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 2px;">
+                🔥 Bảng Nhiệt Toàn Lớp (29 Học Sinh × Từng Câu)
+              </h4>
+              <p style="font-size: 12px; color: var(--text-muted);">
+                Cô nhìn lướt 5 giây là biết ngay cả lớp đang vấp ở câu nào. Bấm vào từng ô để xem chi tiết.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; font-size: 12px; font-weight: 700;">
+              <span style="display: flex; align-items: center; gap: 4px;"><span class="heatmap-cell correct" style="width: 20px; height: 20px; font-size: 10px;">✓</span> Đúng</span>
+              <span style="display: flex; align-items: center; gap: 4px;"><span class="heatmap-cell need_fix" style="width: 20px; height: 20px; font-size: 10px;">△</span> Cần sửa</span>
+              <span style="display: flex; align-items: center; gap: 4px;"><span class="heatmap-cell incorrect" style="width: 20px; height: 20px; font-size: 10px;">✕</span> Sai</span>
+              <span style="display: flex; align-items: center; gap: 4px;"><span class="heatmap-cell pending" style="width: 20px; height: 20px; font-size: 10px;">-</span> Chưa chấm</span>
+            </div>
+          </div>
+          <div class="heatmap-container" id="heatmap-table-container">
+            <!-- Dynamically populated Heatmap table -->
+          </div>
+        </div>
+
+        <!-- VIEW 3: LEGACY WHOLE-CLASS STATS -->
+        <div id="analytics-legacy-view" style="display: none;">
+          <div class="stats-cards-grid">
+            <div class="stat-card">
+              <div class="stat-card-title">Sĩ Số Lớp</div>
+              <div class="stat-card-value" id="stat-total-students">29</div>
+              <div class="stat-card-sub">Học sinh lớp 3A7</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">Tổng Số Bài Tập</div>
+              <div class="stat-card-value" id="stat-total-assignments">0</div>
+              <div class="stat-card-sub">Đã được giao</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">Tỷ Lệ Hoàn Thành Cả Lớp</div>
+              <div class="stat-card-value" id="stat-completion-rate" style="color: var(--status-green);">0%</div>
+              <div class="stat-card-sub">Mức độ hoàn thành đạt chuẩn</div>
+            </div>
+          </div>
+
+          <div class="highlight-group" style="margin-top: 16px;">
+            <div class="highlight-card">
+              <h4 style="color: #047857;">🌟 Nộp đủ & Đúng hạn</h4>
+              <ul class="highlight-list" id="analytics-top-on-time"></ul>
+            </div>
+            <div class="highlight-card">
+              <h4 style="color: #B91C1C;">⚠️ Còn thiếu bài tập</h4>
+              <ul class="highlight-list" id="analytics-top-missing"></ul>
+            </div>
+            <div class="highlight-card">
+              <h4 style="color: #B45309;">⏰ Thường nộp trễ hạn</h4>
+              <ul class="highlight-list" id="analytics-top-late"></ul>
+            </div>
+            <div class="highlight-card">
+              <h4 style="color: #4338CA;">👏 Có tiến bộ sau khi sửa</h4>
+              <ul class="highlight-list" id="analytics-top-improved"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 3: ĐIỂM NGHẼN & NHÓM RÈN (CAN THIỆP ↔ RÈN ↔ ĐÁNH GIÁ LẠI)
+         ==================================================================== -->
+    <section id="pane-bottlenecks" class="tab-pane">
+      <div class="card">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="card-title">🎯 Điểm Nghẽn Học Tập & Kế Hoạch Rèn Luyện</div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Tự động gom nhóm HS cần can thiệp • Lưu lịch sử tiến bộ minh chứng không ghi đè.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" onclick="app.refreshBottlenecksView()">🔄 Cập Nhật Dữ Liệu</button>
+          </div>
+        </div>
+
+        <!-- Philosophy Banner -->
+        <div style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1.5px solid #93C5FD; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
+          <div style="font-weight: 800; font-size: 13px; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+            💡 Triết lý sư phạm định hướng can thiệp:
+          </div>
+          <div style="font-size: 13px; color: #1E3A8A; line-height: 1.5;">
+            Không lấy "điểm" làm trung tâm. Chu trình khép kín: <strong>CÂU HỎI ↔ MỤC TIÊU ↔ KĨ NĂNG ↔ KẾT QUẢ ↔ ĐIỂM NGHẼN ↔ RÈN ↔ ĐÁNH GIÁ LẠI</strong>.
+          </div>
+        </div>
+
+        <!-- Section 1: Detected Bottlenecks (Auto Clustering) -->
+        <div style="margin-bottom: 28px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 800; color: #991B1B; display: flex; align-items: center; gap: 6px;">
+              🔴 Điểm Nghẽn Cần Can Thiệp (Tỉ Lệ Đạt < 70%)
+            </h3>
+            <span id="bottlenecks-count-badge" class="badge badge-red" style="font-size: 12px;">0 Điểm nghẽn</span>
+          </div>
+          <div id="bottlenecks-list-container">
+            <!-- Dynamically populated bottleneck cards with [➕ TẠO NHÓM RÈN] button -->
+          </div>
+        </div>
+
+        <!-- Section 2: Active Remediation Plans & Reassessment -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h3 style="font-size: 16px; font-weight: 800; color: #065F46; display: flex; align-items: center; gap: 6px;">
+              📋 Kế Hoạch Rèn Luyện & Đánh Giá Lại (Không Ghi Đè)
+            </h3>
+            <span id="remediation-plans-count-badge" class="badge badge-green" style="font-size: 12px;">0 Kế hoạch</span>
+          </div>
+          <div id="remediation-plans-container">
+            <!-- Dynamically populated remediation cards with Reassess button & timeline -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB 4: HỒ SƠ TIẾN BỘ HỌC SINH (LỊCH SỬ TIẾN BỘ & THỐNG KÊ LỖI LẶP LẠI)
+         ==================================================================== -->
+    <section id="pane-growth" class="tab-pane">
+      <div class="card">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="card-title">📈 Hồ Sơ Tiến Bộ & Thống Kê Lỗi Lặp Lại</div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Xem từng học sinh: lịch sử điểm số, tiến bộ trước và sau rèn, thống kê lỗi chính tả & viết sáng tạo.
+            </p>
+          </div>
+        </div>
+
+        <!-- Student Selector for Growth Profile -->
+        <div style="max-width: 480px; margin-bottom: 18px;">
+          <label class="form-label" for="growth-student-select" style="font-weight: 700;">Chọn học sinh cần xem hồ sơ tiến bộ:</label>
+          <select id="growth-student-select" class="form-control" onchange="app.onGrowthStudentChange()">
+            <!-- Filled dynamically with 29 students -->
+          </select>
+        </div>
+
+        <!-- Growth Profile Content Container -->
+        <div id="growth-profile-container">
+          <!-- Dynamically populated student growth profile -->
         </div>
       </div>
     </section>
@@ -1664,23 +1890,35 @@
       </div>
       <div>
         <div class="form-group">
-          <label class="form-label" for="new-asg-title">Tên Bài Tập:</label>
-          <input type="text" id="new-asg-title" class="form-control" placeholder="Ví dụ: Phiếu bài tập Toán tuần 4">
+          <label class="form-label" for="new-asg-title">Tên Bài / Phiếu:</label>
+          <input type="text" id="new-asg-title" class="form-control" placeholder="Ví dụ: Phiếu 2.2.d hoặc Toán tuần 4">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="new-asg-subject">Môn Học:</label>
+            <select id="new-asg-subject" class="form-control" onchange="app.onNewAsgSubjectChange()">
+              <option value="Toán">Toán</option>
+              <option value="Tiếng Việt">Tiếng Việt</option>
+              <option value="Tiếng Anh">Tiếng Anh</option>
+              <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
+              <option value="Đạo đức">Đạo đức</option>
+              <option value="Môn khác">Môn khác</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="new-asg-subject-type">Phân Môn Đặc Thù:</label>
+            <select id="new-asg-subject-type" class="form-control" onchange="app.onNewAsgSubjectTypeChange()">
+              <option value="toan">Toán (Từng câu ↔ MT ↔ Kĩ năng)</option>
+              <option value="dochieu">Đọc hiểu / TNXH (Trắc nghiệm & Tự luận)</option>
+              <option value="chinhta">Chính tả (Đếm & phân loại lỗi)</option>
+              <option value="vietsangtao">Viết sáng tạo (Chấm theo Rubric)</option>
+              <option value="general">Khác / Tổng hợp</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="new-asg-subject">Môn Học:</label>
-          <select id="new-asg-subject" class="form-control">
-            <option value="Toán">Toán</option>
-            <option value="Tiếng Việt">Tiếng Việt</option>
-            <option value="Tiếng Anh">Tiếng Anh</option>
-            <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
-            <option value="Đạo đức">Đạo đức</option>
-            <option value="Môn khác">Môn khác</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="new-asg-goals">🎯 Mục Tiêu Bài Học (Hiển thị khi chấm bài):</label>
-          <textarea id="new-asg-goals" class="form-control" rows="2" placeholder="Ví dụ: Rèn luyện tính nhẩm bảng nhân 7, giải toán có lời văn 2 bước..."></textarea>
+          <label class="form-label" for="new-asg-goals">🎯 Mục Tiêu Chung Của Bài:</label>
+          <textarea id="new-asg-goals" class="form-control" rows="2" placeholder="Ví dụ: MT1 (Cộng không nhớ), MT2 (Cộng có nhớ - nhóm lại hàng chục)..."></textarea>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
@@ -1692,32 +1930,37 @@
             <input type="datetime-local" id="new-asg-due" class="form-control">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="new-asg-maxscore">Thang Điểm:</label>
-          <input type="number" id="new-asg-maxscore" class="form-control" value="10" min="1" max="100">
-        </div>
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label class="form-label" style="margin-bottom: 0;">Danh sách câu hỏi trong bài:</label>
+
+        <!-- Question Builder: Câu hỏi ↔ Mục tiêu ↔ Điểm ↔ Kĩ năng (Tự động cộng) -->
+        <div class="form-group" style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 0; font-weight: 800; color: #1E293B;">
+                ⚙️ Cài đặt câu hỏi: Câu hỏi ↔ Mục tiêu ↔ Điểm ↔ Kĩ năng
+              </label>
+              <div style="font-size: 11px; color: var(--text-muted);">
+                Tổng điểm cả bài tự động cộng dồn từ các câu hỏi: <strong id="new-asg-calc-total-score" style="color: #2563EB; font-size: 13px;">10.0</strong> điểm
+              </div>
+            </div>
             <div class="quick-question-presets" style="display: flex; gap: 4px;">
               <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(3)">3 câu</span>
               <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(4)">4 câu</span>
               <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(5)">5 câu</span>
-              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(6)">6 câu</span>
               <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(8)">8 câu</span>
               <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(10)">10 câu</span>
             </div>
           </div>
-          <div id="new-asg-questions-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; background: #F8FAFC; border-radius: 8px; border: 1px solid var(--border);">
-            <!-- Dynamic question rows -->
+          <div id="new-asg-questions-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding: 6px;">
+            <!-- Dynamic question rows with MT, Skill, Max score -->
           </div>
-          <button type="button" class="btn btn-outline btn-sm" onclick="app.addNewAsgQuestionRow()" style="margin-top: 6px; font-size: 12px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="app.addNewAsgQuestionRow()" style="margin-top: 8px; font-size: 12px; font-weight: 700;">
             ➕ Thêm câu hỏi
           </button>
         </div>
+
         <div class="form-group">
-          <label class="form-label" for="new-asg-notes">Ghi Chú Yêu Cầu:</label>
-          <textarea id="new-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
+          <label class="form-label" for="new-asg-notes">Ghi Chú Yêu Cầu Của Cô:</label>
+          <textarea id="new-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Làm bài cẩn thận vào vở ô ly, trình bày sạch đẹp..."></textarea>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <button class="btn btn-outline" onclick="app.closeNewAssignmentModal()">Hủy</button>
@@ -1732,7 +1975,7 @@
        MODAL: CHỈNH SỬA BÀI TẬP
        ==================================================================== -->
   <div id="edit-assignment-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 680px;">
       <div class="modal-header">
         <h3 class="modal-title">✏️ Chỉnh Sửa Bài Tập</h3>
         <button class="modal-close" onclick="app.closeEditAssignmentModal()">&times;</button>
@@ -1740,23 +1983,35 @@
       <div>
         <input type="hidden" id="edit-asg-id">
         <div class="form-group">
-          <label class="form-label" for="edit-asg-title">Tên Bài Tập:</label>
-          <input type="text" id="edit-asg-title" class="form-control" placeholder="Ví dụ: Phiếu bài tập Toán tuần 4">
+          <label class="form-label" for="edit-asg-title">Tên Bài / Phiếu:</label>
+          <input type="text" id="edit-asg-title" class="form-control">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="edit-asg-subject">Môn Học:</label>
+            <select id="edit-asg-subject" class="form-control">
+              <option value="Toán">Toán</option>
+              <option value="Tiếng Việt">Tiếng Việt</option>
+              <option value="Tiếng Anh">Tiếng Anh</option>
+              <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
+              <option value="Đạo đức">Đạo đức</option>
+              <option value="Môn khác">Môn khác</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-asg-subject-type">Phân Môn Đặc Thù:</label>
+            <select id="edit-asg-subject-type" class="form-control">
+              <option value="toan">Toán (Từng câu ↔ MT ↔ Kĩ năng)</option>
+              <option value="dochieu">Đọc hiểu / TNXH (Trắc nghiệm & Tự luận)</option>
+              <option value="chinhta">Chính tả (Đếm & phân loại lỗi)</option>
+              <option value="vietsangtao">Viết sáng tạo (Chấm theo Rubric)</option>
+              <option value="general">Khác / Tổng hợp</option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="edit-asg-subject">Môn Học:</label>
-          <select id="edit-asg-subject" class="form-control">
-            <option value="Toán">Toán</option>
-            <option value="Tiếng Việt">Tiếng Việt</option>
-            <option value="Tiếng Anh">Tiếng Anh</option>
-            <option value="Tự nhiên & Xã hội">Tự nhiên & Xã hội</option>
-            <option value="Đạo đức">Đạo đức</option>
-            <option value="Môn khác">Môn khác</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="edit-asg-goals">🎯 Mục Tiêu Bài Học (Hiển thị khi chấm bài):</label>
-          <textarea id="edit-asg-goals" class="form-control" rows="2" placeholder="Ví dụ: Rèn luyện tính nhẩm bảng nhân 7, giải toán có lời văn 2 bước..."></textarea>
+          <label class="form-label" for="edit-asg-goals">🎯 Mục Tiêu Bài Học:</label>
+          <textarea id="edit-asg-goals" class="form-control" rows="2"></textarea>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
@@ -1768,36 +2023,190 @@
             <input type="datetime-local" id="edit-asg-due" class="form-control">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="edit-asg-maxscore">Thang Điểm:</label>
-          <input type="number" id="edit-asg-maxscore" class="form-control" value="10" min="1" max="100">
-        </div>
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label class="form-label" style="margin-bottom: 0;">Danh sách câu hỏi trong bài:</label>
+
+        <div class="form-group" style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 0; font-weight: 800; color: #1E293B;">Danh sách câu hỏi:</label>
+              <div style="font-size: 11px; color: var(--text-muted);">
+                Tổng điểm: <strong id="edit-asg-calc-total-score" style="color: #2563EB;">10.0</strong> điểm
+              </div>
+            </div>
             <div class="quick-question-presets" style="display: flex; gap: 4px;">
               <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(3)">3 câu</span>
               <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(4)">4 câu</span>
               <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(5)">5 câu</span>
-              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(6)">6 câu</span>
               <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(8)">8 câu</span>
               <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(10)">10 câu</span>
             </div>
           </div>
-          <div id="edit-asg-questions-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; background: #F8FAFC; border-radius: 8px; border: 1px solid var(--border);">
+          <div id="edit-asg-questions-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding: 6px;">
             <!-- Dynamic question rows -->
           </div>
-          <button type="button" class="btn btn-outline btn-sm" onclick="app.addEditAsgQuestionRow()" style="margin-top: 6px; font-size: 12px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="app.addEditAsgQuestionRow()" style="margin-top: 8px; font-size: 12px;">
             ➕ Thêm câu hỏi
           </button>
         </div>
+
         <div class="form-group">
           <label class="form-label" for="edit-asg-notes">Ghi Chú Yêu Cầu:</label>
-          <textarea id="edit-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
+          <textarea id="edit-asg-notes" class="form-control" rows="2"></textarea>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <button class="btn btn-outline" onclick="app.closeEditAssignmentModal()">Hủy</button>
           <button class="btn btn-primary" onclick="app.saveEditedAssignment()">Lưu Thay Đổi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: TẠO NHÓM RÈN (TỰ ĐỘNG GOM TỪ ĐIỂM NGHẼN)
+       ==================================================================== -->
+  <div id="remediation-create-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #991B1B;">➕ Tạo Nhóm Rèn Bổ Trợ (Can Thiệp)</h3>
+        <button class="modal-close" onclick="app.closeRemediationCreateModal()">&times;</button>
+      </div>
+      <div>
+        <input type="hidden" id="rem-create-asg-id">
+        <input type="hidden" id="rem-create-target-code">
+
+        <div class="form-group">
+          <label class="form-label" for="rem-create-group-name">Tên Nhóm Rèn:</label>
+          <input type="text" id="rem-create-group-name" class="form-control" placeholder="Ví dụ: Rèn cộng có nhớ — Nhóm lại hàng chục">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="rem-create-target-name">Mục Tiêu Cần Đạt:</label>
+            <input type="text" id="rem-create-target-name" class="form-control" placeholder="Ví dụ: MT2: Cộng có nhớ">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rem-create-skill">Kĩ Năng Quan Sát:</label>
+            <input type="text" id="rem-create-skill" class="form-control" placeholder="Ví dụ: Nhóm lại hàng chục">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rem-create-task">Bài Rèn Bổ Trợ (Cô tải lên hoặc chọn bài tương đương):</label>
+          <input type="text" id="rem-create-task" class="form-control" placeholder="Ví dụ: Phiếu rèn luyện cộng có nhớ số 2.2 bổ trợ">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rem-create-date">Ngày Bắt Đầu Rèn:</label>
+          <input type="date" id="rem-create-date" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Danh Sách Học Sinh Cần Rèn (Đã tự động chọn từ điểm nghẽn):</label>
+          <div id="rem-create-students-container" style="max-height: 160px; overflow-y: auto; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <!-- Checkboxes of students -->
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeRemediationCreateModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.submitCreateRemediationPlan()">Tạo Nhóm Rèn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: CHẤM ĐÁNH GIÁ LẠI (LƯU LỊCH SỬ TIẾN BỘ KHÔNG GHI ĐÈ)
+       ==================================================================== -->
+  <div id="reassessment-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #065F46;">✍️ Chấm Đánh Giá Lại Sau Khi Rèn</h3>
+        <button class="modal-close" onclick="app.closeReassessmentModal()">&times;</button>
+      </div>
+      <div>
+        <input type="hidden" id="reass-plan-id">
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+          <div style="font-weight: 800; font-size: 15px; color: #166534;" id="reass-group-title">Nhóm rèn: ...</div>
+          <div style="font-size: 12px; color: #15803D; margin-top: 2px;" id="reass-target-info">Mục tiêu: ...</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reass-student-select">Chọn học sinh đánh giá lại:</label>
+          <select id="reass-student-select" class="form-control" onchange="app.onReassStudentChange()">
+            <!-- Options of students in plan -->
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="reass-score-input">Điểm Đạt Được:</label>
+            <input type="number" id="reass-score-input" class="form-control" step="0.25" placeholder="Ví dụ: 8.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reass-max-input">Điểm Tối Đa:</label>
+            <input type="number" id="reass-max-input" class="form-control" value="10" step="0.5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kết Quả Đánh Giá Lại:</label>
+          <div style="display: flex; gap: 8px;">
+            <label class="btn btn-outline btn-sm active" style="cursor: pointer;">
+              <input type="radio" name="reass-status" value="Đã đạt" checked> 🟢 ĐÃ ĐẠT (Tiến bộ)
+            </label>
+            <label class="btn btn-outline btn-sm" style="cursor: pointer;">
+              <input type="radio" name="reass-status" value="Cần sửa"> 🟡 Cần rèn thêm
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reass-note-input">Nhận Xét Minh Chứng Tiến Bộ:</label>
+          <input type="text" id="reass-note-input" class="form-control" placeholder="Ví dụ: Đã nắm vững quy trình tính cộng có nhớ, làm đúng toàn bộ phiếu bổ trợ">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeReassessmentModal()">Hủy</button>
+          <button class="btn btn-success" onclick="app.submitReassessment()">💾 Lưu Kết Quả Đánh Giá Lại</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: CHI TIẾT HỌC SINH THEO MỤC TIÊU (MT)
+       ==================================================================== -->
+  <div id="target-details-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="target-modal-title">🎯 Chi Tiết Học Sinh Chưa Đạt Mục Tiêu</h3>
+        <button class="modal-close" onclick="app.closeTargetDetailsModal()">&times;</button>
+      </div>
+      <div>
+        <div id="target-modal-summary" style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);"></div>
+        <div id="target-modal-students-list" style="max-height: 320px; overflow-y: auto;">
+          <!-- Dynamically populated list of failed students -->
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <button id="btn-target-create-rem" class="btn btn-danger btn-sm" onclick="app.createRemediationFromTargetModal()">
+            ➕ TẠO NHÓM RÈN CHO CÁC BẠN NÀY
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="app.closeTargetDetailsModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: CHI TIẾT HỌC SINH THEO TỪNG CÂU HỎI
+       ==================================================================== -->
+  <div id="question-details-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="question-modal-title">📝 Chi Tiết Học Sinh Làm Sai Câu Hỏi</h3>
+        <button class="modal-close" onclick="app.closeQuestionDetailsModal()">&times;</button>
+      </div>
+      <div>
+        <div id="question-modal-summary" style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);"></div>
+        <div id="question-modal-students-list" style="max-height: 320px; overflow-y: auto;">
+          <!-- Dynamically populated list of failed students and causes -->
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+          <button class="btn btn-outline btn-sm" onclick="app.closeQuestionDetailsModal()">Đóng</button>
         </div>
       </div>
     </div>

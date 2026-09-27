@@ -858,17 +858,12 @@ def test_all():
     assert "edit-asg-goals" in html_25
     assert "updateGradeAssignmentGoalsBanner" in js_25
 
-    # Horizontal 5-row table
-    assert "grade-questions-horizontal-wrapper" in html_25 or "grade-horizontal-table" in js_25
-    assert "grade-horizontal-table" in js_25
-    assert "gh-row-correct" in js_25
-    assert "gh-row-incorrect" in js_25
-    assert "gh-row-needfix" in js_25
-    assert "gh-row-notes" in js_25
+    # Horizontal 5-row table / Fast question grading
+    assert "grade-questions-container" in html_25 or "grade-questions-horizontal-wrapper" in html_25
+    assert "setGradeQuestionStatus" in js_25 or "grade-horizontal-table" in js_25
     assert "setGradeQuestionNote" in js_25
-    assert "grade-horizontal-table" in css_25
-    assert "gh-choice-btn" in css_25
-    assert "gh-note-input" in css_25
+    assert "grade-horizontal-table" in css_25 or "grade-question-card" in css_25
+
 
     # Subject animal selector & team capacity
     assert "modal-animal-subject-select" in html_25
@@ -963,8 +958,236 @@ def test_all():
 
     print(" -> PASS: Client UI, JS, and CSS contracts for color groups and normal avatars verified.")
 
+    # 27. Pedagogical Grading, 3-Tier Analysis, Bottlenecks, Remediation & Growth
+    print("\n--- TEST 27: Pedagogical Analysis, Bottlenecks, Remediation & Growth ---")
+
+    # 27a. Add assignment with structured questions_data and subject_type
+    ped_questions = [
+        {"id": "q1", "name": "C1", "target": "MT1", "skill": "Nhận biết phép tính", "max_score": 1.0},
+        {"id": "q2", "name": "C2", "target": "MT1", "skill": "Kĩ năng đặt tính", "max_score": 1.0},
+        {"id": "q3", "name": "C3", "target": "MT2", "skill": "Nhóm lại hàng chục", "max_score": 2.0},
+        {"id": "q4", "name": "C4", "target": "MT2", "skill": "Giải toán có lời văn", "max_score": 2.0}
+    ]
+    now_str = datetime.now().strftime("%Y-%m-%d")
+    ped_asg = database.add_assignment(
+        "Phiếu 2.2.d - Phép cộng có nhớ",
+        "Toán",
+        now_str,
+        f"{now_str} 23:59",
+        6.0,
+        "Đánh giá MT1 & MT2",
+        questions=["C1", "C2", "C3", "C4"],
+        questions_data=ped_questions,
+        subject_type="math"
+    )
+    assert ped_asg is not None, "Failed to create pedagogical assignment"
+    ped_asg_id = ped_asg["id"]
+    assert ped_asg["subject_type"] == "math"
+    assert len(ped_asg.get("questions_data", [])) == 4
+    assert ped_asg["max_score"] == 6.0
+    print(f" -> PASS: Created pedagogical assignment '{ped_asg['title']}' with 4 questions, 2 MTs, total 6.0 pts.")
+
+    # 27b. Record grading with detailed question items and causes for HS01 & HS02
+    st_hs01 = [s for s in students if s['code'] == 'HS01'][0]
+    st_hs02 = [s for s in students if s['code'] == 'HS02'][0]
+
+    q_details_hs01 = {
+        "questions": [
+            {"num": 1, "label": "C1", "name": "C1", "target": "MT1", "skill": "Nhận biết phép tính", "max_score": 1.0, "status": "correct", "score": 1.0, "cause": ""},
+            {"num": 2, "label": "C2", "name": "C2", "target": "MT1", "skill": "Kĩ năng đặt tính", "max_score": 1.0, "status": "correct", "score": 1.0, "cause": ""},
+            {"num": 3, "label": "C3", "name": "C3", "target": "MT2", "skill": "Nhóm lại hàng chục", "max_score": 2.0, "status": "correct", "score": 2.0, "cause": ""},
+            {"num": 4, "label": "C4", "name": "C4", "target": "MT2", "skill": "Giải toán có lời văn", "max_score": 2.0, "status": "correct", "score": 2.0, "cause": ""}
+        ]
+    }
+    database.record_grading(
+        student_id=st_hs01["id"],
+        assignment_id=ped_asg_id,
+        score=6.0,
+        status="Đã đạt",
+        teacher_note="Xuất sắc",
+        operator="Cô Linh",
+        question_details=q_details_hs01
+    )
+
+    q_details_hs02 = {
+        "questions": [
+            {"num": 1, "label": "C1", "name": "C1", "target": "MT1", "skill": "Nhận biết phép tính", "max_score": 1.0, "status": "correct", "score": 1.0, "cause": ""},
+            {"num": 2, "label": "C2", "name": "C2", "target": "MT1", "skill": "Kĩ năng đặt tính", "max_score": 1.0, "status": "correct", "score": 1.0, "cause": ""},
+            {"num": 3, "label": "C3", "name": "C3", "target": "MT2", "skill": "Nhóm lại hàng chục", "max_score": 2.0, "status": "need_fix", "score": 1.0, "cause": "Tính toán ẩu"},
+            {"num": 4, "label": "C4", "name": "C4", "target": "MT2", "skill": "Giải toán có lời văn", "max_score": 2.0, "status": "incorrect", "score": 0.0, "cause": "Sai quy trình tính"}
+        ]
+    }
+    database.record_grading(
+        student_id=st_hs02["id"],
+        assignment_id=ped_asg_id,
+        score=3.0,
+        status="Cần sửa",
+        teacher_note="Cần rèn thêm MT2",
+        operator="Cô Linh",
+        question_details=q_details_hs02
+    )
+    print(" -> PASS: Recorded grading with questions breakdown & error causes for HS01 & HS02.")
+
+    # 27c. Test get_assignment_analysis (3 Tiers & Heatmap)
+    analysis = database.get_assignment_analysis(ped_asg_id)
+    assert analysis["assignment"]["id"] == ped_asg_id
+    assert analysis["tier1"]["graded_count"] == 2
+    assert analysis["tier1"]["average_score"] == 4.5
+    assert analysis["tier1"]["average_percentage"] == 75.0
+
+    # Tier 2: MT1 should be 100%, MT2 should have failed student HS02
+    t2_targets = analysis["tier2"]
+    assert len(t2_targets) == 2, f"Expected 2 targets, got {len(t2_targets)}"
+    mt1 = [t for t in t2_targets if t["target_code"] == "MT1"][0]
+    mt2 = [t for t in t2_targets if t["target_code"] == "MT2"][0]
+    assert mt1["percentage"] == 100.0
+    assert len(mt1["failed_students"]) == 0
+    assert mt2["percentage"] == 62.5
+    assert mt2["is_passed"] is False
+    assert len(mt2["failed_students"]) == 1
+    assert mt2["failed_students"][0]["code"] == "HS02"
+
+    # Tier 3: Questions
+    t3_questions = analysis["tier3"]
+    assert len(t3_questions) == 4
+    q4_res = [q for q in t3_questions if q["num"] == 4][0]
+    assert q4_res["incorrect_count"] == 1
+    assert "Sai quy trình tính" in q4_res["causes_summary"]
+
+    # Heatmap: 29 students
+    heatmap_matrix = analysis["heatmap"]["matrix"]
+    assert len(heatmap_matrix) == 29
+    hm_hs02 = [h for h in heatmap_matrix if h["code"] == "HS02"][0]
+    assert hm_hs02["is_graded"] is True
+    assert hm_hs02["score"] == 3.0
+    assert hm_hs02["questions"][2]["status"] == "need_fix"
+    assert hm_hs02["questions"][3]["status"] == "incorrect"
+    print(" -> PASS: 3-Tier analysis and 29-student Heatmap verified.")
+
+    # 27d. Test get_learning_bottlenecks
+    bottlenecks = database.get_learning_bottlenecks(ped_asg_id)
+    assert len(bottlenecks) >= 1
+    b_mt2 = [b for b in bottlenecks if b["target_code"] == "MT2"][0]
+    assert any(s["code"] == "HS02" for s in b_mt2["students"])
+    print(f" -> PASS: Bottlenecks detected successfully ({len(bottlenecks)} clusters found).")
+
+    # 27e. Create Remediation Plan and Reassess
+    plan = database.create_remediation_plan(
+        assignment_id=ped_asg_id,
+        target_code="MT2",
+        target_name="Mục tiêu 2",
+        skill_name="Nhóm lại hàng chục & Giải toán",
+        group_name="Nhóm Rèn MT2",
+        student_ids=[st_hs02["id"]],
+        supplementary_task="Rèn bài tập có bước nhớ vào hàng chục",
+        start_date=now_str
+    )
+    assert plan is not None
+    plan_id = plan["id"]
+    plans = database.get_remediation_plans()
+    assert any(p["id"] == plan_id for p in plans)
+    p_data = database.get_remediation_plan_by_id(plan_id)
+    assert len(p_data["students"]) == 1
+    assert p_data["students"][0]["code"] == "HS02"
+
+    # Reassess HS02: score improved from 3.0 -> 5.5 / 6.0 (Passed)
+    reass_res = database.record_reassessment(
+        plan_id=plan_id,
+        student_id=st_hs02["id"],
+        score=5.5,
+        max_score=6.0,
+        status="Đã đạt",
+        note="Đã khắc phục lỗi nhớ hàng chục thành công!"
+    )
+    assert reass_res["success"] is True
+    p_data_after = database.get_remediation_plan_by_id(plan_id)
+    assert len(p_data_after["reassessments"]) == 1
+    assert p_data_after["reassessments"][0]["score"] == 5.5
+    print(" -> PASS: Remediation plan creation and reassessment audit trail verified.")
+
+    # 27f. Spelling Statistics & Student Growth Profile
+    spelling_stats = database.get_spelling_statistics(st_hs02["id"])
+    assert "total_errors" in spelling_stats
+    assert "error_types" in spelling_stats
+
+    growth_profile = database.get_student_growth_profile(st_hs02["id"])
+    assert growth_profile["student"]["code"] == "HS02"
+    assert len(growth_profile["remediations"]) >= 1
+    assert len(growth_profile["remediations"][0]["reassessments"]) >= 1
+    assert growth_profile["remediations"][0]["reassessments"][0]["score"] == 5.5
+    print(" -> PASS: Spelling statistics and Student growth profile verified.")
+
+    # 27g. Server API endpoints
+    # Analysis API
+    req_an = f"GET /api/assignments/{ped_asg_id}/analysis HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_an = MockSocket(req_an)
+    server.LMSRequestHandler(sock_an, ("127.0.0.1", 12345), None)
+    out_an = sock_an.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_an
+    assert "tier1" in out_an
+    assert "tier2" in out_an
+    assert "heatmap" in out_an
+
+    # Bottlenecks API
+    req_bn = f"GET /api/bottlenecks?assignment_id={ped_asg_id} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_bn = MockSocket(req_bn)
+    server.LMSRequestHandler(sock_bn, ("127.0.0.1", 12345), None)
+    out_bn = sock_bn.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_bn
+    assert "MT2" in out_bn
+
+    # Remediation plans API
+    req_rp = f"GET /api/remediation-plans HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_rp = MockSocket(req_rp)
+    server.LMSRequestHandler(sock_rp, ("127.0.0.1", 12345), None)
+    out_rp = sock_rp.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_rp
+    assert "Nhóm Rèn MT2" in out_rp
+
+    # Student Growth API
+    req_sg = f"GET /api/student-growth/{st_hs02['id']} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_sg = MockSocket(req_sg)
+    server.LMSRequestHandler(sock_sg, ("127.0.0.1", 12345), None)
+    out_sg = sock_sg.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_sg
+    assert "remediations" in out_sg
+    print(" -> PASS: Server API endpoints for Analysis, Bottlenecks, Plans, and Growth verified.")
+
+    # 27h. Frontend & UI Contracts
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_27 = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_27 = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_27 = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_27 = f.read()
+
+    assert "CHẤM NHANH" in html_27
+    assert "PHÂN TÍCH BÀI" in html_27
+    assert "ĐIỂM NGHẼN & RÈN" in html_27
+    assert "HỒ SƠ TIẾN BỘ" in html_27
+    assert "grade-questions-container" in html_27
+    assert "btn-submit-grading-next" in html_27
+    assert "remediation-create-modal" in html_27
+    assert "reassessment-modal" in html_27
+
+    assert "setGradeQuestionStatus" in js_27
+    assert "setGradeQuestionCause" in js_27
+    assert "submitGradingAndNext" in js_27
+    assert "loadAssignmentAnalysis" in js_27
+    assert "openRemediationCreateModal" in js_27
+    assert "recordReassessment" in db_27
+    assert "getAssignmentAnalysis" in db_27
+
+    assert "heatmap-table" in css_27
+    assert "fast-q-card" in css_27
+    assert "fast-choice-btn" in css_27
+
+    print(" -> PASS: Client UI, JS, DB, and CSS contracts for pedagogical workflow verified.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (26/26)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (27/27)")
     print("============================================================")
 
 if __name__ == "__main__":

@@ -4003,3 +4003,500 @@ main.app-main {
   outline-offset: 1px;
 }
 
+/* ==========================================================================
+   PEDAGOGICAL REDESIGN: FAST GRADING, 3-TIER ANALYSIS, HEATMAP & REMEDIATION
+   ========================================================================== */
+
+/* Teacher Nav Highlights */
+.nav-tab.core-tab {
+  font-weight: 800 !important;
+  letter-spacing: 0.3px;
+  position: relative;
+}
+
+.nav-tab.core-tab.active {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Fast Grading Question Cards (Clean Horizontal Layout) */
+.fast-q-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.fast-q-card:hover {
+  border-color: #CBD5E1;
+}
+
+.fast-q-card.status-correct {
+  border-color: #86EFAC;
+  background: #F0FDF4;
+}
+
+.fast-q-card.status-incorrect {
+  border-color: #FCA5A5;
+  background: #FEF2F2;
+}
+
+.fast-q-card.status-need_fix {
+  border-color: #FDE047;
+  background: #FEFCE8;
+}
+
+.fast-q-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fast-q-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fast-q-tag {
+  background: #E2E8F0;
+  color: #334155;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.fast-mt-tag {
+  background: #EEF2FF;
+  color: #4338CA;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #C7D2FE;
+}
+
+.fast-skill-tag {
+  color: #64748B;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.fast-score-tag {
+  font-weight: 700;
+  color: #0F172A;
+  font-size: 12px;
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* Fast Choice Buttons */
+.fast-q-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fast-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1.5px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.fast-choice-btn:hover {
+  transform: translateY(-1px);
+}
+
+.fast-choice-btn.btn-correct {
+  border-color: #86EFAC;
+  color: #166534;
+}
+
+.fast-choice-btn.btn-correct.active {
+  background: #16A34A;
+  border-color: #16A34A;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+}
+
+.fast-choice-btn.btn-wrong {
+  border-color: #FCA5A5;
+  color: #991B1B;
+}
+
+.fast-choice-btn.btn-wrong.active {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.fast-choice-btn.btn-needfix {
+  border-color: #FDE047;
+  color: #854D0E;
+}
+
+.fast-choice-btn.btn-needfix.active {
+  background: #EAB308;
+  border-color: #EAB308;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+}
+
+/* Cause Chips Selection */
+.fast-causes-box {
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.fast-causes-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748B;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.fast-causes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cause-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 16px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.cause-chip:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+}
+
+.cause-chip.selected {
+  background: #EF4444;
+  border-color: #EF4444;
+  color: #FFFFFF;
+}
+
+/* Fast Score Realtime Summary Banner */
+.realtime-score-banner {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  color: #FFFFFF;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+}
+
+.realtime-score-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.realtime-score-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #38BDF8;
+}
+
+.realtime-score-pct {
+  font-size: 18px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.realtime-score-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.realtime-score-status.pass {
+  background: #16A34A;
+  color: #FFFFFF;
+}
+
+.realtime-score-status.fail {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+/* Heatmap 2D Table */
+.heatmap-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  margin-top: 14px;
+}
+
+.heatmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: center;
+}
+
+.heatmap-table th {
+  background: #F8FAFC;
+  color: #475569;
+  font-weight: 700;
+  padding: 10px 8px;
+  border-bottom: 2px solid #E2E8F0;
+  white-space: nowrap;
+}
+
+.heatmap-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #F1F5F9;
+  border-right: 1px solid #F1F5F9;
+}
+
+.heatmap-table tr:hover td {
+  background: #F8FAFC;
+}
+
+.heatmap-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.15);
+}
+
+.heatmap-cell.correct {
+  background: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #86EFAC;
+}
+
+.heatmap-cell.incorrect {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border: 1px solid #FCA5A5;
+}
+
+.heatmap-cell.need_fix {
+  background: #FEF9C3;
+  color: #A16207;
+  border: 1px solid #FDE047;
+}
+
+.heatmap-cell.pending {
+  background: #F1F5F9;
+  color: #94A3B8;
+  border: 1px solid #E2E8F0;
+}
+
+.heatmap-footer-row td {
+  background: #F8FAFC;
+  font-weight: 800;
+  border-top: 2px solid #CBD5E1;
+  padding: 10px 6px;
+}
+
+.heatmap-pct-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.heatmap-pct-badge.green {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.heatmap-pct-badge.red {
+  background: #FEE2E2;
+  color: #B91C1C;
+  font-weight: 800;
+}
+
+/* 3-Tier Analysis Cards */
+.tier-section-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0F172A;
+  margin-top: 20px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-target-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tier-target-card:hover {
+  border-color: #3B82F6;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.08);
+}
+
+.tier-target-card.failed {
+  border-color: #FCA5A5;
+  background: #FFFBFB;
+}
+
+.tier-progress-track {
+  width: 100%;
+  height: 8px;
+  background: #E2E8F0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.tier-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.tier-progress-bar.pass {
+  background: #16A34A;
+}
+
+.tier-progress-bar.fail {
+  background: #DC2626;
+}
+
+/* Bottlenecks & Remediation */
+.bottleneck-card {
+  background: #FFFFFF;
+  border: 1.5px solid #FECACA;
+  border-left: 6px solid #DC2626;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.06);
+}
+
+.bottleneck-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #991B1B;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.remediation-plan-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  transition: all 0.15s ease;
+}
+
+.remediation-plan-card:hover {
+  border-color: #94A3B8;
+}
+
+.bell-reminder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  animation: pulse-reminder 2s infinite ease-in-out;
+}
+
+@keyframes pulse-reminder {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.reassessment-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Spelling Stats */
+.spelling-summary-box {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.spelling-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #EFF6FF;
+  color: #1E40AF;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #BFDBFE;
+}
+
+

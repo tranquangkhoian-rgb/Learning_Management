@@ -1603,21 +1603,53 @@ class ClientDBEngine {
     }
   }
 
-  createAssignment(title, subject, assignedDate, dueDate, maxScore = 10, notes = "", questions = null, goals = "") {
+  createAssignment(title, subject, assignedDate, dueDate, maxScore = 10, notes = "", questions = null, goals = "", questionsData = null, subjectType = "toan") {
     const list = this.getAssignments();
     const newId = list.length > 0 ? Math.max(...list.map(a => a.id)) + 1 : 1;
-    const qList = (Array.isArray(questions) && questions.length > 0) ? questions : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    let qdList = Array.isArray(questionsData) ? questionsData : null;
+    let qList = (Array.isArray(questions) && questions.length > 0) ? questions : null;
+
+    if (!qList && qdList) {
+      qList = qdList.map((q, idx) => q.name || `Câu ${idx + 1}`);
+    } else if (!qList) {
+      qList = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+    }
+
+    if (!qdList && qList) {
+      const perScore = Math.round((parseFloat(maxScore || 10) / Math.max(1, qList.length)) * 100) / 100;
+      qdList = qList.map((q, idx) => {
+        const mtIdx = idx < 3 ? 1 : (idx < 5 ? 2 : 3);
+        return {
+          num: idx + 1,
+          label: `C${idx + 1}`,
+          name: String(q),
+          target: `MT${mtIdx}`,
+          target_name: `Mục tiêu ${mtIdx}`,
+          skill: `Kĩ năng C${idx + 1}`,
+          max_score: perScore
+        };
+      });
+    }
+
+    let finalMax = parseFloat(maxScore) || 10;
+    if (qdList && qdList.length > 0) {
+      const calcMax = qdList.reduce((acc, q) => acc + (parseFloat(q.max_score) || 0), 0);
+      if (calcMax > 0) finalMax = Math.round(calcMax * 100) / 100;
+    }
+
     const item = {
       id: newId,
       title: title.trim(),
-      subject: subject ? subject.trim() : "Bài tập",
+      subject: subject ? subject.trim() : "Toán",
+      subject_type: subjectType || "toan",
       description: notes ? notes.trim() : "",
       notes: notes ? notes.trim() : "",
       goals: (goals || "").trim(),
       questions: qList,
+      questions_data: qdList,
       assigned_date: assignedDate,
       due_date: dueDate.length <= 10 ? `${dueDate} 23:59:59` : dueDate,
-      max_score: parseFloat(maxScore) || 10,
+      max_score: finalMax,
       created_at: new Date().toISOString().replace("T", " ").substring(0, 19)
     };
     list.unshift(item);
@@ -1625,24 +1657,33 @@ class ClientDBEngine {
     return item;
   }
 
-  updateAssignment(id, title, subject, assignedDate, dueDate, maxScore, notes, questions = null, goals = null) {
+  updateAssignment(id, title, subject, assignedDate, dueDate, maxScore, notes, questions = null, goals = null, questionsData = null, subjectType = null) {
     const list = this.getAssignments();
     const idx = list.findIndex(a => a.id == id);
     if (idx === -1) return null;
+    let finalMax = parseFloat(maxScore) || 10;
+    if (questionsData && Array.isArray(questionsData)) {
+      const calcMax = questionsData.reduce((acc, q) => acc + (parseFloat(q.max_score) || 0), 0);
+      if (calcMax > 0) finalMax = Math.round(calcMax * 100) / 100;
+    }
     const patch = {
       title: title.trim(),
-      subject: subject ? subject.trim() : "Bài tập",
+      subject: subject ? subject.trim() : "Toán",
       assigned_date: assignedDate,
       due_date: dueDate.length <= 10 ? `${dueDate} 23:59:59` : dueDate,
-      max_score: parseFloat(maxScore) || 10,
+      max_score: finalMax,
       description: notes ? notes.trim() : "",
       notes: notes ? notes.trim() : ""
     };
+    if (subjectType !== null) patch.subject_type = subjectType;
     if (goals !== null) {
       patch.goals = (goals || "").trim();
     }
     if (questions !== null && Array.isArray(questions)) {
       patch.questions = questions;
+    }
+    if (questionsData !== null && Array.isArray(questionsData)) {
+      patch.questions_data = questionsData;
     }
     list[idx] = Object.assign({}, list[idx], patch);
     localStorage.setItem("lms_assignments", JSON.stringify(list));
@@ -1737,7 +1778,7 @@ class ClientDBEngine {
     };
   }
 
-  recordGrading(studentId, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null, animalSymbol = null, animalTitle = null) {
+  recordGrading(studentId, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null, animalSymbol = null, animalTitle = null, spellingErrors = 0, spellingErrorTypes = [], writingRubrics = null) {
     const students = this.getStudents();
     const st = students.find(s => s.id == studentId);
     if (!st) return { error: "Không tìm thấy học sinh!" };
@@ -1766,7 +1807,7 @@ class ClientDBEngine {
     const eventType = `GRADE_ATTEMPT_${attemptNumber}`;
 
     const newEvent = {
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 1000),
       student_id: st.id,
       assignment_id: asg.id,
       event_type: eventType,
@@ -1776,6 +1817,9 @@ class ClientDBEngine {
       teacher_note: teacherNote.trim(),
       question_details: questionDetails,
       animal_group: animalGroup || st.animal_group,
+      spelling_errors: parseInt(spellingErrors || 0, 10) || 0,
+      spelling_error_types: Array.isArray(spellingErrorTypes) ? spellingErrorTypes : [],
+      writing_rubrics: writingRubrics || null,
       operator: operator,
       score_change_delta: delta,
       timestamp: timestamp
@@ -1809,11 +1853,14 @@ class ClientDBEngine {
       teacher_note: teacherNote.trim(),
       question_details: questionDetails,
       animal_group: animalGroup || st.animal_group,
+      spelling_errors: parseInt(spellingErrors || 0, 10) || 0,
+      spelling_error_types: Array.isArray(spellingErrorTypes) ? spellingErrorTypes : [],
+      writing_rubrics: writingRubrics || null,
       graded_at: timestamp
     };
   }
 
-  recordGradingBatch(studentIds, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null, animalSymbol = null, animalTitle = null) {
+  recordGradingBatch(studentIds, assignmentId, score, status, teacherNote = "", operator = "Cô Linh", questionDetails = null, animalGroup = null, animalSymbol = null, animalTitle = null, spellingErrors = 0, spellingErrorTypes = [], writingRubrics = null) {
     if (!studentIds || !Array.isArray(studentIds)) {
       return { success: false, error: "Danh sách học sinh không hợp lệ!", results: [] };
     }
@@ -1821,7 +1868,7 @@ class ClientDBEngine {
     const errors = [];
     studentIds.forEach(sid => {
       try {
-        const res = this.recordGrading(sid, assignmentId, score, status, teacherNote, operator, questionDetails, animalGroup, animalSymbol, animalTitle);
+        const res = this.recordGrading(sid, assignmentId, score, status, teacherNote, operator, questionDetails, animalGroup, animalSymbol, animalTitle, spellingErrors, spellingErrorTypes, writingRubrics);
         if (res && res.success) {
           results.push(res);
         } else {
@@ -2606,6 +2653,583 @@ class ClientDBEngine {
     } catch (e) {
       console.warn("[ClientDB]: Could not sync event to Google Sheet:", e);
     }
+  }
+
+  // --- 3-TIER PEDAGOGICAL ANALYSIS & MATRIX HEATMAP ---
+  getAssignmentAnalysis(assignmentId) {
+    const asg = this.getAssignmentById(assignmentId);
+    if (!asg) return null;
+
+    const students = this.getStudents();
+    let questionsData = Array.isArray(asg.questions_data) ? asg.questions_data : [];
+    if (questionsData.length === 0 && Array.isArray(asg.questions) && asg.questions.length > 0) {
+      const perScore = Math.round((parseFloat(asg.max_score || 10) / Math.max(1, asg.questions.length)) * 100) / 100;
+      questionsData = asg.questions.map((q, idx) => {
+        const mtIdx = idx < 3 ? 1 : (idx < 5 ? 2 : 3);
+        return {
+          num: idx + 1,
+          label: `C${idx + 1}`,
+          name: String(q),
+          target: `MT${mtIdx}`,
+          target_name: `Mục tiêu ${mtIdx}`,
+          skill: `Kĩ năng C${idx + 1}`,
+          max_score: perScore
+        };
+      });
+    }
+
+    questionsData = questionsData.map((q, idx) => ({
+      ...q,
+      num: q.num !== undefined ? q.num : idx + 1,
+      label: q.label || `C${q.num !== undefined ? q.num : idx + 1}`,
+      name: q.name || `Câu ${idx + 1}`,
+      target: q.target || "MT1",
+      target_name: q.target_name || `Mục tiêu ${q.target || 'MT1'}`,
+      skill: q.skill || "",
+      max_score: q.max_score !== undefined ? parseFloat(q.max_score) : 1.0
+    }));
+
+    const events = this.getEvents();
+    const gradesByStudent = {};
+    students.forEach(st => {
+      const stGrades = events.filter(e => e.student_id === st.id && e.assignment_id == assignmentId && (e.event_type || "").startsWith("GRADE_"));
+      if (stGrades.length > 0) {
+        gradesByStudent[st.id] = stGrades[stGrades.length - 1];
+      }
+    });
+
+    const totalStudents = students.length;
+    const gradeRows = Object.values(gradesByStudent);
+    const gradedCount = gradeRows.length;
+    const asgMax = parseFloat(asg.max_score || 10.0);
+
+    const scores = gradeRows.map(r => r.score).filter(s => s !== null && s !== undefined);
+    const avgScore = scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100 : 0.0;
+    const avgPercentage = asgMax > 0 ? Math.round((avgScore / asgMax) * 1000) / 10 : 0.0;
+
+    const passedCount = scores.filter(s => (s / asgMax) >= 0.7).length;
+    const failedCount = gradedCount - passedCount;
+    const passRate = gradedCount > 0 ? Math.round((passedCount / gradedCount) * 1000) / 10 : 0.0;
+
+    const scoreDist = {
+      gioi: scores.filter(s => (s / asgMax) >= 0.85).length,
+      kha: scores.filter(s => (s / asgMax) >= 0.70 && (s / asgMax) < 0.85).length,
+      can_co_gang: scores.filter(s => (s / asgMax) < 0.70).length
+    };
+
+    const tier1 = {
+      total_students: totalStudents,
+      graded_count: gradedCount,
+      average_score: avgScore,
+      max_score: asgMax,
+      average_percentage: avgPercentage,
+      passed_count: passedCount,
+      failed_count: failedCount,
+      pass_rate: passRate,
+      score_distribution: scoreDist
+    };
+
+    const targetsMap = {};
+    questionsData.forEach(q => {
+      const tCode = q.target || "MT1";
+      if (!targetsMap[tCode]) {
+        targetsMap[tCode] = {
+          code: tCode,
+          name: q.target_name || `Mục tiêu ${tCode}`,
+          questions: [],
+          skills: new Set(),
+          max_score: 0.0
+        };
+      }
+      targetsMap[tCode].questions.push(q.num);
+      if (q.skill) targetsMap[tCode].skills.add(q.skill);
+      targetsMap[tCode].max_score += parseFloat(q.max_score || 1.0);
+    });
+
+    const studentQEvents = {};
+    gradeRows.forEach(r => {
+      const sid = r.student_id;
+      let parsed = r.question_details;
+      if (typeof parsed === "string") {
+        try { parsed = JSON.parse(parsed); } catch { parsed = {}; }
+      }
+      parsed = parsed || {};
+      const qList = parsed.questions || [];
+      const evalMap = {};
+      if (Array.isArray(qList)) {
+        qList.forEach(item => {
+          if (item && item.num !== undefined) evalMap[item.num] = item;
+        });
+      }
+      studentQEvents[sid] = evalMap;
+    });
+
+    const tier3Questions = [];
+    questionsData.forEach(q => {
+      const qNum = q.num;
+      const qLabel = q.label || `C${qNum}`;
+      const qMax = parseFloat(q.max_score || 1.0);
+      const tCode = q.target || "MT1";
+      const tName = q.target_name || "";
+      const skill = q.skill || "";
+
+      let correctC = 0, incorrectC = 0, needFixC = 0;
+      const causesMap = {};
+      const failedStuds = [];
+
+      students.forEach(st => {
+        const sid = st.id;
+        if (!gradesByStudent[sid]) return;
+        const ev = studentQEvents[sid] ? studentQEvents[sid][qNum] : null;
+        let qSt = "correct", qSc = qMax, cause = "";
+        if (!ev) {
+          const stScore = gradesByStudent[sid].score || 0.0;
+          if ((stScore / asgMax) >= 0.7) {
+            qSt = "correct"; qSc = qMax; cause = "";
+          } else {
+            qSt = "incorrect"; qSc = 0.0; cause = "Chưa hiểu bản chất";
+          }
+        } else {
+          qSt = ev.status || "correct";
+          qSc = parseFloat(ev.score !== undefined ? ev.score : (qSt === "correct" ? qMax : 0.0));
+          cause = ev.cause || "";
+        }
+
+        if (qSt === "correct") {
+          correctC++;
+        } else if (qSt === "need_fix") {
+          needFixC++;
+          if (cause) causesMap[cause] = (causesMap[cause] || 0) + 1;
+          failedStuds.push({
+            student_id: sid,
+            code: st.code,
+            full_name: st.full_name,
+            status: "need_fix",
+            score: qSc,
+            max_score: qMax,
+            cause: cause || "Cần hoàn thiện"
+          });
+        } else {
+          incorrectC++;
+          if (cause) causesMap[cause] = (causesMap[cause] || 0) + 1;
+          failedStuds.push({
+            student_id: sid,
+            code: st.code,
+            full_name: st.full_name,
+            status: "incorrect",
+            score: qSc,
+            max_score: qMax,
+            cause: cause || "Sai"
+          });
+        }
+      });
+
+      const evaluatedTotal = correctC + incorrectC + needFixC;
+      const pct = evaluatedTotal > 0 ? Math.round((correctC / evaluatedTotal) * 1000) / 10 : 0.0;
+
+      tier3Questions.push({
+        num: qNum,
+        label: qLabel,
+        name: q.name || `Câu ${qNum}`,
+        target: tCode,
+        target_name: tName,
+        skill: skill,
+        max_score: qMax,
+        total_evaluated: evaluatedTotal,
+        correct_count: correctC,
+        incorrect_count: incorrectC,
+        need_fix_count: needFixC,
+        correct_percentage: pct,
+        is_passed: pct >= 70.0,
+        causes_summary: causesMap,
+        failed_students: failedStuds
+      });
+    });
+
+    const tier2Targets = [];
+    Object.keys(targetsMap).forEach(tCode => {
+      const tInfo = targetsMap[tCode];
+      const tQnums = tInfo.questions;
+      const tMax = tInfo.max_score;
+      const tName = tInfo.name;
+      const skillsStr = Array.from(tInfo.skills).sort().join(", ");
+
+      let totalPtsPossible = 0.0, totalPtsEarned = 0.0;
+      const failedStuds = [];
+
+      students.forEach(st => {
+        const sid = st.id;
+        if (!gradesByStudent[sid]) return;
+        let stTEarned = 0.0;
+        const stCauses = [];
+
+        tQnums.forEach(qNum => {
+          const ev = studentQEvents[sid] ? studentQEvents[sid][qNum] : null;
+          const qDef = questionsData.find(x => x.num === qNum);
+          const qM = parseFloat(qDef ? qDef.max_score : 1.0);
+          if (ev) {
+            const sc = parseFloat(ev.score !== undefined ? ev.score : (ev.status === "correct" ? qM : 0.0));
+            stTEarned += sc;
+            if (ev.cause) stCauses.push(ev.cause);
+          } else {
+            const stScore = gradesByStudent[sid].score || 0.0;
+            const sc = (stScore / asgMax) >= 0.7 ? qM : 0.0;
+            stTEarned += sc;
+          }
+        });
+
+        totalPtsPossible += tMax;
+        totalPtsEarned += stTEarned;
+        const stPct = tMax > 0 ? Math.round((stTEarned / tMax) * 1000) / 10 : 0.0;
+
+        if (stPct < 70.0) {
+          failedStuds.push({
+            student_id: sid,
+            code: st.code,
+            full_name: st.full_name,
+            group_name: st.group_name || "Nhóm 1",
+            group_color: st.group_color || "#3B82F6",
+            score: Math.round(stTEarned * 100) / 100,
+            max_score: Math.round(tMax * 100) / 100,
+            percentage: stPct,
+            causes: Array.from(new Set(stCauses))
+          });
+        }
+      });
+
+      const tOverallPct = totalPtsPossible > 0 ? Math.round((totalPtsEarned / totalPtsPossible) * 1000) / 10 : 0.0;
+
+      tier2Targets.push({
+        target_code: tCode,
+        target_name: tName,
+        skills: skillsStr,
+        question_nums: tQnums,
+        max_score: Math.round(tMax * 100) / 100,
+        total_students: gradedCount,
+        failed_count: failedStuds.length,
+        percentage: tOverallPct,
+        is_passed: tOverallPct >= 70.0,
+        failed_students: failedStuds
+      });
+    });
+
+    const heatmapMatrix = [];
+    students.forEach(st => {
+      const sid = st.id;
+      const gr = gradesByStudent[sid];
+      const evalMap = studentQEvents[sid] || {};
+
+      const qCells = [];
+      questionsData.forEach(q => {
+        const qNum = q.num;
+        const qMax = parseFloat(q.max_score || 1.0);
+        if (!gr) {
+          qCells.push({
+            num: qNum,
+            label: q.label || `C${qNum}`,
+            status: "pending",
+            score: null,
+            max_score: qMax,
+            cause: ""
+          });
+        } else {
+          const ev = evalMap[qNum];
+          if (ev) {
+            qCells.push({
+              num: qNum,
+              label: q.label || `C${qNum}`,
+              status: ev.status || "correct",
+              score: ev.score,
+              max_score: qMax,
+              cause: ev.cause || ""
+            });
+          } else {
+            const isOk = (gr.score / asgMax) >= 0.7;
+            qCells.push({
+              num: qNum,
+              label: q.label || `C${qNum}`,
+              status: isOk ? "correct" : "incorrect",
+              score: isOk ? qMax : 0.0,
+              max_score: qMax,
+              cause: isOk ? "" : "Chưa hiểu bản chất"
+            });
+          }
+        }
+      });
+
+      const stSc = gr ? gr.score : null;
+      const stPct = (gr && stSc !== null && asgMax > 0) ? Math.round((stSc / asgMax) * 1000) / 10 : null;
+      const stStatus = gr ? gr.status : "Chưa nộp";
+
+      heatmapMatrix.push({
+        stt: st.order_num,
+        student_id: sid,
+        code: st.code,
+        full_name: st.full_name,
+        gender: st.gender,
+        group_name: st.group_name || "Nhóm 1",
+        group_color: st.group_color || "#3B82F6",
+        is_graded: Boolean(gr),
+        score: stSc,
+        max_score: asgMax,
+        percentage: stPct,
+        status: stStatus,
+        questions: qCells
+      });
+    });
+
+    const bottomSummary = tier3Questions.map(item => ({
+      num: item.num,
+      label: item.label,
+      correct_percentage: item.correct_percentage,
+      is_passed: item.is_passed
+    }));
+
+    return {
+      assignment: asg,
+      tier1: tier1,
+      tier2: tier2Targets,
+      tier3: tier3Questions,
+      heatmap: {
+        matrix: heatmapMatrix,
+        summary_row: bottomSummary
+      }
+    };
+  }
+
+  // --- BOTTLENECK DETECTION & CLUSTERING ---
+  getLearningBottlenecks(assignmentId = null) {
+    const assignmentsToCheck = assignmentId 
+      ? [this.getAssignmentById(assignmentId)].filter(Boolean)
+      : this.getAssignments();
+
+    const bottlenecks = [];
+    assignmentsToCheck.forEach(asg => {
+      const aid = asg.id;
+      const analysis = this.getAssignmentAnalysis(aid);
+      if (!analysis) return;
+
+      (analysis.tier2 || []).forEach(t => {
+        if (t.failed_students.length > 0 || !t.is_passed) {
+          const causeCounts = {};
+          t.failed_students.forEach(fs => {
+            (fs.causes || []).forEach(c => {
+              if (c) causeCounts[c] = (causeCounts[c] || 0) + 1;
+            });
+          });
+
+          const sortedCauses = Object.entries(causeCounts).sort((a, b) => b[1] - a[1]);
+
+          bottlenecks.push({
+            id: `bn_${aid}_${t.target_code}`,
+            assignment_id: aid,
+            assignment_title: asg.title,
+            subject: asg.subject,
+            target_code: t.target_code,
+            target_name: t.target_name,
+            skills: t.skills,
+            percentage: t.percentage,
+            is_passed: t.is_passed,
+            failed_count: t.failed_students.length,
+            total_students: t.total_students,
+            dominant_causes: sortedCauses,
+            students: t.failed_students
+          });
+        }
+      });
+    });
+
+    return bottlenecks;
+  }
+
+  // --- REMEDIATION PLANS & REASSESSMENT ---
+  createRemediationPlan(assignmentId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask = "", startDate = "", notes = "") {
+    const raw = JSON.parse(localStorage.getItem("lms_remediation_plans") || "[]");
+    const list = Array.isArray(raw) ? raw : [];
+    const newId = list.length > 0 ? Math.max(...list.map(p => p.id || 0)) + 1 : 1;
+    let sidsList = Array.isArray(studentIds) ? studentIds : [];
+    if (typeof studentIds === "string") {
+      try { sidsList = JSON.parse(studentIds); } catch { sidsList = []; }
+    }
+    const plan = {
+      id: newId,
+      assignment_id: assignmentId,
+      target_code: String(targetCode || "").trim(),
+      target_name: String(targetName || "").trim(),
+      skill_name: String(skillName || "").trim(),
+      group_name: String(groupName || "").trim(),
+      student_ids: sidsList,
+      supplementary_task: String(supplementaryTask || "").trim(),
+      start_date: startDate || new Date().toISOString().substring(0, 10),
+      status: "active",
+      notes: String(notes || "").trim(),
+      reassessments: [],
+      created_at: this.nowStr(),
+      updated_at: this.nowStr()
+    };
+    list.unshift(plan);
+    localStorage.setItem("lms_remediation_plans", JSON.stringify(list));
+    return this.getRemediationPlanById(newId);
+  }
+
+  getRemediationPlanById(planId) {
+    const raw = JSON.parse(localStorage.getItem("lms_remediation_plans") || "[]");
+    const plan = (Array.isArray(raw) ? raw : []).find(p => p.id == planId);
+    if (!plan) return null;
+    const studentsMap = {};
+    this.getStudents().forEach(s => { studentsMap[s.id] = s; });
+    return {
+      ...plan,
+      student_ids: Array.isArray(plan.student_ids) ? plan.student_ids : [],
+      reassessments: Array.isArray(plan.reassessments) ? plan.reassessments : [],
+      students: (plan.student_ids || []).map(sid => studentsMap[sid]).filter(Boolean)
+    };
+  }
+
+  getRemediationPlans(assignmentId = null, status = null) {
+    const raw = JSON.parse(localStorage.getItem("lms_remediation_plans") || "[]");
+    let list = Array.isArray(raw) ? raw : [];
+    if (assignmentId) list = list.filter(p => p.assignment_id == assignmentId);
+    if (status) list = list.filter(p => p.status === status);
+    const studentsMap = {};
+    this.getStudents().forEach(s => { studentsMap[s.id] = s; });
+    return list.map(p => ({
+      ...p,
+      student_ids: Array.isArray(p.student_ids) ? p.student_ids : [],
+      reassessments: Array.isArray(p.reassessments) ? p.reassessments : [],
+      students: (p.student_ids || []).map(sid => studentsMap[sid]).filter(Boolean)
+    }));
+  }
+
+  recordReassessment(planId, studentId, score, maxScore = 10.0, status = "Đã đạt", note = "", operator = "Cô Linh") {
+    const raw = JSON.parse(localStorage.getItem("lms_remediation_plans") || "[]");
+    const list = Array.isArray(raw) ? raw : [];
+    const idx = list.findIndex(p => p.id == planId);
+    if (idx === -1) return { success: false, error: "Kế hoạch rèn không tồn tại!" };
+
+    const plan = list[idx];
+    const reassessments = Array.isArray(plan.reassessments) ? plan.reassessments : [];
+    const stId = parseInt(studentId, 10);
+    const scoreF = parseFloat(score);
+    const maxScoreF = parseFloat(maxScore) > 0 ? parseFloat(maxScore) : 10.0;
+    const pct = Math.round((scoreF / maxScoreF) * 1000) / 10;
+    const prevCount = reassessments.filter(ra => ra.student_id === stId).length;
+
+    const newEntry = {
+      attempt: prevCount + 1,
+      student_id: stId,
+      date: this.nowStr(),
+      score: scoreF,
+      max_score: maxScoreF,
+      percentage: pct,
+      status: status,
+      note: (note || "").trim(),
+      operator: operator
+    };
+
+    reassessments.push(newEntry);
+    plan.reassessments = reassessments;
+    plan.updated_at = this.nowStr();
+    list[idx] = plan;
+    localStorage.setItem("lms_remediation_plans", JSON.stringify(list));
+
+    return {
+      success: true,
+      plan_id: planId,
+      reassessment: newEntry,
+      plan: this.getRemediationPlanById(planId)
+    };
+  }
+
+  // --- SPELLING STATISTICS & STUDENT GROWTH ---
+  getSpellingStatistics(studentId = null) {
+    const events = this.getEvents();
+    let rows = events.filter(e => {
+      const isGrade = (e.event_type || "").startsWith("GRADE_") || e.event_type === "grade";
+      const hasErrors = (e.spelling_errors && e.spelling_errors > 0) || (Array.isArray(e.spelling_error_types) && e.spelling_error_types.length > 0);
+      return isGrade && hasErrors;
+    });
+
+    if (studentId) {
+      rows = rows.filter(r => r.student_id == studentId);
+    }
+
+    const totalErrors = rows.reduce((acc, r) => acc + (r.spelling_errors || 0), 0);
+    const typeCounts = {};
+    const wordPatterns = {};
+
+    rows.forEach(r => {
+      const types = Array.isArray(r.spelling_error_types) ? r.spelling_error_types : [];
+      types.forEach(t => {
+        let cat = "Khác", word = null;
+        if (typeof t === "object" && t !== null) {
+          cat = t.category || "Khác";
+          word = t.pattern || t.word || null;
+        } else {
+          cat = String(t);
+        }
+        typeCounts[cat] = (typeCounts[cat] || 0) + 1;
+        if (word) {
+          wordPatterns[word] = (wordPatterns[word] || 0) + 1;
+        }
+      });
+    });
+
+    const sortedPatterns = Object.entries(wordPatterns).sort((a, b) => b[1] - a[1]);
+
+    return {
+      student_id: studentId,
+      total_errors: totalErrors,
+      error_types: typeCounts,
+      repeated_patterns: sortedPatterns,
+      total_graded_spelling_events: rows.length
+    };
+  }
+
+  getStudentGrowthProfile(studentId) {
+    const student = this.getStudentById(studentId);
+    if (!student) return null;
+
+    const allPlans = this.getRemediationPlans();
+    const studentRemediations = [];
+    allPlans.forEach(p => {
+      const pSids = Array.isArray(p.student_ids) ? p.student_ids : [];
+      if (pSids.includes(parseInt(studentId, 10)) || pSids.includes(studentId)) {
+        const stReassessments = (p.reassessments || []).filter(ra => ra.student_id == studentId);
+        studentRemediations.push({
+          plan_id: p.id,
+          target_code: p.target_code,
+          target_name: p.target_name,
+          group_name: p.group_name,
+          start_date: p.start_date,
+          reassessments: stReassessments
+        });
+      }
+    });
+
+    const spellingStats = this.getSpellingStatistics(studentId);
+
+    const assignments = this.getAssignments();
+    const timeline = [];
+    assignments.forEach(asg => {
+      const history = this.getSubmissionHistory(studentId, asg.id);
+      if (history && history.length > 0) {
+        timeline.push({
+          assignment_id: asg.id,
+          assignment_title: asg.title,
+          subject: asg.subject,
+          max_score: asg.max_score,
+          history: history
+        });
+      }
+    });
+
+    return {
+      student: student,
+      timeline: timeline,
+      remediations: studentRemediations,
+      spelling: spellingStats
+    };
   }
 }
 

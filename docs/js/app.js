@@ -1043,7 +1043,13 @@ class LMSApp {
     } else if (paneId === "pane-tracking") {
       this.loadTrackingMatrix();
     } else if (paneId === "pane-analytics") {
-      this.loadAnalytics();
+      this.populateAnalyticsAssignmentDropdown();
+      this.loadAssignmentAnalysis();
+    } else if (paneId === "pane-bottlenecks") {
+      this.refreshBottlenecksView();
+    } else if (paneId === "pane-growth") {
+      this.populateGrowthStudentDropdown();
+      this.loadStudentGrowthProfile();
     } else if (paneId === "pane-students") {
       this.loadStudentsList();
       this.loadStudentProfile();
@@ -1651,28 +1657,47 @@ class LMSApp {
     document.querySelectorAll(".animal-tier-btn").forEach(btn => btn.classList.remove("selected"));
 
     // Reset inputs
-    document.getElementById("grade-score-input").value = "10";
     document.getElementById("grade-note-input").value = "";
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
     document.getElementById("grade-prev-history").style.display = "none";
 
     // Initialize Questions Breakdown
     const asg = (this.assignments || []).find(a => a.id == asgId);
-    let questions = asg && asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
-      ? asg.questions
-      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
-    this.gradingQuestions = questions;
+    let qd = Array.isArray(asg?.questions_data) && asg.questions_data.length > 0 ? asg.questions_data : null;
+    if (!qd && Array.isArray(asg?.questions) && asg.questions.length > 0) {
+      const perScore = Math.round((parseFloat(asg.max_score || 10) / Math.max(1, asg.questions.length)) * 100) / 100;
+      qd = asg.questions.map((q, idx) => ({
+        num: idx + 1,
+        label: `C${idx + 1}`,
+        name: String(q),
+        target: `MT${idx < 3 ? 1 : (idx < 5 ? 2 : 3)}`,
+        target_name: `Mục tiêu ${idx < 3 ? 1 : (idx < 5 ? 2 : 3)}`,
+        skill: `Kĩ năng C${idx + 1}`,
+        max_score: perScore
+      }));
+    } else if (!qd) {
+      qd = [
+        { num: 1, label: "C1", name: "Câu 1", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 2, label: "C2", name: "Câu 2", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 3, label: "C3", name: "Câu 3", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 },
+        { num: 4, label: "C4", name: "Câu 4", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 }
+      ];
+    }
+    this.gradingQuestionsData = JSON.parse(JSON.stringify(qd));
     this.gradingQuestionStatus = {};
+    this.gradingQuestionScores = {};
+    this.gradingQuestionCauses = {};
     this.gradingQuestionNotes = {};
 
-    // USER REQUIREMENT: When checked, mark all the question right first!
-    this.gradingQuestions.forEach(q => {
-      this.gradingQuestionStatus[q] = "correct";
-      this.gradingQuestionNotes[q] = "";
+    this.gradingQuestionsData.forEach(q => {
+      this.gradingQuestionStatus[q.num] = "correct";
+      this.gradingQuestionScores[q.num] = q.max_score;
+      this.gradingQuestionCauses[q.num] = "";
+      this.gradingQuestionNotes[q.num] = "";
     });
     this.updateGradeAssignmentGoalsBanner();
     this.renderGradingQuestions();
-    this.setQuickScore(10);
+    this.recomputeScoreFromQuestions();
 
     const submitBtn = document.getElementById("btn-submit-grading");
     if (submitBtn) {
@@ -1713,7 +1738,7 @@ class LMSApp {
     document.getElementById("grade-note-input").value = "";
     this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
 
-    // Initialize Animal Mascot selection: check subject-specific first, fallback to base
+    // Initialize Animal Mascot selection
     const subjAnimals = st.subject_animals || {};
     const curSubjAnimal = subjAnimals[currentSubject];
     if (curSubjAnimal && curSubjAnimal.group) {
@@ -1730,25 +1755,71 @@ class LMSApp {
     // Show goals banner if available
     this.updateGradeAssignmentGoalsBanner();
 
-    // Initialize and render Questions Breakdown for current assignment
-    let questions = asg && asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
-      ? asg.questions
-      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
-    this.gradingQuestions = questions;
+    // Initialize Questions Breakdown
+    let qd = Array.isArray(asg?.questions_data) && asg.questions_data.length > 0 ? asg.questions_data : null;
+    if (!qd && Array.isArray(asg?.questions) && asg.questions.length > 0) {
+      const perScore = Math.round((parseFloat(asg.max_score || 10) / Math.max(1, asg.questions.length)) * 100) / 100;
+      qd = asg.questions.map((q, idx) => ({
+        num: idx + 1,
+        label: `C${idx + 1}`,
+        name: String(q),
+        target: `MT${idx < 3 ? 1 : (idx < 5 ? 2 : 3)}`,
+        target_name: `Mục tiêu ${idx < 3 ? 1 : (idx < 5 ? 2 : 3)}`,
+        skill: `Kĩ năng C${idx + 1}`,
+        max_score: perScore
+      }));
+    } else if (!qd) {
+      qd = [
+        { num: 1, label: "C1", name: "Câu 1", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 2, label: "C2", name: "Câu 2", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 3, label: "C3", name: "Câu 3", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 },
+        { num: 4, label: "C4", name: "Câu 4", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 }
+      ];
+    }
+    this.gradingQuestionsData = JSON.parse(JSON.stringify(qd));
     this.gradingQuestionStatus = {};
+    this.gradingQuestionScores = {};
+    this.gradingQuestionCauses = {};
     this.gradingQuestionNotes = {};
 
-    // USER REQUIREMENT: When checked, mark all the question right first!
-    this.gradingQuestions.forEach(q => {
-      this.gradingQuestionStatus[q] = "correct";
-      this.gradingQuestionNotes[q] = "";
+    this.gradingQuestionsData.forEach(q => {
+      this.gradingQuestionStatus[q.num] = "correct";
+      this.gradingQuestionScores[q.num] = q.max_score;
+      this.gradingQuestionCauses[q.num] = "";
+      this.gradingQuestionNotes[q.num] = "";
     });
+
+    // Subject-specific box handling
+    const specBox = document.getElementById("grade-subject-special-box");
+    const spBox = document.getElementById("grade-spelling-box");
+    const wrBox = document.getElementById("grade-writing-box");
+    const stype = asg?.subject_type || "toan";
+    if (specBox) {
+      if (stype === "chinhta") {
+        specBox.style.display = "block";
+        if (spBox) spBox.style.display = "block";
+        if (wrBox) wrBox.style.display = "none";
+      } else if (stype === "vietsangtao") {
+        specBox.style.display = "block";
+        if (spBox) spBox.style.display = "none";
+        if (wrBox) wrBox.style.display = "block";
+      } else {
+        specBox.style.display = "none";
+      }
+    }
+    this.spellingErrors = 0;
+    this.spellingErrorTypes = [];
+    document.querySelectorAll(".sp-err-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-err") === "0"));
+    document.querySelectorAll(".sp-type-check input").forEach(c => c.checked = false);
+    const spWordInp = document.getElementById("grade-spelling-words-input");
+    if (spWordInp) spWordInp.value = "";
+
     this.renderGradingQuestions();
-    this.setQuickScore(10);
+    this.recomputeScoreFromQuestions();
 
     const submitBtn = document.getElementById("btn-submit-grading");
     if (submitBtn) {
-      submitBtn.innerText = "💾 Lưu Điểm & Chấm Tiếp";
+      submitBtn.innerText = "💾 Lưu Bài Này";
     }
 
     // Fetch previous history
@@ -1785,7 +1856,6 @@ class LMSApp {
     }
 
     this.renderGradeStudentList();
-    document.getElementById("grade-score-input").focus();
   }
 
   selectGradingAnimal(groupKey, symbol, title = "") {
@@ -1820,126 +1890,193 @@ class LMSApp {
     });
   }
 
+  // --- FAST GRADING CARD RENDERER ---
   renderGradingQuestions() {
     const container = document.getElementById("grade-questions-container");
     if (!container) return;
-    const questions = this.gradingQuestions || [];
-    if (questions.length === 0) {
+    const qList = this.gradingQuestionsData || [];
+    if (qList.length === 0) {
       container.innerHTML = `<div style="color: var(--text-muted); font-size: 13px;">Bài tập này chưa có danh sách câu hỏi cụ thể.</div>`;
       return;
     }
-    if (!this.gradingQuestionNotes) this.gradingQuestionNotes = {};
 
-    let html = `
-      <div class="grade-horizontal-table-wrap">
-        <table class="grade-horizontal-table">
-          <thead>
-            <tr class="gh-row gh-row-head">
-              <th class="gh-col-label"><span class="gh-icon">❓</span> Câu hỏi</th>
-              ${questions.map(q => `<th class="gh-col-q">${q}</th>`).join("")}
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="gh-row gh-row-correct">
-              <td class="gh-col-label"><span class="gh-icon">🟢</span> Đúng</td>
-              ${questions.map(q => {
-                const isSel = (this.gradingQuestionStatus[q] || "correct") === "correct";
-                return `
-                  <td class="gh-col-cell">
-                    <button type="button" class="gh-choice-btn gh-btn-correct ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'correct')">
-                      ${isSel ? '✓' : ''} Đúng
-                    </button>
-                  </td>
-                `;
-              }).join("")}
-            </tr>
-            <tr class="gh-row gh-row-incorrect">
-              <td class="gh-col-label"><span class="gh-icon">🔴</span> Sai</td>
-              ${questions.map(q => {
-                const isSel = this.gradingQuestionStatus[q] === "incorrect";
-                return `
-                  <td class="gh-col-cell">
-                    <button type="button" class="gh-choice-btn gh-btn-wrong ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'incorrect')">
-                      ${isSel ? '✗' : ''} Sai
-                    </button>
-                  </td>
-                `;
-              }).join("")}
-            </tr>
-            <tr class="gh-row gh-row-needfix">
-              <td class="gh-col-label"><span class="gh-icon">🟡</span> Cần sửa</td>
-              ${questions.map(q => {
-                const isSel = this.gradingQuestionStatus[q] === "need_fix";
-                return `
-                  <td class="gh-col-cell">
-                    <button type="button" class="gh-choice-btn gh-btn-needfix ${isSel ? 'active' : ''}" onclick="app.setGradeQuestionStatus('${q}', 'need_fix')">
-                      ${isSel ? '⚡' : ''} Cần sửa
-                    </button>
-                  </td>
-                `;
-              }).join("")}
-            </tr>
-            <tr class="gh-row gh-row-notes">
-              <td class="gh-col-label"><span class="gh-icon">📝</span> Ghi chú</td>
-              ${questions.map(q => {
-                const noteVal = this.gradingQuestionNotes[q] || "";
-                return `
-                  <td class="gh-col-cell gh-col-note">
-                    <input type="text" class="gh-note-input" placeholder="Ghi chú câu..." value="${noteVal.replace(/"/g, '&quot;')}" oninput="app.setGradeQuestionNote('${q}', this.value)">
-                  </td>
-                `;
-              }).join("")}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-    container.innerHTML = html;
+    const causeOptions = [
+      "Chưa hiểu bản chất",
+      "Sai quy trình tính",
+      "Tính toán ẩu",
+      "Đọc chưa kĩ đề",
+      "Trình bày bẩn / Khó đọc",
+      "Chưa hoàn thành",
+      "Khác"
+    ];
+
+    container.innerHTML = qList.map(q => {
+      const qNum = q.num;
+      const status = this.gradingQuestionStatus[qNum] || "correct";
+      const score = this.gradingQuestionScores[qNum] !== undefined ? this.gradingQuestionScores[qNum] : q.max_score;
+      const curCause = this.gradingQuestionCauses[qNum] || "";
+      const showCause = (status === "incorrect" || status === "need_fix");
+
+      const borderColor = status === 'correct' ? '#86EFAC' : (status === 'need_fix' ? '#FDE047' : '#FCA5A5');
+
+      return `
+        <div class="fast-q-card ${status}" style="background: #FFFFFF; border: 1.5px solid ${borderColor}; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;">
+          <!-- Line 1: Question info -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div style="font-weight: 800; font-size: 14px; color: #1E293B; display: flex; align-items: center; gap: 8px;">
+              <span class="badge" style="background: #EEF2FF; color: #3730A3; font-weight: 800; padding: 3px 8px;">${q.label}</span>
+              <span>${q.name || `Câu ${qNum}`}</span>
+              <span style="font-size: 12px; color: #2563EB; font-weight: 700; background: #EFF6FF; padding: 2px 6px; border-radius: 4px;">🎯 ${q.target || 'MT1'}</span>
+              ${q.skill ? `<span style="font-size: 11px; color: #64748B;">• Kĩ năng: <em>${q.skill}</em></span>` : ''}
+            </div>
+            <div style="font-size: 12px; font-weight: 700; color: #475569;">
+              Tối đa: <span style="color: #2563EB;">${q.max_score}</span> điểm
+            </div>
+          </div>
+
+          <!-- Lines 2, 3, 4: Choices & Realtime Score Adjuster -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-sm ${status === 'correct' ? 'btn-success' : 'btn-outline'}" style="font-weight: 800; font-size: 12px; padding: 6px 14px;" onclick="app.setGradeQuestionStatus(${qNum}, 'correct')">
+                ✓ Đúng
+              </button>
+              <button type="button" class="btn btn-sm ${status === 'incorrect' ? 'btn-danger' : 'btn-outline'}" style="font-weight: 800; font-size: 12px; padding: 6px 14px;" onclick="app.setGradeQuestionStatus(${qNum}, 'incorrect')">
+                ✕ Sai
+              </button>
+              <button type="button" class="btn btn-sm ${status === 'need_fix' ? 'btn-warning' : 'btn-outline'}" style="font-weight: 800; font-size: 12px; padding: 6px 14px; color: ${status === 'need_fix' ? '#78350F' : ''};" onclick="app.setGradeQuestionStatus(${qNum}, 'need_fix')">
+                △ Cần sửa
+              </button>
+            </div>
+
+            <!-- Score override input -->
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;">
+              <span>Điểm đạt:</span>
+              <input type="number" class="form-control form-control-sm" value="${score}" step="0.25" min="0" max="${q.max_score}" style="width: 70px; text-align: center; font-weight: 800; color: #1E40AF;" oninput="app.setGradeQuestionScore(${qNum}, this.value)">
+              <span style="color: var(--text-muted);">/ ${q.max_score}</span>
+            </div>
+          </div>
+
+          <!-- Line 5: Causes (Bottlenecks) Chips -->
+          ${showCause ? `
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #CBD5E1;">
+              <div style="font-size: 11px; font-weight: 800; color: #991B1B; text-transform: uppercase; margin-bottom: 5px;">
+                ⚠️ Chọn Điểm Nghẽn / Nguyên Nhân (1 chạm):
+              </div>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                ${causeOptions.map(c => `
+                  <button type="button" class="chip-cause ${curCause === c ? 'active' : ''}" style="font-size: 11px; padding: 3px 8px; border-radius: 12px; cursor: pointer; border: 1px solid ${curCause === c ? '#DC2626' : '#CBD5E1'}; background: ${curCause === c ? '#FEE2E2' : '#F8FAFC'}; color: ${curCause === c ? '#991B1B' : '#475569'}; font-weight: ${curCause === c ? '800' : '500'};" onclick="app.setGradeQuestionCause(${qNum}, '${c}')">
+                    ${curCause === c ? '● ' : ''}${c}
+                  </button>
+                `).join("")}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join("");
   }
 
-  setGradeQuestionNote(qName, note) {
-    if (!this.gradingQuestionNotes) this.gradingQuestionNotes = {};
-    this.gradingQuestionNotes[qName] = note;
-  }
-
-  setGradeQuestionStatus(qName, status) {
-    this.gradingQuestionStatus[qName] = status;
+  setGradeQuestionStatus(qNum, status) {
+    this.gradingQuestionStatus[qNum] = status;
+    const q = (this.gradingQuestionsData || []).find(x => x.num == qNum);
+    const maxSc = q ? parseFloat(q.max_score || 1.0) : 1.0;
+    if (status === "correct") {
+      this.gradingQuestionScores[qNum] = maxSc;
+      this.gradingQuestionCauses[qNum] = "";
+    } else if (status === "incorrect") {
+      this.gradingQuestionScores[qNum] = 0.0;
+      if (!this.gradingQuestionCauses[qNum]) this.gradingQuestionCauses[qNum] = "Chưa hiểu bản chất";
+    } else if (status === "need_fix") {
+      this.gradingQuestionScores[qNum] = Math.round((maxSc * 0.5) * 100) / 100;
+      if (!this.gradingQuestionCauses[qNum]) this.gradingQuestionCauses[qNum] = "Sai quy trình tính";
+    }
     this.renderGradingQuestions();
     this.recomputeScoreFromQuestions();
   }
 
+  setGradeQuestionCause(qNum, cause) {
+    this.gradingQuestionCauses[qNum] = cause;
+    this.renderGradingQuestions();
+  }
+
+  setGradeQuestionScore(qNum, val) {
+    this.gradingQuestionScores[qNum] = parseFloat(val) || 0;
+    this.recomputeScoreFromQuestions();
+  }
+
+  setGradeQuestionNote(qNum, note) {
+    if (!this.gradingQuestionNotes) this.gradingQuestionNotes = {};
+    this.gradingQuestionNotes[qNum] = note;
+  }
+
   markAllGradeQuestionsCorrect() {
-    (this.gradingQuestions || []).forEach(q => {
-      this.gradingQuestionStatus[q] = "correct";
+    (this.gradingQuestionsData || []).forEach(q => {
+      this.gradingQuestionStatus[q.num] = "correct";
+      this.gradingQuestionScores[q.num] = q.max_score;
+      this.gradingQuestionCauses[q.num] = "";
     });
     this.renderGradingQuestions();
-    this.setQuickScore(10);
-    this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
+    this.recomputeScoreFromQuestions();
   }
 
   markAllGradeQuestionsWrong() {
-    (this.gradingQuestions || []).forEach(q => {
-      this.gradingQuestionStatus[q] = "incorrect";
+    (this.gradingQuestionsData || []).forEach(q => {
+      this.gradingQuestionStatus[q.num] = "incorrect";
+      this.gradingQuestionScores[q.num] = 0.0;
+      if (!this.gradingQuestionCauses[q.num]) this.gradingQuestionCauses[q.num] = "Chưa hiểu bản chất";
     });
     this.renderGradingQuestions();
-    this.setQuickScore(0);
-    this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Cần nộp lại']"), "Cần nộp lại");
+    this.recomputeScoreFromQuestions();
   }
 
   recomputeScoreFromQuestions() {
-    const questions = this.gradingQuestions || [];
-    if (questions.length === 0) return;
-    let answered = 0;
-    let points = 0;
-    questions.forEach(q => {
-      const st = this.gradingQuestionStatus[q] || "correct";
-      answered++;
-      if (st === 'correct') points += 1.0;
-      else if (st === 'need_fix') points += 0.5;
-      else if (st === 'incorrect') points += 0.0;
+    const qList = this.gradingQuestionsData || [];
+    if (qList.length === 0) return;
+
+    let earned = 0.0;
+    let maxTotal = 0.0;
+    qList.forEach(q => {
+      const sc = this.gradingQuestionScores[q.num] !== undefined ? this.gradingQuestionScores[q.num] : q.max_score;
+      earned += (parseFloat(sc) || 0);
+      maxTotal += (parseFloat(q.max_score) || 0);
     });
-    const calcScore = Math.round((points / questions.length) * 10 * 10) / 10;
-    this.setQuickScore(calcScore);
+
+    earned = Math.round(earned * 100) / 100;
+    maxTotal = Math.round(maxTotal * 100) / 100;
+    const pct = maxTotal > 0 ? Math.round((earned / maxTotal) * 1000) / 10 : 0.0;
+
+    // Update realtime score banner
+    const banner = document.getElementById("fast-realtime-banner");
+    if (banner) banner.style.display = "flex";
+    const earnedEl = document.getElementById("fast-earned-score");
+    if (earnedEl) earnedEl.innerText = earned.toFixed(1);
+    const maxEl = document.getElementById("fast-max-score");
+    if (maxEl) maxEl.innerText = maxTotal.toFixed(1);
+    const pctEl = document.getElementById("fast-percentage");
+    if (pctEl) pctEl.innerText = `(${pct}%)`;
+
+    const statusBadge = document.getElementById("fast-status-badge");
+    if (statusBadge) {
+      if (pct >= 70.0) {
+        statusBadge.className = "realtime-score-status pass";
+        statusBadge.innerText = "🟢 ĐÃ ĐẠT";
+      } else {
+        statusBadge.className = "realtime-score-status fail";
+        statusBadge.innerText = "🔴 CẦN RÈN";
+      }
+    }
+
+    // Sync score input
+    const scoreInp = document.getElementById("grade-score-input");
+    if (scoreInp) scoreInp.value = earned;
+
+    if (pct >= 70) {
+      this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
+    } else if (pct >= 50) {
+      this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Cần sửa']"), "Cần sửa");
+    } else {
+      this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Cần nộp lại']"), "Cần nộp lại");
+    }
   }
 
   setQuickScore(val) {
@@ -1968,6 +2105,24 @@ class LMSApp {
     }
   }
 
+  // Specialized subject helpers (Chính tả & Viết sáng tạo)
+  setSpellingErrors(count) {
+    this.spellingErrors = count;
+    document.querySelectorAll(".sp-err-btn").forEach(b => {
+      b.classList.toggle("active", b.getAttribute("data-err") === String(count));
+    });
+  }
+
+  toggleSpellingType(checkbox) {
+    if (!this.spellingErrorTypes) this.spellingErrorTypes = [];
+    const val = checkbox.value;
+    if (checkbox.checked) {
+      if (!this.spellingErrorTypes.includes(val)) this.spellingErrorTypes.push(val);
+    } else {
+      this.spellingErrorTypes = this.spellingErrorTypes.filter(x => x !== val);
+    }
+  }
+
   cancelGrading() {
     this.currentlyGradingStudent = null;
     this.currentlyGradingBatchStudents = [];
@@ -1976,7 +2131,7 @@ class LMSApp {
     this.renderGradeStudentList();
   }
 
-  async submitGrading() {
+  async saveGradingRecord(shouldCloseGrading = true) {
     const asgId = document.getElementById("grade-assignment-select").value;
     const score = document.getElementById("grade-score-input").value;
     const status = this.selectedGradeStatus || "Đã đạt";
@@ -1986,12 +2141,44 @@ class LMSApp {
     const animalTitle = this.selectedGradingAnimalTitle;
     const asg = (this.assignments || []).find(a => a.id == asgId);
     const currentSubject = asg ? asg.subject : "Toán";
+
+    const evalQuestions = (this.gradingQuestionsData || []).map(q => ({
+      num: q.num,
+      label: q.label || `C${q.num}`,
+      name: q.name || `Câu ${q.num}`,
+      target: q.target || "MT1",
+      target_name: q.target_name || "",
+      skill: q.skill || "",
+      status: this.gradingQuestionStatus[q.num] || "correct",
+      score: this.gradingQuestionScores[q.num] !== undefined ? this.gradingQuestionScores[q.num] : q.max_score,
+      max_score: q.max_score,
+      cause: this.gradingQuestionCauses[q.num] || "",
+      note: (this.gradingQuestionNotes && this.gradingQuestionNotes[q.num]) || ""
+    }));
+
     const qDetails = {
-      status: this.gradingQuestionStatus,
+      questions: evalQuestions,
       notes: this.gradingQuestionNotes || {}
     };
 
-    // Check if Batch Grading
+    // Specialized spelling & writing
+    const spellingErrors = this.spellingErrors || 0;
+    const spellingWords = (document.getElementById("grade-spelling-words-input")?.value || "").trim();
+    const spellingTypes = (this.spellingErrorTypes || []).map(t => ({
+      category: t,
+      pattern: spellingWords || t
+    }));
+
+    const writingRubrics = {
+      content: document.getElementById("rubric-content")?.value || "Đạt",
+      words: document.getElementById("rubric-words")?.value || "Đạt",
+      expression: document.getElementById("rubric-expression")?.value || "Đạt",
+      creativity: document.getElementById("rubric-creativity")?.value || "Đạt",
+      good_point: (document.getElementById("rubric-good-point")?.value || "").trim(),
+      fix_point: (document.getElementById("rubric-fix-point")?.value || "").trim()
+    };
+
+    // Batch Grading
     if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
       const studentIds = this.currentlyGradingBatchStudents.map(s => s.id);
       try {
@@ -2007,6 +2194,9 @@ class LMSApp {
               status: status,
               teacher_note: note,
               question_details: qDetails,
+              spelling_errors: spellingErrors,
+              spelling_error_types: spellingTypes,
+              writing_rubrics: writingRubrics,
               animal_group: animalGroup || null,
               animal_symbol: animalSymbol || null,
               animal_title: animalTitle || null,
@@ -2025,12 +2215,14 @@ class LMSApp {
             qDetails,
             animalGroup || null,
             animalSymbol || null,
-            animalTitle || null
+            animalTitle || null,
+            spellingErrors,
+            spellingTypes,
+            writingRubrics
           );
         }
 
         if (data && data.success) {
-          // If animalGroup was specified, update local cache
           if (animalGroup) {
             studentIds.forEach(sid => {
               const st = (this.students || []).find(s => s.id == sid);
@@ -2051,26 +2243,27 @@ class LMSApp {
             this.updateGradeGroupCounts();
           }
 
-          alert(`🎉 Đã lưu kết quả chấm điểm thành công cho ${studentIds.length} học sinh!`);
-          this.cancelGrading();
-          this.deselectAllGradeStudents();
+          alert(`🎉 Đã lưu kết quả chấm điểm cho ${studentIds.length} học sinh!`);
+          if (shouldCloseGrading) {
+            this.cancelGrading();
+            this.deselectAllGradeStudents();
+          }
           this.loadTrackingMatrix();
-          this.renderAnalytics();
-          this.renderStudentList();
           this.renderGradeStudentList();
-          if (this.renderTeams) this.renderTeams();
+          return true;
         } else {
           alert("Lỗi khi lưu điểm: " + (data ? (data.error || "Không thể lưu") : "Lỗi mạng"));
+          return false;
         }
       } catch (err) {
         console.error("Submit batch grading error:", err);
         alert("Lỗi khi lưu điểm: " + err.message);
+        return false;
       }
-      return;
     }
 
     // Single Student Grading
-    if (!this.currentlyGradingStudent) return;
+    if (!this.currentlyGradingStudent) return false;
     try {
       let data;
       if (this.serverAvailable) {
@@ -2084,6 +2277,9 @@ class LMSApp {
             status: status,
             teacher_note: note,
             question_details: qDetails,
+            spelling_errors: spellingErrors,
+            spelling_error_types: spellingTypes,
+            writing_rubrics: writingRubrics,
             animal_group: this.selectedGradingAnimalGroup,
             animal_symbol: this.selectedGradingAnimalSymbol,
             animal_title: this.selectedGradingAnimalTitle,
@@ -2102,15 +2298,17 @@ class LMSApp {
           qDetails,
           this.selectedGradingAnimalGroup,
           this.selectedGradingAnimalSymbol,
-          this.selectedGradingAnimalTitle
+          this.selectedGradingAnimalTitle,
+          spellingErrors,
+          spellingTypes,
+          writingRubrics
         );
       }
       if (!data || data.error || data.success === false) {
         alert((data && data.error) || "Lỗi khi lưu điểm!");
-        return;
+        return false;
       }
 
-      // Update student's animal group locally so all UI reflects it immediately
       if (this.selectedGradingAnimalGroup && this.currentlyGradingStudent) {
         const targetSt = (this.students || []).find(s => s.id == this.currentlyGradingStudent.id);
         if (targetSt) {
@@ -2133,14 +2331,47 @@ class LMSApp {
         this.updateGradeGroupCounts();
       }
 
-      alert(`✅ Đã lưu điểm cho học sinh ${this.currentlyGradingStudent.full_name} (${status})!`);
-      this.cancelGrading();
+      if (shouldCloseGrading) {
+        alert(`✅ Đã lưu điểm cho học sinh ${this.currentlyGradingStudent.full_name} (${status})!`);
+        this.cancelGrading();
+      }
       this.loadTrackingMatrix();
       this.renderQuickGradeStudentList();
-      this.renderStudentList();
-      if (this.renderTeams) this.renderTeams();
+      return true;
     } catch (e) {
       alert("Lỗi: " + e.message);
+      return false;
+    }
+  }
+
+  async submitGrading() {
+    await this.saveGradingRecord(true);
+  }
+
+  async submitGradingAndNext() {
+    if (!this.currentlyGradingStudent) {
+      alert("Vui lòng chọn một học sinh để chấm điểm!");
+      return;
+    }
+    const currentId = this.currentlyGradingStudent.id;
+    const saved = await this.saveGradingRecord(false);
+    if (!saved) return;
+
+    // Find next student in this.students
+    const students = this.students || [];
+    const idx = students.findIndex(s => s.id == currentId);
+    let nextStudent = null;
+    if (idx !== -1 && idx + 1 < students.length) {
+      nextStudent = students[idx + 1];
+    } else if (students.length > 0) {
+      nextStudent = students[0];
+    }
+
+    if (nextStudent && nextStudent.id != currentId) {
+      this.openGradingForStudent(nextStudent);
+    } else {
+      alert("🎉 Đã hoàn tất danh sách 29 học sinh!");
+      this.cancelGrading();
     }
   }
 
@@ -2427,6 +2658,807 @@ class LMSApp {
     }
   }
 
+  // --- TAB 2: 3-TIER PEDAGOGICAL ANALYSIS & HEATMAP ---
+  populateAnalyticsAssignmentDropdown() {
+    const sel = document.getElementById("analytics-assignment-select");
+    if (!sel) return;
+    const assignments = this.assignments || [];
+    if (assignments.length === 0) {
+      sel.innerHTML = '<option value="">-- Chưa có bài tập nào --</option>';
+      return;
+    }
+    const curVal = sel.value;
+    sel.innerHTML = assignments.map(a => `<option value="${a.id}">#${a.id} • ${a.title} (${a.subject || 'Toán'})</option>`).join("");
+    if (curVal && assignments.some(a => a.id == curVal)) {
+      sel.value = curVal;
+    } else if (this.currentAssignmentId && assignments.some(a => a.id == this.currentAssignmentId)) {
+      sel.value = this.currentAssignmentId;
+    } else {
+      sel.value = assignments[0].id;
+    }
+  }
+
+  onAnalyticsAssignmentChange() {
+    this.loadAssignmentAnalysis();
+  }
+
+  setAnalyticsMode(mode) {
+    this.analyticsMode = mode;
+    const btn3Tier = document.getElementById("btn-ana-mode-3tier");
+    const btnHeatmap = document.getElementById("btn-ana-mode-heatmap");
+    const btnLegacy = document.getElementById("btn-ana-mode-legacy");
+
+    const view3Tier = document.getElementById("analytics-3tier-view");
+    const viewHeatmap = document.getElementById("analytics-heatmap-view");
+    const viewLegacy = document.getElementById("analytics-legacy-view");
+
+    if (btn3Tier) btn3Tier.className = `btn btn-sm ${mode === '3tier' ? 'btn-primary active' : 'btn-outline'}`;
+    if (btnHeatmap) btnHeatmap.className = `btn btn-sm ${mode === 'heatmap' ? 'btn-primary active' : 'btn-outline'}`;
+    if (btnLegacy) btnLegacy.className = `btn btn-sm ${mode === 'legacy' ? 'btn-primary active' : 'btn-outline'}`;
+
+    if (view3Tier) view3Tier.style.display = mode === '3tier' ? 'block' : 'none';
+    if (viewHeatmap) viewHeatmap.style.display = mode === 'heatmap' ? 'block' : 'none';
+    if (viewLegacy) viewLegacy.style.display = mode === 'legacy' ? 'block' : 'none';
+
+    if (mode === 'legacy') {
+      this.loadAnalytics();
+    } else {
+      this.loadAssignmentAnalysis();
+    }
+  }
+
+  async loadAssignmentAnalysis() {
+    const sel = document.getElementById("analytics-assignment-select");
+    const asgId = sel ? sel.value : this.currentAssignmentId;
+    if (!asgId) return;
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/assignments/${asgId}/analysis`);
+        data = await res.json();
+      } else {
+        data = window.ClientDB.getAssignmentAnalysis(asgId);
+      }
+      if (!data) return;
+      this.currentAssignmentAnalysis = data;
+
+      // Tier 1 Overview
+      const t1 = data.tier1 || {};
+      const gradedEl = document.getElementById("tier1-graded-count");
+      if (gradedEl) gradedEl.innerText = `${t1.graded_count || 0} / ${t1.total_students || 29}`;
+      const gradedSub = document.getElementById("tier1-graded-sub");
+      if (gradedSub) gradedSub.innerText = `${t1.total_students - t1.graded_count} em chưa chấm`;
+
+      const avgEl = document.getElementById("tier1-avg-score");
+      if (avgEl) avgEl.innerText = `${(t1.average_score || 0).toFixed(1)} / ${(t1.max_score || 10).toFixed(1)}`;
+      const avgPct = document.getElementById("tier1-avg-pct");
+      if (avgPct) avgPct.innerText = `Đạt ${(t1.average_percentage || 0).toFixed(1)}%`;
+
+      const passRateEl = document.getElementById("tier1-pass-rate");
+      if (passRateEl) passRateEl.innerText = `${(t1.pass_rate || 0).toFixed(1)}%`;
+      const passCountEl = document.getElementById("tier1-pass-count");
+      if (passCountEl) passCountEl.innerText = `${t1.passed_count || 0} Đạt (≥ 70%) • ${t1.failed_count || 0} Chưa đạt`;
+
+      const dist = t1.score_distribution || {};
+      const dG = document.getElementById("tier1-dist-gioi");
+      const dK = document.getElementById("tier1-dist-kha");
+      const dC = document.getElementById("tier1-dist-canco");
+      if (dG) dG.innerText = dist.gioi || 0;
+      if (dK) dK.innerText = dist.kha || 0;
+      if (dC) dC.innerText = dist.can_co_gang || 0;
+
+      // Tier 2 Targets
+      const t2Container = document.getElementById("analytics-tier2-container");
+      if (t2Container) {
+        const targets = data.tier2 || [];
+        if (targets.length === 0) {
+          t2Container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Chưa có dữ liệu mục tiêu.</div>';
+        } else {
+          t2Container.innerHTML = targets.map(t => {
+            const isPass = t.is_passed;
+            return `
+              <div class="tier-target-card ${isPass ? '' : 'failed'}" onclick="app.openTargetDetailsModal('${t.target_code}')">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="badge" style="background: ${isPass ? '#DCFCE7' : '#FEE2E2'}; color: ${isPass ? '#15803D' : '#B91C1C'}; font-weight: 800;">
+                        ${t.target_code}
+                      </span>
+                      <strong style="font-size: 15px; color: #1E293B;">${t.target_name}</strong>
+                      <span class="badge ${isPass ? 'badge-green' : 'badge-red'}">${isPass ? '🟢 ĐÃ ĐẠT' : '🔴 CẦN RÈN'}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
+                      Kĩ năng: <em>${t.skills || 'Rèn luyện kĩ năng'}</em> • Câu: <strong>${(t.question_nums || []).map(n => 'C' + n).join(', ')}</strong> • Điểm tối đa: ${t.max_score} đ
+                    </div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 20px; font-weight: 900; color: ${isPass ? '#15803D' : '#DC2626'};">${t.percentage}%</div>
+                    <div style="font-size: 11px; color: #64748B;">${t.failed_count > 0 ? `<strong style="color: #DC2626;">${t.failed_count} HS</strong> chưa đạt` : '100% đạt'} (Bấm xem)</div>
+                  </div>
+                </div>
+                <div class="tier-progress-track">
+                  <div class="tier-progress-bar ${isPass ? 'pass' : 'fail'}" style="width: ${Math.min(100, t.percentage)}%;"></div>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      }
+
+      // Tier 3 Questions
+      const t3Container = document.getElementById("analytics-tier3-container");
+      if (t3Container) {
+        const questions = data.tier3 || [];
+        if (questions.length === 0) {
+          t3Container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Chưa có dữ liệu câu hỏi.</div>';
+        } else {
+          t3Container.innerHTML = questions.map(q => {
+            const isPass = q.is_passed;
+            const causes = Object.entries(q.causes_summary || {}).sort((a, b) => b[1] - a[1]);
+            const causesBadges = causes.map(([c, cnt]) => `
+              <span style="font-size: 11px; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; border-radius: 10px; padding: 2px 8px; margin-right: 4px;">
+                ${c}: <strong>${cnt} em</strong>
+              </span>
+            `).join("");
+
+            return `
+              <div class="tier-target-card ${isPass ? '' : 'failed'}" onclick="app.openQuestionDetailsModal(${q.num})">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="badge" style="background: #EEF2FF; color: #3730A3; font-weight: 800;">${q.label}</span>
+                      <strong style="font-size: 15px; color: #1E293B;">${q.name}</strong>
+                      <span style="font-size: 12px; color: #2563EB; font-weight: 700;">🎯 ${q.target}</span>
+                      <span class="badge ${isPass ? 'badge-green' : 'badge-red'}">${isPass ? '🟢 Đạt' : '🔴 Cần rèn'}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
+                      Kĩ năng: <em>${q.skill || 'Quan sát'}</em> • Điểm câu: ${q.max_score} đ • Đúng: <strong style="color: #15803D;">${q.correct_count}</strong> | Sai: <strong style="color: #DC2626;">${q.incorrect_count}</strong> | Cần sửa: <strong style="color: #D97706;">${q.need_fix_count}</strong>
+                    </div>
+                    ${causesBadges ? `<div style="margin-top: 6px;">${causesBadges}</div>` : ''}
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 20px; font-weight: 900; color: ${isPass ? '#15803D' : '#DC2626'};">${q.correct_percentage}%</div>
+                    <div style="font-size: 11px; color: #64748B;">${q.failed_students.length > 0 ? `<strong style="color: #DC2626;">${q.failed_students.length} em sai</strong>` : 'Đạt 100%'} (Bấm xem)</div>
+                  </div>
+                </div>
+                <div class="tier-progress-track">
+                  <div class="tier-progress-bar ${isPass ? 'pass' : 'fail'}" style="width: ${Math.min(100, q.correct_percentage)}%;"></div>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      }
+
+      // Heatmap 2D Matrix Table
+      const hmContainer = document.getElementById("heatmap-table-container");
+      if (hmContainer) {
+        const hm = data.heatmap || {};
+        const matrix = hm.matrix || [];
+        const summary = hm.summary_row || [];
+        const questions = data.tier3 || [];
+
+        if (matrix.length === 0) {
+          hmContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center;">Chưa có dữ liệu ma trận nhiệt.</div>';
+        } else {
+          let html = `
+            <table class="heatmap-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">STT</th>
+                  <th style="text-align: left; min-width: 140px;">Học sinh</th>
+                  <th style="width: 60px;">Điểm</th>
+                  <th style="width: 50px;">%</th>
+                  ${questions.map(q => `<th>${q.label}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${matrix.map(st => `
+                  <tr>
+                    <td><strong>${st.stt}</strong></td>
+                    <td style="text-align: left;">
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <span>${st.gender === 'Nữ' ? '👧' : '👦'}</span>
+                        <span class="color-bullet" style="background: ${st.group_color};"></span>
+                        <strong>${st.full_name}</strong>
+                      </div>
+                    </td>
+                    <td><strong>${st.score !== null ? st.score : '-'}</strong></td>
+                    <td>${st.percentage !== null ? `${st.percentage}%` : '-'}</td>
+                    ${st.questions.map(cell => {
+                      const icon = cell.status === 'correct' ? '✓' : (cell.status === 'need_fix' ? '△' : (cell.status === 'incorrect' ? '✕' : '-'));
+                      const title = `${st.full_name} • ${cell.label}: ${cell.status} (${cell.score ?? 0}/${cell.max_score}đ)${cell.cause ? ' - ' + cell.cause : ''}`;
+                      return `
+                        <td>
+                          <span class="heatmap-cell ${cell.status}" title="${title.replace(/"/g, '&quot;')}" onclick="alert('${title.replace(/'/g, "\\'")}')">
+                            ${icon}
+                          </span>
+                        </td>
+                      `;
+                    }).join("")}
+                  </tr>
+                `).join("")}
+              </tbody>
+              <tfoot>
+                <tr class="heatmap-footer-row">
+                  <td colspan="4" style="text-align: right; font-weight: 800; color: #1E293B;">% CẢ LỚP ĐẠT ĐÚNG:</td>
+                  ${summary.map(s => `
+                    <td>
+                      <span class="heatmap-pct-badge ${s.is_passed ? 'green' : 'red'}">
+                        ${s.correct_percentage}%
+                      </span>
+                    </td>
+                  `).join("")}
+                </tr>
+              </tfoot>
+            </table>
+          `;
+          hmContainer.innerHTML = html;
+        }
+      }
+    } catch (e) {
+      console.error("Error loading assignment analysis:", e);
+    }
+  }
+
+  openTargetDetailsModal(targetCode) {
+    if (!this.currentAssignmentAnalysis) return;
+    const target = (this.currentAssignmentAnalysis.tier2 || []).find(t => t.target_code === targetCode);
+    if (!target) return;
+
+    this.selectedModalTarget = target;
+    document.getElementById("target-modal-title").innerText = `🎯 Chi Tiết: ${target.target_code} - ${target.target_name}`;
+    document.getElementById("target-modal-summary").innerHTML = `
+      Kĩ năng: <strong>${target.skills || 'Tổng quát'}</strong> • Điểm tối đa: <strong>${target.max_score} đ</strong> • Tỷ lệ đạt: <strong style="color: ${target.is_passed ? '#15803D' : '#DC2626'};">${target.percentage}%</strong>
+    `;
+
+    const listContainer = document.getElementById("target-modal-students-list");
+    const failed = target.failed_students || [];
+    if (failed.length === 0) {
+      listContainer.innerHTML = '<div style="color: #15803D; font-weight: 700; padding: 20px; text-align: center;">🎉 Tuyệt vời! 100% học sinh đã đạt mục tiêu này.</div>';
+    } else {
+      listContainer.innerHTML = failed.map(st => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FFF5F5; border: 1px solid #FED7D7; border-radius: 8px; margin-bottom: 8px;">
+          <div>
+            <div style="font-weight: 800; color: #991B1B;">${st.code} - ${st.full_name}</div>
+            <div style="font-size: 12px; color: #742A2A;">
+              Điểm đạt: <strong>${st.score}/${st.max_score} (${st.percentage}%)</strong>
+              ${(st.causes && st.causes.length > 0) ? ` • Nguyên nhân: <em>${st.causes.join(', ')}</em>` : ''}
+            </div>
+          </div>
+          <span class="badge badge-red">Chưa đạt</span>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("target-details-modal").style.display = "flex";
+  }
+
+  closeTargetDetailsModal() {
+    document.getElementById("target-details-modal").style.display = "none";
+  }
+
+  createRemediationFromTargetModal() {
+    if (!this.selectedModalTarget) return;
+    const t = this.selectedModalTarget;
+    const asgId = this.currentAssignmentAnalysis?.assignment?.id;
+    const sids = (t.failed_students || []).map(s => s.student_id);
+    this.closeTargetDetailsModal();
+    this.openRemediationCreateModal(asgId, t.target_code, t.target_name, t.skills, sids);
+  }
+
+  openQuestionDetailsModal(questionNum) {
+    if (!this.currentAssignmentAnalysis) return;
+    const q = (this.currentAssignmentAnalysis.tier3 || []).find(item => item.num === questionNum);
+    if (!q) return;
+
+    document.getElementById("question-modal-title").innerText = `📝 Chi Tiết Câu ${q.num}: ${q.name}`;
+    document.getElementById("question-modal-summary").innerHTML = `
+      Mục tiêu: <strong>${q.target} - ${q.target_name}</strong> • Kĩ năng: <em>${q.skill}</em> • Tỷ lệ đúng: <strong style="color: ${q.is_passed ? '#15803D' : '#DC2626'};">${q.correct_percentage}%</strong>
+    `;
+
+    const listContainer = document.getElementById("question-modal-students-list");
+    const failed = q.failed_students || [];
+    if (failed.length === 0) {
+      listContainer.innerHTML = '<div style="color: #15803D; font-weight: 700; padding: 20px; text-align: center;">🎉 Tất cả học sinh đều làm đúng câu này!</div>';
+    } else {
+      listContainer.innerHTML = failed.map(st => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FFF5F5; border: 1px solid #FED7D7; border-radius: 8px; margin-bottom: 8px;">
+          <div>
+            <div style="font-weight: 800; color: #991B1B;">${st.code} - ${st.full_name}</div>
+            <div style="font-size: 12px; color: #742A2A;">
+              Điểm đạt: <strong>${st.score}/${st.max_score} đ</strong> • Điểm nghẽn: <em>${st.cause || 'Sai'}</em>
+            </div>
+          </div>
+          <span class="badge ${st.status === 'need_fix' ? 'badge-yellow' : 'badge-red'}">
+            ${st.status === 'need_fix' ? '⚡ Cần sửa' : '✕ Sai'}
+          </span>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("question-details-modal").style.display = "flex";
+  }
+
+  closeQuestionDetailsModal() {
+    document.getElementById("question-details-modal").style.display = "none";
+  }
+
+  // --- TAB 3: BOTTLENECK DETECTION & REMEDIATION PLANS ---
+  refreshBottlenecksView() {
+    this.loadBottlenecks();
+    this.loadRemediationPlans();
+  }
+
+  async loadBottlenecks() {
+    try {
+      let bottlenecks;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/bottlenecks");
+        bottlenecks = await res.json();
+      } else {
+        bottlenecks = window.ClientDB.getLearningBottlenecks();
+      }
+      this.bottlenecksList = bottlenecks || [];
+      const badge = document.getElementById("bottlenecks-count-badge");
+      if (badge) badge.innerText = `${this.bottlenecksList.length} Điểm nghẽn`;
+
+      const container = document.getElementById("bottlenecks-list-container");
+      if (!container) return;
+      if (this.bottlenecksList.length === 0) {
+        container.innerHTML = '<div style="color: #15803D; font-weight: 700; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 20px; text-align: center;">🎉 Tuyệt vời! Hiện tại không phát hiện điểm nghẽn nghiêm trọng (< 70%) trong các bài tập đã chấm.</div>';
+        return;
+      }
+
+      container.innerHTML = this.bottlenecksList.map(bn => {
+        const causesBadges = (bn.dominant_causes || []).map(([c, cnt]) => `
+          <span style="font-size: 11px; background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; border-radius: 10px; padding: 2px 8px; margin-right: 4px;">
+            ● ${c} (<strong>${cnt} em</strong>)
+          </span>
+        `).join("");
+
+        const stList = (bn.students || []).map(s => `
+          <span style="display: inline-flex; align-items: center; gap: 4px; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 12px; padding: 2px 8px; font-size: 12px;">
+            <span class="color-bullet" style="background: ${s.group_color};"></span>
+            <strong>${s.full_name}</strong> (${s.percentage}%)
+          </span>
+        `).join("");
+
+        const sidsJson = JSON.stringify((bn.students || []).map(s => s.student_id));
+
+        return `
+          <div class="bottleneck-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div class="bottleneck-title">
+                  <span>🔴</span> ${bn.assignment_title} • ${bn.target_code}: ${bn.target_name}
+                </div>
+                <div style="font-size: 13px; color: #475569; margin-bottom: 6px;">
+                  Môn: <strong>${bn.subject}</strong> • Kĩ năng: <em>${bn.skills}</em> • Tỷ lệ đạt: <strong style="color: #DC2626;">${bn.percentage}%</strong>
+                </div>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-size: 12px; font-weight: 700; color: #991B1B;">Nguyên nhân chính:</span>
+                  ${causesBadges || '<span style="font-size: 11px; color: #64748B;">Chưa hiểu bản chất</span>'}
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                  <span style="font-size: 12px; font-weight: 700; color: #334155;">${bn.failed_count} Học sinh cần can thiệp:</span>
+                  ${stList}
+                </div>
+              </div>
+              <div>
+                <button type="button" class="btn btn-danger btn-sm" style="font-weight: 800; white-space: nowrap;" onclick='app.openRemediationCreateModal(${bn.assignment_id}, "${bn.target_code}", "${(bn.target_name || '').replace(/"/g, '&quot;')}", "${(bn.skills || '').replace(/"/g, '&quot;')}", ${sidsJson})'>
+                  ➕ TẠO NHÓM RÈN
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      console.error("Error loading bottlenecks:", e);
+    }
+  }
+
+  async loadRemediationPlans() {
+    try {
+      let plans;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/remediation-plans");
+        plans = await res.json();
+      } else {
+        plans = window.ClientDB.getRemediationPlans();
+      }
+      this.remediationPlans = plans || [];
+      const badge = document.getElementById("remediation-plans-count-badge");
+      if (badge) badge.innerText = `${this.remediationPlans.length} Kế hoạch`;
+
+      const container = document.getElementById("remediation-plans-container");
+      if (!container) return;
+      if (this.remediationPlans.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center;">Chưa có kế hoạch rèn luyện nào được tạo.</div>';
+        return;
+      }
+
+      container.innerHTML = this.remediationPlans.map(p => {
+        const reassessments = p.reassessments || [];
+        const students = p.students || [];
+
+        // Check who still needs reassessment
+        const reassessedSids = new Set(reassessments.filter(ra => ra.status === 'Đã đạt').map(ra => ra.student_id));
+        const pendingStudents = students.filter(s => !reassessedSids.has(s.id));
+        const hasPending = pendingStudents.length > 0;
+
+        const timelineHtml = reassessments.map(ra => {
+          const st = students.find(s => s.id == ra.student_id);
+          const stName = st ? st.full_name : `HS#${ra.student_id}`;
+          return `
+            <div style="font-size: 12px; margin-top: 4px; padding: 4px 8px; background: #F0FDF4; border-radius: 6px; border-left: 3px solid #16A34A; display: flex; justify-content: space-between; align-items: center;">
+              <span><strong>${stName}</strong> (Lần ${ra.attempt}): Điểm ${ra.score}/${ra.max_score} (${ra.percentage}%) • <em>"${ra.note || 'Tiến bộ'}"</em></span>
+              <span class="badge ${ra.status === 'Đã đạt' ? 'badge-green' : 'badge-yellow'}">${ra.status}</span>
+            </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="remediation-plan-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <strong style="font-size: 16px; color: #1E293B;">${p.group_name}</strong>
+                  <span class="badge badge-blue">🎯 ${p.target_code}</span>
+                  ${hasPending ? '<span class="bell-reminder-badge">🔔 CẦN ĐÁNH GIÁ LẠI</span>' : '<span class="badge badge-green">✅ Hoàn thành rèn</span>'}
+                </div>
+                <div style="font-size: 12px; color: #64748B; margin-top: 4px;">
+                  Mục tiêu: <strong>${p.target_name}</strong> • Kĩ năng: <em>${p.skill_name || 'Rèn luyện'}</em> • Bài bổ trợ: <strong>${p.supplementary_task || 'Phiếu tương đương'}</strong> • Ngày bắt đầu: ${p.start_date}
+                </div>
+                <div style="margin-top: 6px; font-size: 12px; color: #334155;">
+                  Học sinh tham gia (${students.length} em):
+                  <strong>${students.map(s => s.full_name).join(', ')}</strong>
+                </div>
+              </div>
+              <div>
+                <button type="button" class="btn btn-success btn-sm" style="font-weight: 800;" onclick="app.openReassessmentModal(${p.id})">
+                  ✍️ Chấm Đánh Giá Lại
+                </button>
+              </div>
+            </div>
+
+            ${timelineHtml ? `
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
+                <div style="font-size: 11px; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 4px;">
+                  📜 Lịch sử tiến bộ minh chứng (Không ghi đè):
+                </div>
+                ${timelineHtml}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join("");
+    } catch (e) {
+      console.error("Error loading remediation plans:", e);
+    }
+  }
+
+  openRemediationCreateModal(asgId, targetCode, targetName, skill, studentIds) {
+    document.getElementById("rem-create-asg-id").value = asgId || "";
+    document.getElementById("rem-create-target-code").value = targetCode || "";
+    document.getElementById("rem-create-group-name").value = `Nhóm rèn ${targetCode}: ${skill || targetName}`;
+    document.getElementById("rem-create-target-name").value = `${targetCode}: ${targetName}`;
+    document.getElementById("rem-create-skill").value = skill || "";
+    document.getElementById("rem-create-task").value = `Phiếu rèn bổ trợ ${targetCode} tương đương`;
+    document.getElementById("rem-create-date").value = new Date().toISOString().substring(0, 10);
+
+    const sidsSet = new Set(Array.isArray(studentIds) ? studentIds : []);
+    const container = document.getElementById("rem-create-students-container");
+    if (container) {
+      container.innerHTML = (this.students || []).map(st => {
+        const isChecked = sidsSet.has(st.id);
+        return `
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+            <input type="checkbox" class="rem-create-st-check" value="${st.id}" ${isChecked ? 'checked' : ''}>
+            <span><strong>${st.order_num}.</strong> ${st.full_name}</span>
+          </label>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("remediation-create-modal").style.display = "flex";
+  }
+
+  closeRemediationCreateModal() {
+    document.getElementById("remediation-create-modal").style.display = "none";
+  }
+
+  async submitCreateRemediationPlan() {
+    const asgId = document.getElementById("rem-create-asg-id").value;
+    const targetCode = document.getElementById("rem-create-target-code").value;
+    const groupName = document.getElementById("rem-create-group-name").value.trim();
+    const targetName = document.getElementById("rem-create-target-name").value.trim();
+    const skillName = document.getElementById("rem-create-skill").value.trim();
+    const supplementaryTask = document.getElementById("rem-create-task").value.trim();
+    const startDate = document.getElementById("rem-create-date").value;
+
+    const checkedBoxes = document.querySelectorAll(".rem-create-st-check:checked");
+    const studentIds = Array.from(checkedBoxes).map(b => parseInt(b.value, 10));
+
+    if (!groupName || studentIds.length === 0) {
+      alert("Vui lòng nhập tên nhóm rèn và chọn ít nhất 1 học sinh!");
+      return;
+    }
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch("/api/remediation-plans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assignment_id: asgId,
+            target_code: targetCode,
+            target_name: targetName,
+            skill_name: skillName,
+            group_name: groupName,
+            student_ids: studentIds,
+            supplementary_task: supplementaryTask,
+            start_date: startDate
+          })
+        });
+        data = await res.json();
+      } else {
+        data = window.ClientDB.createRemediationPlan(asgId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask, startDate);
+      }
+
+      if (!data || data.error) {
+        alert((data && data.error) || "Lỗi tạo kế hoạch rèn!");
+        return;
+      }
+
+      alert(`✅ Đã tạo thành công nhóm rèn: "${groupName}" cho ${studentIds.length} học sinh!`);
+      this.closeRemediationCreateModal();
+      this.refreshBottlenecksView();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  openReassessmentModal(planId) {
+    const plan = (this.remediationPlans || []).find(p => p.id == planId);
+    if (!plan) return;
+
+    this.currentReassessmentPlan = plan;
+    document.getElementById("reass-plan-id").value = plan.id;
+    document.getElementById("reass-group-title").innerText = plan.group_name;
+    document.getElementById("reass-target-info").innerText = `Mục tiêu: ${plan.target_code} - ${plan.target_name} • Kĩ năng: ${plan.skill_name || 'Rèn luyện'}`;
+
+    const sel = document.getElementById("reass-student-select");
+    if (sel) {
+      sel.innerHTML = (plan.students || []).map(s => `
+        <option value="${s.id}">${s.order_num}. ${s.full_name} (${s.code})</option>
+      `).join("");
+    }
+
+    document.getElementById("reass-score-input").value = "8.5";
+    document.getElementById("reass-max-input").value = "10";
+    document.getElementById("reass-note-input").value = "Đã nắm vững quy trình, giải đúng toàn bộ bài rèn bổ trợ";
+
+    document.getElementById("reassessment-modal").style.display = "flex";
+  }
+
+  closeReassessmentModal() {
+    document.getElementById("reassessment-modal").style.display = "none";
+  }
+
+  onReassStudentChange() {
+    // Student changed in modal
+  }
+
+  async submitReassessment() {
+    const planId = document.getElementById("reass-plan-id").value;
+    const studentId = document.getElementById("reass-student-select").value;
+    const score = document.getElementById("reass-score-input").value;
+    const maxScore = document.getElementById("reass-max-input").value || 10;
+    const status = document.querySelector('input[name="reass-status"]:checked')?.value || "Đã đạt";
+    const note = document.getElementById("reass-note-input").value.trim();
+
+    if (!score || isNaN(score)) {
+      alert("Vui lòng nhập điểm đánh giá lại!");
+      return;
+    }
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/remediation-plans/${planId}/reassess`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            student_id: studentId,
+            score: score,
+            max_score: maxScore,
+            status: status,
+            note: note,
+            operator: this.settings.teacher_name || "Cô Linh"
+          })
+        });
+        data = await res.json();
+      } else {
+        data = window.ClientDB.recordReassessment(planId, studentId, score, maxScore, status, note, this.settings.teacher_name || "Cô Linh");
+      }
+
+      if (!data || data.error) {
+        alert((data && data.error) || "Lỗi lưu đánh giá lại!");
+        return;
+      }
+
+      alert("🎉 Đã lưu kết quả đánh giá lại minh chứng tiến bộ thành công!");
+      this.closeReassessmentModal();
+      this.refreshBottlenecksView();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  // --- TAB 4: STUDENT GROWTH PROFILE & SPELLING ERROR PATTERNS ---
+  populateGrowthStudentDropdown() {
+    const sel = document.getElementById("growth-student-select");
+    if (!sel) return;
+    const students = this.students || [];
+    const curVal = sel.value;
+    sel.innerHTML = students.map(s => `
+      <option value="${s.id}">${s.order_num}. ${s.full_name} (${s.code}) - ${s.group_name || 'Nhóm 1'}</option>
+    `).join("");
+    if (curVal && students.some(s => s.id == curVal)) {
+      sel.value = curVal;
+    } else if (students.length > 0) {
+      sel.value = students[0].id;
+    }
+  }
+
+  onGrowthStudentChange() {
+    this.loadStudentGrowthProfile();
+  }
+
+  async loadStudentGrowthProfile() {
+    const sel = document.getElementById("growth-student-select");
+    const stId = sel ? sel.value : ((this.students && this.students[0]) ? this.students[0].id : null);
+    if (!stId) return;
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/student-growth/${stId}`);
+        data = await res.json();
+      } else {
+        data = window.ClientDB.getStudentGrowthProfile(stId);
+      }
+      if (!data) return;
+
+      const container = document.getElementById("growth-profile-container");
+      if (!container) return;
+
+      const st = data.student || {};
+      const timeline = data.timeline || [];
+      const remediations = data.remediations || [];
+      const spelling = data.spelling || {};
+
+      // Spelling repeated patterns
+      const spPatterns = (spelling.repeated_patterns || []).map(([p, cnt]) => `
+        <span class="spelling-type-pill" style="margin-right: 6px; margin-bottom: 6px;">
+          ⚠️ "${p}": <strong>${cnt} lần</strong>
+        </span>
+      `).join("");
+
+      // Spelling types breakdown
+      const spTypes = Object.entries(spelling.error_types || {}).map(([t, cnt]) => `
+        <span class="spelling-type-pill" style="margin-right: 6px; margin-bottom: 6px; background: #FEF2F2; color: #991B1B; border-color: #FECACA;">
+          ● ${t}: <strong>${cnt} lỗi</strong>
+        </span>
+      `).join("");
+
+      // Remediation history (Before vs After)
+      const remHtml = remediations.map(r => {
+        const reassHtml = (r.reassessments || []).map(ra => `
+          <div style="font-size: 13px; color: #166534; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>➔ Lần ${ra.attempt} (Sau rèn): <strong>${ra.score}/${ra.max_score} (${ra.percentage}%)</strong> - <span class="badge ${ra.status === 'Đã đạt' ? 'badge-green' : 'badge-yellow'}">${ra.status}</span></span>
+            <em>"${ra.note || ''}"</em>
+          </div>
+        `).join("");
+
+        return `
+          <div style="background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <strong style="color: #1E293B; font-size: 14px;">🎯 ${r.group_name}</strong>
+              <span class="badge badge-blue">${r.target_code}</span>
+            </div>
+            <div style="font-size: 12px; color: #64748B; margin-top: 2px;">
+              Mục tiêu: <strong>${r.target_name}</strong> • Bắt đầu: ${r.start_date}
+            </div>
+            ${reassHtml || '<div style="font-size: 12px; color: #DC2626; margin-top: 4px;">🔔 Đang rèn luyện, chưa có lượt đánh giá lại.</div>'}
+          </div>
+        `;
+      }).join("");
+
+      // Assignments timeline
+      const asgHtml = timeline.map(t => {
+        const grades = (t.history || []).filter(e => (e.event_type || "").startsWith("GRADE_") || e.event_type === "grade");
+        const latest = grades[grades.length - 1];
+        if (!latest) return '';
+
+        return `
+          <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <strong style="color: #1E293B;">${t.assignment_title}</strong>
+              <span class="badge badge-blue" style="margin-left: 6px;">${t.subject || 'Toán'}</span>
+              <div style="font-size: 12px; color: #64748B; margin-top: 2px;">
+                Nhận xét: "${latest.teacher_note || 'Bài làm tốt'}"
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 16px; font-weight: 800; color: #1E40AF;">
+                ${latest.score ?? '-'}/${t.max_score || 10}
+              </div>
+              <span class="badge ${latest.status === 'Đã đạt' ? 'badge-green' : 'badge-yellow'}">${latest.status}</span>
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join("");
+
+      container.innerHTML = `
+        <!-- Student Header -->
+        <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px;">
+          <div style="width: 50px; height: 50px; border-radius: 50%; background: ${st.group_color || '#3B82F6'}20; border: 2px solid ${st.group_color || '#3B82F6'}; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+            ${st.gender === 'Nữ' ? '👧' : '👦'}
+          </div>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 800; color: #0F172A; margin: 0;">
+              ${st.order_num}. ${st.full_name} (${st.code})
+            </h3>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 3px;">
+              Nhóm: <strong style="color: ${st.group_color};">${st.group_name || 'Nhóm 1'}</strong> • Lớp 3A7
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: Remediation Growth (Before vs After) -->
+        <div style="margin-bottom: 24px;">
+          <h4 style="font-size: 15px; font-weight: 800; color: #065F46; margin-bottom: 10px;">
+            📈 Tiến Bộ Trước Và Sau Khi Rèn Luyện (Không Ghi Đè)
+          </h4>
+          ${remHtml || '<div style="color: var(--text-muted); font-size: 13px;">Học sinh chưa tham gia nhóm rèn nào.</div>'}
+        </div>
+
+        <!-- Section 2: Spelling Error Patterns -->
+        <div class="spelling-summary-box">
+          <h4 style="font-size: 15px; font-weight: 800; color: #991B1B; margin-bottom: 8px;">
+            ✍️ Thống Kê Lỗi Chính Tả & Lỗi Lặp Lại
+          </h4>
+          <div style="font-size: 13px; color: #475569; margin-bottom: 10px;">
+            Tổng số lỗi chính tả đã ghi nhận: <strong style="color: #DC2626; font-size: 16px;">${spelling.total_errors || 0}</strong> lỗi
+          </div>
+          <div style="margin-bottom: 8px;">
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Phân loại lỗi:</div>
+            ${spTypes || '<span style="font-size: 12px; color: #64748B;">Chưa có lỗi nào</span>'}
+          </div>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 4px;">Lỗi lặp lại nhiều lần (Cần nhắc nhở):</div>
+            ${spPatterns || '<span style="font-size: 12px; color: #64748B;">Không có lỗi lặp lại</span>'}
+          </div>
+        </div>
+
+        <!-- Section 3: All Graded Assignments -->
+        <div>
+          <h4 style="font-size: 15px; font-weight: 800; color: #1E293B; margin-bottom: 10px;">
+            📚 Lịch Sử Tất Cả Bài Tập Đã Chấm
+          </h4>
+          ${asgHtml || '<div style="color: var(--text-muted); font-size: 13px;">Chưa có bài tập nào được chấm.</div>'}
+        </div>
+      `;
+    } catch (e) {
+      console.error("Error loading student growth profile:", e);
+    }
+  }
+
   // --- SECTION 8: STUDENT PROFILE ---
   async loadStudentProfile() {
     const sid = document.getElementById("profile-student-select")?.value;
@@ -2507,7 +3539,7 @@ class LMSApp {
     });
   }
 
-  // --- NEW ASSIGNMENT MODAL ---
+  // --- NEW ASSIGNMENT MODAL & QUESTION BUILDER ---
   openNewAssignmentModal() {
     document.getElementById("new-assignment-modal").style.display = "flex";
     const now = new Date();
@@ -2516,51 +3548,91 @@ class LMSApp {
     document.getElementById("new-asg-due").value = tomorrow.toISOString().slice(0, 16);
     const goalsEl = document.getElementById("new-asg-goals");
     if (goalsEl) goalsEl.value = "";
-    this.newAsgQuestions = ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
-    this.renderNewAsgQuestions();
+    const typeEl = document.getElementById("new-asg-subject-type");
+    if (typeEl) typeEl.value = "toan";
+    this.setNewAsgQuestionPreset(4);
   }
 
   setNewAsgQuestionPreset(count) {
-    this.newAsgQuestions = [];
+    this.newAsgQuestionsData = [];
+    const perScore = Math.round((10.0 / count) * 100) / 100;
     for (let i = 1; i <= count; i++) {
-      this.newAsgQuestions.push(`Câu ${i}`);
+      const mtIdx = i <= 2 ? 1 : (i <= Math.ceil(count / 2) ? 2 : 3);
+      this.newAsgQuestionsData.push({
+        num: i,
+        label: `C${i}`,
+        name: `Câu ${i}`,
+        target: `MT${mtIdx}`,
+        target_name: `Mục tiêu ${mtIdx}`,
+        skill: `Kĩ năng quan sát C${i}`,
+        max_score: perScore
+      });
     }
     this.renderNewAsgQuestions();
   }
 
   addNewAsgQuestionRow() {
-    const nextNum = (this.newAsgQuestions ? this.newAsgQuestions.length : 0) + 1;
-    if (!this.newAsgQuestions) this.newAsgQuestions = [];
-    this.newAsgQuestions.push(`Câu ${nextNum}`);
+    if (!this.newAsgQuestionsData) this.newAsgQuestionsData = [];
+    const num = this.newAsgQuestionsData.length + 1;
+    this.newAsgQuestionsData.push({
+      num: num,
+      label: `C${num}`,
+      name: `Câu ${num}`,
+      target: "MT1",
+      target_name: "Mục tiêu 1",
+      skill: "",
+      max_score: 1.0
+    });
     this.renderNewAsgQuestions();
   }
 
   removeNewAsgQuestionRow(idx) {
-    if (!this.newAsgQuestions || this.newAsgQuestions.length <= 1) return;
-    this.newAsgQuestions.splice(idx, 1);
+    if (!this.newAsgQuestionsData || this.newAsgQuestionsData.length <= 1) return;
+    this.newAsgQuestionsData.splice(idx, 1);
+    this.newAsgQuestionsData.forEach((q, i) => {
+      q.num = i + 1;
+      q.label = `C${i + 1}`;
+    });
     this.renderNewAsgQuestions();
   }
 
   renderNewAsgQuestions() {
     const container = document.getElementById("new-asg-questions-container");
     if (!container) return;
-    container.innerHTML = (this.newAsgQuestions || []).map((q, idx) => `
-      <div style="display: flex; gap: 6px; align-items: center;">
-        <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); width: 24px;">#${idx + 1}</span>
-        <input type="text" class="form-control form-control-sm new-asg-q-input" value="${q}" style="flex: 1; font-weight: 600;">
-        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeNewAsgQuestionRow(${idx})" title="Xóa câu này">🗑️</button>
+    const list = this.newAsgQuestionsData || [];
+    container.innerHTML = list.map((q, idx) => `
+      <div class="asg-builder-row" style="display: grid; grid-template-columns: 45px 1.5fr 85px 1.5fr 80px 32px; gap: 6px; align-items: center; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+        <span style="font-weight: 800; font-size: 13px; color: #1E40AF; text-align: center;">${q.label}</span>
+        <input type="text" class="form-control form-control-sm b-qname" value="${(q.name || '').replace(/"/g, '&quot;')}" placeholder="Tên câu..." style="font-size: 12px;" oninput="app.updateNewAsgQuestionData(${idx}, 'name', this.value)">
+        <input type="text" class="form-control form-control-sm b-qtarget" value="${(q.target || '').replace(/"/g, '&quot;')}" placeholder="MT1" style="font-size: 12px; font-weight: 700;" oninput="app.updateNewAsgQuestionData(${idx}, 'target', this.value)">
+        <input type="text" class="form-control form-control-sm b-qskill" value="${(q.skill || '').replace(/"/g, '&quot;')}" placeholder="Kĩ năng quan sát..." style="font-size: 12px;" oninput="app.updateNewAsgQuestionData(${idx}, 'skill', this.value)">
+        <input type="number" class="form-control form-control-sm b-qscore" value="${q.max_score || 1}" step="0.25" min="0.25" style="font-size: 12px; font-weight: 700; text-align: center;" oninput="app.updateNewAsgQuestionData(${idx}, 'max_score', this.value)">
+        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeNewAsgQuestionRow(${idx})" title="Xóa" style="padding: 2px 4px; color: #DC2626;">✕</button>
       </div>
     `).join("");
+    this.calcNewAsgTotalScore();
   }
 
-  collectNewAsgQuestions() {
-    const inputs = document.querySelectorAll(".new-asg-q-input");
-    const res = [];
-    inputs.forEach(inp => {
-      const val = inp.value.trim();
-      if (val) res.push(val);
-    });
-    return res.length > 0 ? res : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+  updateNewAsgQuestionData(idx, field, val) {
+    if (!this.newAsgQuestionsData || !this.newAsgQuestionsData[idx]) return;
+    if (field === 'max_score') {
+      this.newAsgQuestionsData[idx].max_score = parseFloat(val) || 0;
+      this.calcNewAsgTotalScore();
+    } else {
+      this.newAsgQuestionsData[idx][field] = val;
+    }
+  }
+
+  calcNewAsgTotalScore() {
+    const list = this.newAsgQuestionsData || [];
+    const total = list.reduce((acc, q) => acc + (parseFloat(q.max_score) || 0), 0);
+    const scoreEl = document.getElementById("new-asg-calc-total-score");
+    if (scoreEl) scoreEl.innerText = (Math.round(total * 100) / 100).toFixed(1);
+    return Math.round(total * 100) / 100;
+  }
+
+  onNewAsgSubjectTypeChange() {
+    // Subject type changed
   }
 
   closeNewAssignmentModal() {
@@ -2570,12 +3642,14 @@ class LMSApp {
   async createAssignment() {
     const title = document.getElementById("new-asg-title").value.trim();
     const subject = document.getElementById("new-asg-subject").value;
+    const subject_type = document.getElementById("new-asg-subject-type")?.value || "toan";
     const assigned_date = document.getElementById("new-asg-assigned").value;
     const due_date = document.getElementById("new-asg-due").value.replace("T", " ");
-    const max_score = document.getElementById("new-asg-maxscore").value;
     const notes = document.getElementById("new-asg-notes").value;
     const goals = (document.getElementById("new-asg-goals")?.value || "").trim();
-    const questions = this.collectNewAsgQuestions();
+    const questions_data = this.newAsgQuestionsData || [];
+    const questions = questions_data.map(q => q.name || q.label);
+    const max_score = this.calcNewAsgTotalScore();
 
     if (!title || !due_date) {
       alert("Vui lòng nhập Tên bài tập và Hạn nộp!");
@@ -2588,11 +3662,11 @@ class LMSApp {
         const res = await fetch("/api/assignments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions, goals })
+          body: JSON.stringify({ title, subject, subject_type, assigned_date, due_date, max_score, notes, questions, goals, questions_data })
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes, questions, goals);
+        data = window.ClientDB.createAssignment(title, subject, assigned_date, due_date, max_score, notes, questions, goals, questions_data, subject_type);
       }
       if (!data || data.error) {
         alert((data && data.error) || "Lỗi khi tạo bài tập!");
@@ -2709,63 +3783,116 @@ class LMSApp {
     document.getElementById("edit-asg-id").value = asg.id;
     document.getElementById("edit-asg-title").value = asg.title || "";
     document.getElementById("edit-asg-subject").value = asg.subject || "Toán";
+    const typeEl = document.getElementById("edit-asg-subject-type");
+    if (typeEl) typeEl.value = asg.subject_type || "toan";
     document.getElementById("edit-asg-assigned").value = asg.assigned_date ? asg.assigned_date.split(" ")[0] : "";
     document.getElementById("edit-asg-due").value = asg.due_date ? asg.due_date.replace(" ", "T").slice(0, 16) : "";
-    document.getElementById("edit-asg-maxscore").value = asg.max_score || 10;
     document.getElementById("edit-asg-notes").value = asg.notes || asg.description || "";
     const goalsEl = document.getElementById("edit-asg-goals");
     if (goalsEl) goalsEl.value = asg.goals || "";
 
-    const questions = asg.questions && Array.isArray(asg.questions) && asg.questions.length > 0
-      ? asg.questions
-      : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
-    this.editAsgQuestions = [...questions];
+    let qd = Array.isArray(asg.questions_data) && asg.questions_data.length > 0 ? asg.questions_data : null;
+    if (!qd && Array.isArray(asg.questions) && asg.questions.length > 0) {
+      const perScore = Math.round((parseFloat(asg.max_score || 10) / Math.max(1, asg.questions.length)) * 100) / 100;
+      qd = asg.questions.map((q, idx) => ({
+        num: idx + 1,
+        label: `C${idx + 1}`,
+        name: String(q),
+        target: `MT${idx < 3 ? 1 : 2}`,
+        target_name: `Mục tiêu ${idx < 3 ? 1 : 2}`,
+        skill: "",
+        max_score: perScore
+      }));
+    } else if (!qd) {
+      qd = [
+        { num: 1, label: "C1", name: "Câu 1", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 2, label: "C2", name: "Câu 2", target: "MT1", target_name: "MT1", skill: "", max_score: 2.5 },
+        { num: 3, label: "C3", name: "Câu 3", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 },
+        { num: 4, label: "C4", name: "Câu 4", target: "MT2", target_name: "MT2", skill: "", max_score: 2.5 }
+      ];
+    }
+    this.editAsgQuestionsData = JSON.parse(JSON.stringify(qd));
     this.renderEditAsgQuestions();
 
     document.getElementById("edit-assignment-modal").style.display = "flex";
   }
 
   setEditAsgQuestionPreset(count) {
-    this.editAsgQuestions = [];
+    this.editAsgQuestionsData = [];
+    const perScore = Math.round((10.0 / count) * 100) / 100;
     for (let i = 1; i <= count; i++) {
-      this.editAsgQuestions.push(`Câu ${i}`);
+      const mtIdx = i <= 2 ? 1 : (i <= Math.ceil(count / 2) ? 2 : 3);
+      this.editAsgQuestionsData.push({
+        num: i,
+        label: `C${i}`,
+        name: `Câu ${i}`,
+        target: `MT${mtIdx}`,
+        target_name: `Mục tiêu ${mtIdx}`,
+        skill: `Kĩ năng quan sát C${i}`,
+        max_score: perScore
+      });
     }
     this.renderEditAsgQuestions();
   }
 
   addEditAsgQuestionRow() {
-    const nextNum = (this.editAsgQuestions ? this.editAsgQuestions.length : 0) + 1;
-    if (!this.editAsgQuestions) this.editAsgQuestions = [];
-    this.editAsgQuestions.push(`Câu ${nextNum}`);
+    if (!this.editAsgQuestionsData) this.editAsgQuestionsData = [];
+    const num = this.editAsgQuestionsData.length + 1;
+    this.editAsgQuestionsData.push({
+      num: num,
+      label: `C${num}`,
+      name: `Câu ${num}`,
+      target: "MT1",
+      target_name: "Mục tiêu 1",
+      skill: "",
+      max_score: 1.0
+    });
     this.renderEditAsgQuestions();
   }
 
   removeEditAsgQuestionRow(idx) {
-    if (!this.editAsgQuestions || this.editAsgQuestions.length <= 1) return;
-    this.editAsgQuestions.splice(idx, 1);
+    if (!this.editAsgQuestionsData || this.editAsgQuestionsData.length <= 1) return;
+    this.editAsgQuestionsData.splice(idx, 1);
+    this.editAsgQuestionsData.forEach((q, i) => {
+      q.num = i + 1;
+      q.label = `C${i + 1}`;
+    });
     this.renderEditAsgQuestions();
   }
 
   renderEditAsgQuestions() {
     const container = document.getElementById("edit-asg-questions-container");
     if (!container) return;
-    container.innerHTML = (this.editAsgQuestions || []).map((q, idx) => `
-      <div style="display: flex; gap: 6px; align-items: center;">
-        <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); width: 24px;">#${idx + 1}</span>
-        <input type="text" class="form-control form-control-sm edit-asg-q-input" value="${q}" style="flex: 1; font-weight: 600;">
-        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeEditAsgQuestionRow(${idx})" title="Xóa câu này">🗑️</button>
+    const list = this.editAsgQuestionsData || [];
+    container.innerHTML = list.map((q, idx) => `
+      <div class="asg-builder-row" style="display: grid; grid-template-columns: 45px 1.5fr 85px 1.5fr 80px 32px; gap: 6px; align-items: center; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+        <span style="font-weight: 800; font-size: 13px; color: #1E40AF; text-align: center;">${q.label}</span>
+        <input type="text" class="form-control form-control-sm b-qname" value="${(q.name || '').replace(/"/g, '&quot;')}" placeholder="Tên câu..." style="font-size: 12px;" oninput="app.updateEditAsgQuestionData(${idx}, 'name', this.value)">
+        <input type="text" class="form-control form-control-sm b-qtarget" value="${(q.target || '').replace(/"/g, '&quot;')}" placeholder="MT1" style="font-size: 12px; font-weight: 700;" oninput="app.updateEditAsgQuestionData(${idx}, 'target', this.value)">
+        <input type="text" class="form-control form-control-sm b-qskill" value="${(q.skill || '').replace(/"/g, '&quot;')}" placeholder="Kĩ năng..." style="font-size: 12px;" oninput="app.updateEditAsgQuestionData(${idx}, 'skill', this.value)">
+        <input type="number" class="form-control form-control-sm b-qscore" value="${q.max_score || 1}" step="0.25" min="0.25" style="font-size: 12px; font-weight: 700; text-align: center;" oninput="app.updateEditAsgQuestionData(${idx}, 'max_score', this.value)">
+        <button type="button" class="btn btn-outline btn-xs" onclick="app.removeEditAsgQuestionRow(${idx})" title="Xóa" style="padding: 2px 4px; color: #DC2626;">✕</button>
       </div>
     `).join("");
+    this.calcEditAsgTotalScore();
   }
 
-  collectEditAsgQuestions() {
-    const inputs = document.querySelectorAll(".edit-asg-q-input");
-    const res = [];
-    inputs.forEach(inp => {
-      const val = inp.value.trim();
-      if (val) res.push(val);
-    });
-    return res.length > 0 ? res : ["Câu 1", "Câu 2", "Câu 3", "Câu 4"];
+  updateEditAsgQuestionData(idx, field, val) {
+    if (!this.editAsgQuestionsData || !this.editAsgQuestionsData[idx]) return;
+    if (field === 'max_score') {
+      this.editAsgQuestionsData[idx].max_score = parseFloat(val) || 0;
+      this.calcEditAsgTotalScore();
+    } else {
+      this.editAsgQuestionsData[idx][field] = val;
+    }
+  }
+
+  calcEditAsgTotalScore() {
+    const list = this.editAsgQuestionsData || [];
+    const total = list.reduce((acc, q) => acc + (parseFloat(q.max_score) || 0), 0);
+    const scoreEl = document.getElementById("edit-asg-calc-total-score");
+    if (scoreEl) scoreEl.innerText = (Math.round(total * 100) / 100).toFixed(1);
+    return Math.round(total * 100) / 100;
   }
 
   closeEditAssignmentModal() {
@@ -2776,12 +3903,14 @@ class LMSApp {
     const id = document.getElementById("edit-asg-id").value;
     const title = document.getElementById("edit-asg-title").value.trim();
     const subject = document.getElementById("edit-asg-subject").value;
+    const subject_type = document.getElementById("edit-asg-subject-type")?.value || "toan";
     const assigned_date = document.getElementById("edit-asg-assigned").value;
     const due_date = document.getElementById("edit-asg-due").value.replace("T", " ");
-    const max_score = parseFloat(document.getElementById("edit-asg-maxscore").value) || 10;
     const notes = document.getElementById("edit-asg-notes").value.trim();
     const goals = (document.getElementById("edit-asg-goals")?.value || "").trim();
-    const questions = this.collectEditAsgQuestions();
+    const questions_data = this.editAsgQuestionsData || [];
+    const questions = questions_data.map(q => q.name || q.label);
+    const max_score = this.calcEditAsgTotalScore();
 
     if (!title || !due_date) {
       alert("Vui lòng nhập Tên bài tập và Hạn nộp!");
@@ -2793,11 +3922,11 @@ class LMSApp {
         const res = await fetch(`/api/assignments/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, subject, assigned_date, due_date, max_score, notes, questions, goals })
+          body: JSON.stringify({ title, subject, subject_type, assigned_date, due_date, max_score, notes, questions, goals, questions_data })
         });
         if (!res.ok) throw new Error("Cập nhật bài tập thất bại trên máy chủ.");
       } else {
-        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes, questions, goals);
+        window.ClientDB.updateAssignment(id, title, subject, assigned_date, due_date, max_score, notes, questions, goals, questions_data, subject_type);
       }
 
       alert(`✅ Đã cập nhật bài tập "${title}" thành công!`);
