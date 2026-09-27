@@ -2968,6 +2968,395 @@ class LMSApp {
     printWin.document.close();
   }
 
+  async printAllBooksQrSheet() {
+    let books = this.books;
+    if (!books || books.length === 0) {
+      if (window.ClientDB && window.ClientDB.getBooks) {
+        books = window.ClientDB.getBooks();
+      } else if (window.api && window.api.getBooks) {
+        try {
+          books = await window.api.getBooks();
+        } catch (e) {
+          console.warn("Could not fetch books from api", e);
+        }
+      }
+    }
+    if (!books || books.length === 0) {
+      alert("Chưa có danh sách sách trong kho để in!");
+      return;
+    }
+
+    // Sort by STT ascending (1..75)
+    const sorted = [...books].sort((a, b) => (parseInt(a.stt) || 0) - (parseInt(b.stt) || 0));
+
+    const totalCount = sorted.length;
+    const className = (this.settings && this.settings.class_name) ? this.settings.class_name.toUpperCase() : "LỚP 3A7";
+    const schoolName = (this.settings && this.settings.school_name) ? this.settings.school_name.toUpperCase() : "TRƯỜNG TH ÁNH DƯƠNG";
+
+    const cardsHtml = sorted.map((b, idx) => {
+      let qrSvg = "";
+      if (window.QRCode && window.QRCode.generateSVG) {
+        try {
+          qrSvg = window.QRCode.generateSVG(b.code, { margin: 2, size: 100 });
+        } catch (err) {
+          qrSvg = `<img src="/api/qr?text=${encodeURIComponent(b.code)}" alt="${b.code}" style="width:100%;height:100%;" />`;
+        }
+      } else {
+        qrSvg = `<img src="/api/qr?text=${encodeURIComponent(b.code)}" alt="${b.code}" style="width:100%;height:100%;" />`;
+      }
+
+      const safeTitle = (b.title || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeAuthor = (b.author || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeContrib = (b.contributed_by || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeCategory = (b.category || "Chung").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeShelf = (b.shelf_code || "K1").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const bookStt = b.stt || (idx + 1);
+
+      return `
+        <div class="book-qr-card">
+          <div class="qr-col">
+            <div class="qr-graphic">${qrSvg}</div>
+            <div class="book-code-mono">${b.code}</div>
+          </div>
+          <div class="info-col">
+            <div class="header-line">
+              <span class="class-tag">${className}</span>
+              <span class="stt-tag">STT #${bookStt}</span>
+            </div>
+            <div class="book-title" title="${safeTitle}">${safeTitle}</div>
+            ${safeAuthor ? `<div class="book-author">✍️ ${safeAuthor}</div>` : ""}
+            <div class="footer-meta">
+              <span class="shelf-pill">📍 Kệ ${safeShelf}</span>
+              <span class="cat-pill">${safeCategory}</span>
+            </div>
+            ${safeContrib ? `<div class="contrib-line">🎁 Sách của: <strong>${safeContrib}</strong></div>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Mã QR Sách Lớp 3A7 (${totalCount} Cuốn) - Xuất PDF / In</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm 6mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .no-print-bar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      background: #065f46;
+      color: #ffffff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .no-print-bar .title-group h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .no-print-bar .title-group p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .no-print-bar .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-action {
+      border: none;
+      outline: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn-print {
+      background: #10b981;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(16,185,129,0.4);
+    }
+    .btn-print:hover {
+      background: #059669;
+    }
+    .btn-close {
+      background: rgba(255,255,255,0.2);
+      color: #ffffff;
+    }
+    .btn-close:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .page-container {
+      max-width: 210mm;
+      margin: 12px auto;
+      background: #ffffff;
+      padding: 6mm;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      border-radius: 8px;
+    }
+    .sheet-header {
+      text-align: center;
+      border-bottom: 2px solid #059669;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .sheet-header h1 {
+      margin: 0;
+      font-size: 14pt;
+      font-weight: 900;
+      color: #065f46;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .sheet-header p {
+      margin: 2px 0 0;
+      font-size: 9pt;
+      font-weight: 600;
+      color: #475569;
+    }
+    .books-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4mm;
+    }
+    .book-qr-card {
+      border: 1.5px dashed #059669;
+      border-radius: 6px;
+      padding: 4px 6px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 38mm;
+      box-sizing: border-box;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .qr-col {
+      width: 29mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .qr-graphic {
+      width: 27mm;
+      height: 27mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-graphic svg, .qr-graphic img {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+    .book-code-mono {
+      font-family: monospace;
+      font-size: 8pt;
+      font-weight: 900;
+      color: #065f46;
+      margin-top: 1px;
+      letter-spacing: 0.5px;
+    }
+    .info-col {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+    .header-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .class-tag {
+      font-size: 6.5pt;
+      font-weight: 800;
+      color: #047857;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .stt-tag {
+      font-size: 6.5pt;
+      font-weight: 800;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 0.5px 3px;
+      border-radius: 3px;
+    }
+    .book-title {
+      font-size: 8.5pt;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.15;
+      max-height: 2.3em;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      margin: 1px 0;
+    }
+    .book-author {
+      font-size: 6.5pt;
+      color: #64748b;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .footer-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 1px;
+    }
+    .shelf-pill {
+      font-size: 6.5pt;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .cat-pill {
+      font-size: 6pt;
+      font-weight: 700;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .contrib-line {
+      font-size: 6.5pt;
+      color: #047857;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    @media print {
+      body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .no-print-bar {
+        display: none !important;
+      }
+      .page-container {
+        max-width: 100% !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .book-qr-card {
+        border: 1px dashed #334155 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div class="title-group">
+      <h2>📚 BỘ NHÃN MÃ QR KHO SÁCH (${totalCount} CUỐN)</h2>
+      <p>💡 Chọn máy in hoặc chọn <strong>"Lưu dưới dạng PDF" (Save as PDF)</strong> để xuất file PDF in tem nhãn.</p>
+    </div>
+    <div class="btn-group">
+      <button class="btn-action btn-print" onclick="window.print()">🖨️ In / Xuất PDF Ngay</button>
+      <button class="btn-action btn-close" onclick="window.close()">✖️ Đóng</button>
+    </div>
+  </div>
+
+  <div class="page-container">
+    <div class="sheet-header">
+      <h1>DANH MỤC TEM MÃ QR SÁCH - ${className}</h1>
+      <p>${schoolName} • TỔNG CỘNG: ${totalCount} ĐẦU SÁCH • HỆ THỐNG THƯ VIỆN LỚP HỌC</p>
+    </div>
+    <div class="books-grid">
+      ${cardsHtml}
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 400);
+    };
+  </script>
+</body>
+</html>`;
+
+    try {
+      const printWin = window.open("", "_blank");
+      if (printWin) {
+        printWin.document.open();
+        printWin.document.write(fullHtml);
+        printWin.document.close();
+        return;
+      }
+    } catch (e) {
+      console.warn("Popup blocked, trying iframe fallback", e);
+    }
+
+    let iframe = document.getElementById("print-books-fallback-iframe");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "print-books-fallback-iframe";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "10px";
+      iframe.style.height = "10px";
+      iframe.style.opacity = "0.01";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(fullHtml);
+    doc.close();
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }, 500);
+  }
+
   // --- Public Library Viewing (From Login Screen or Student Portal) ---
   openPublicLibrary() {
     this.currentViewMode = "public";
