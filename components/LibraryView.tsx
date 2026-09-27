@@ -22,6 +22,8 @@ export default function LibraryView({ students }: LibraryViewProps) {
   const [activeLoans, setActiveLoans] = useState<BookLoan[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [raceSearch, setRaceSearch] = useState("");
+  const [raceFilter, setRaceFilter] = useState<"all" | "top3" | "milestone15" | "finished">("all");
 
   // Borrow form state
   const [borrowStudentId, setBorrowStudentId] = useState<string>("");
@@ -162,6 +164,17 @@ export default function LibraryView({ students }: LibraryViewProps) {
       b.code.toLowerCase().includes(q) ||
       String(b.stt) === q;
     return matchCat && matchQ;
+  });
+
+  const filteredRaceList = raceList.filter((st) => {
+    if (raceFilter === "top3" && ((st.rank || 99) > 3 || (Number(st.completed) || 0) <= 0)) return false;
+    if (raceFilter === "milestone15" && (Number(st.completed) || 0) < 15) return false;
+    if (raceFilter === "finished" && (Number(st.completed) || 0) < 33) return false;
+    if (raceSearch.trim()) {
+      const q = raceSearch.toLowerCase().trim();
+      return st.name.toLowerCase().includes(q) || st.code.toLowerCase().includes(q);
+    }
+    return true;
   });
 
   const handleResetBooksCatalog = async () => {
@@ -360,7 +373,7 @@ export default function LibraryView({ students }: LibraryViewProps) {
       </div>
 
       {/* 3D Tabs Navigation */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
+      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none sm:grid sm:grid-cols-5 sm:gap-3">
         {[
           { id: "race", label: "🎯 Hành Trình", color: "bg-emerald-600" },
           { id: "borrow", label: "📥 Mượn Sách", color: "bg-sky-600" },
@@ -371,7 +384,7 @@ export default function LibraryView({ students }: LibraryViewProps) {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`min-h-[50px] rounded-2xl px-2 text-xs sm:text-sm font-black uppercase transition-all shadow-sm border ${
+            className={`min-h-[46px] sm:min-h-[50px] shrink-0 whitespace-nowrap rounded-2xl px-3 sm:px-2 text-xs sm:text-sm font-black uppercase transition-all shadow-sm border ${
               activeTab === tab.id
                 ? `${tab.color} text-white border-transparent shadow-md scale-102`
                 : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
@@ -384,140 +397,325 @@ export default function LibraryView({ students }: LibraryViewProps) {
 
       {/* TAB 1: HÀNH TRÌNH (RACE) */}
       {activeTab === "race" && (
-        <section className="rounded-3xl bg-white p-5 sm:p-7 shadow-sm border border-emerald-100">
-          <div className="mb-5 flex items-end justify-between gap-4">
+        <section className="rounded-3xl bg-white p-4 sm:p-7 shadow-sm border border-emerald-100 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-amber-600">
                 Toàn lớp cùng tiến lên
               </p>
-              <h3 className="text-2xl font-black text-[#17352a]">Đường đua 33 quyển sách 🏁</h3>
+              <h3 className="text-xl sm:text-2xl font-black text-[#17352a]">Đường đua 33 quyển sách 🏁</h3>
               <p className="mt-1 text-xs sm:text-sm text-slate-500">
                 Danh sách tự xếp từ bạn đọc nhiều nhất xuống ít nhất. Bằng số sách sẽ cùng hạng.
               </p>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-emerald-100">
-            <div className="min-w-[980px]">
-              {/* Header */}
-              <div className="grid grid-cols-[56px_200px_1fr_96px_180px] items-end gap-3 bg-[#17352a] px-4 py-3 text-xs sm:text-sm font-bold text-white">
-                <span>Hạng</span>
-                <span>Độc giả</span>
-                <div className="relative h-12 text-xs text-emerald-100">
-                  <div className="absolute inset-x-0 top-0 h-5 font-black text-white">
-                    <span className="absolute left-[45.45%] -translate-x-1/2">Tháng 12</span>
-                    <span className="absolute right-0">Tháng 4</span>
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 h-5">
-                    <span className="absolute left-0">0</span>
-                    <span className="absolute left-1/3 -translate-x-1/2">11</span>
-                    <span className="absolute left-[45.45%] -translate-x-1/2 font-black text-sky-300">15</span>
-                    <span className="absolute left-2/3 -translate-x-1/2">22</span>
-                    <span className="absolute right-0 font-black text-amber-300">33 🏁</span>
-                  </div>
-                </div>
-                <span className="text-right">Tiến độ</span>
-                <span className="text-center">Cô cập nhật</span>
+          {/* Milestone Goals Summary Banner */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div className="flex items-center gap-2.5 p-3 rounded-2xl border border-sky-200 bg-sky-50/70">
+              <span className="text-2xl">🎯</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase text-sky-700 tracking-wider">MỐC THÁNG 12</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 truncate">15 Quyển Sách</p>
               </div>
-
-              {/* Rows */}
-              {raceList.map((st) => {
-                const completed = Number(st.completed) || 0;
-                const pct = Math.min(100, Math.round((completed / 33) * 1000) / 10);
-                const rank = st.rank || 1;
-
-                return (
-                  <div
-                    key={st.student_id}
-                    className={`grid grid-cols-[56px_200px_1fr_96px_180px] items-center gap-3 border-t border-emerald-100 px-4 py-3 transition-colors ${
-                      completed > 0 && rank === 1
-                        ? "bg-gradient-to-r from-amber-100 via-yellow-50 to-amber-100"
-                        : completed > 0 && rank === 2
-                        ? "bg-gradient-to-r from-slate-100 via-white to-slate-100"
-                        : completed > 0 && rank === 3
-                        ? "bg-gradient-to-r from-orange-100 via-white to-orange-50"
-                        : "bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div>
-                      {completed > 0 && rank <= 3 ? (
-                        <span className="text-2xl">
-                          {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
-                        </span>
-                      ) : (
-                        <span className="grid size-8 place-items-center rounded-full bg-emerald-100 font-black text-emerald-700 text-xs">
-                          {rank}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <button
-                        onClick={() => setSelectedPetStudentId(st.student_id)}
-                        title="Bấm để đổi thú cưng"
-                        className="size-10 rounded-full border border-emerald-200 bg-white grid place-items-center text-xl shrink-0 hover:scale-110 transition-transform shadow-xs"
-                      >
-                        {st.avatar || "🐶"}
-                      </button>
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-slate-800 text-sm">{st.name}</p>
-                        <p className="text-[11px] font-semibold text-slate-400">{st.code}</p>
-                      </div>
-                    </div>
-
-                    {/* Dynamic track */}
-                    <div className="relative h-10 flex items-center">
-                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2.5 rounded-full bg-emerald-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="absolute left-1/3 top-1/2 -translate-y-1/2 h-4 w-px bg-white/90" />
-                      <span className="absolute left-[45.45%] top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-sky-400" />
-                      <span className="absolute left-2/3 top-1/2 -translate-y-1/2 h-4 w-px bg-white/90" />
-
-                      <span
-                        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-7 rounded-full bg-white border-2 border-emerald-600 shadow-md grid place-items-center text-xs transition-all duration-300"
-                        style={{ left: `${pct}%` }}
-                      >
-                        {completed > 0 ? st.avatar || "🐶" : "🐾"}
-                      </span>
-                    </div>
-
-                    {/* Progress text */}
-                    <div className="text-right">
-                      <p className="font-black text-emerald-700 text-sm">{completed}/33</p>
-                      {completed > 33 ? (
-                        <p className="text-[11px] font-bold text-amber-600">+{completed - 33} vượt đích</p>
-                      ) : completed === 33 ? (
-                        <p className="text-[11px] font-bold text-emerald-600">Về đích! 🏁</p>
-                      ) : (
-                        <p className="text-[11px] text-slate-400">còn {33 - completed}</p>
-                      )}
-                    </div>
-
-                    {/* Teacher controls */}
-                    <div className="flex justify-center gap-1.5">
-                      <button
-                        onClick={() => handleUpdateRace(st.student_id, -1)}
-                        disabled={completed <= 0}
-                        className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white text-xs font-bold hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
-                      >
-                        -1 ô
-                      </button>
-                      <button
-                        onClick={() => handleUpdateRace(st.student_id, 1)}
-                        className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
-                      >
-                        + 1 ô
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+            </div>
+            <div className="flex items-center gap-2.5 p-3 rounded-2xl border border-amber-200 bg-amber-50/70">
+              <span className="text-2xl">🏁</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">ĐÍCH THÁNG 4</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 truncate">33 Quyển Sách</p>
+              </div>
+            </div>
+            <div className="col-span-2 sm:col-span-1 flex items-center gap-2.5 p-3 rounded-2xl border border-emerald-200 bg-emerald-50/70">
+              <span className="text-2xl">🌟</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">MỤC TIÊU LỚP</p>
+                <p className="text-xs sm:text-sm font-black text-slate-900 truncate">29 Độc Giả 3A7</p>
+              </div>
             </div>
           </div>
+
+          {/* Search and Filters */}
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={raceSearch}
+              onChange={(e) => setRaceSearch(e.target.value)}
+              placeholder="🔍 Tìm tên bạn trên đường đua (29 bạn)..."
+              className="w-full h-11 rounded-xl border border-slate-300 px-3.5 font-semibold text-xs sm:text-sm focus:outline-emerald-500"
+            />
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-bold">
+              {[
+                { id: "all", label: `Tất cả (${raceList.length})` },
+                { id: "top3", label: "🏆 Top 3 Dẫn Đầu" },
+                { id: "milestone15", label: "🎯 Đạt Mốc 15+" },
+                { id: "finished", label: "🏁 Về Đích (33+)" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setRaceFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-full border shrink-0 transition-all ${
+                    raceFilter === f.id
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredRaceList.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 font-bold text-sm">
+              Không tìm thấy độc giả nào phù hợp với bộ lọc
+            </div>
+          ) : (
+            <>
+              {/* DESKTOP TABLE VIEW (hidden on mobile, visible on md+) */}
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-emerald-100">
+                <div className="min-w-[980px]">
+                  {/* Header */}
+                  <div className="grid grid-cols-[56px_200px_1fr_96px_180px] items-end gap-3 bg-[#17352a] px-4 py-3 text-xs sm:text-sm font-bold text-white">
+                    <span>Hạng</span>
+                    <span>Độc giả</span>
+                    <div className="relative h-12 text-xs text-emerald-100">
+                      <div className="absolute inset-x-0 top-0 h-5 font-black text-white">
+                        <span className="absolute left-[45.45%] -translate-x-1/2">Tháng 12</span>
+                        <span className="absolute right-0">Tháng 4</span>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 h-5">
+                        <span className="absolute left-0">0</span>
+                        <span className="absolute left-1/3 -translate-x-1/2">11</span>
+                        <span className="absolute left-[45.45%] -translate-x-1/2 font-black text-sky-300">15</span>
+                        <span className="absolute left-2/3 -translate-x-1/2">22</span>
+                        <span className="absolute right-0 font-black text-amber-300">33 🏁</span>
+                      </div>
+                    </div>
+                    <span className="text-right">Tiến độ</span>
+                    <span className="text-center">Cô cập nhật</span>
+                  </div>
+
+                  {/* Rows */}
+                  {filteredRaceList.map((st) => {
+                    const completed = Number(st.completed) || 0;
+                    const pct = Math.min(100, Math.round((completed / 33) * 1000) / 10);
+                    const rank = st.rank || 1;
+
+                    return (
+                      <div
+                        key={st.student_id}
+                        className={`grid grid-cols-[56px_200px_1fr_96px_180px] items-center gap-3 border-t border-emerald-100 px-4 py-3 transition-colors ${
+                          completed > 0 && rank === 1
+                            ? "bg-gradient-to-r from-amber-100 via-yellow-50 to-amber-100"
+                            : completed > 0 && rank === 2
+                            ? "bg-gradient-to-r from-slate-100 via-white to-slate-100"
+                            : completed > 0 && rank === 3
+                            ? "bg-gradient-to-r from-orange-100 via-white to-orange-50"
+                            : "bg-white hover:bg-slate-50"
+                        }`}
+                      >
+                        <div>
+                          {completed > 0 && rank <= 3 ? (
+                            <span className="text-2xl">
+                              {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+                            </span>
+                          ) : (
+                            <span className="grid size-8 place-items-center rounded-full bg-emerald-100 font-black text-emerald-700 text-xs">
+                              {rank}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <button
+                            onClick={() => setSelectedPetStudentId(st.student_id)}
+                            title="Bấm để đổi thú cưng"
+                            className="size-10 rounded-full border border-emerald-200 bg-white grid place-items-center text-xl shrink-0 hover:scale-110 transition-transform shadow-xs"
+                          >
+                            {st.avatar || "🐶"}
+                          </button>
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-slate-800 text-sm">{st.name}</p>
+                            <p className="text-[11px] font-semibold text-slate-400">{st.code}</p>
+                          </div>
+                        </div>
+
+                        {/* Dynamic track */}
+                        <div className="relative h-10 flex items-center">
+                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2.5 rounded-full bg-emerald-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-300"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="absolute left-1/3 top-1/2 -translate-y-1/2 h-4 w-px bg-white/90" />
+                          <span className="absolute left-[45.45%] top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-sky-400" />
+                          <span className="absolute left-2/3 top-1/2 -translate-y-1/2 h-4 w-px bg-white/90" />
+
+                          <span
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-7 rounded-full bg-white border-2 border-emerald-600 shadow-md grid place-items-center text-xs transition-all duration-300"
+                            style={{ left: `${pct}%` }}
+                          >
+                            {completed > 0 ? st.avatar || "🐶" : "🐾"}
+                          </span>
+                        </div>
+
+                        {/* Progress text */}
+                        <div className="text-right">
+                          <p className="font-black text-emerald-700 text-sm">{completed}/33</p>
+                          {completed > 33 ? (
+                            <p className="text-[11px] font-bold text-amber-600">+{completed - 33} vượt đích</p>
+                          ) : completed === 33 ? (
+                            <p className="text-[11px] font-bold text-emerald-600">Về đích! 🏁</p>
+                          ) : (
+                            <p className="text-[11px] text-slate-400">còn {33 - completed}</p>
+                          )}
+                        </div>
+
+                        {/* Teacher controls */}
+                        <div className="flex justify-center gap-1.5">
+                          <button
+                            onClick={() => handleUpdateRace(st.student_id, -1)}
+                            disabled={completed <= 0}
+                            className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white text-xs font-bold hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                          >
+                            -1 ô
+                          </button>
+                          <button
+                            onClick={() => handleUpdateRace(st.student_id, 1)}
+                            className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
+                          >
+                            + 1 ô
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* MOBILE CARD VIEW (visible on mobile < md, hidden on md+) */}
+              <div className="md:hidden space-y-3">
+                {filteredRaceList.map((st) => {
+                  const completed = Number(st.completed) || 0;
+                  const pct = Math.min(100, Math.round((completed / 33) * 1000) / 10);
+                  const rank = st.rank || 1;
+
+                  return (
+                    <div
+                      key={st.student_id}
+                      className={`rounded-2xl border p-3.5 space-y-3 shadow-xs transition-all ${
+                        completed > 0 && rank === 1
+                          ? "bg-gradient-to-br from-amber-50 to-yellow-100/60 border-amber-300"
+                          : completed > 0 && rank === 2
+                          ? "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-300"
+                          : completed > 0 && rank === 3
+                          ? "bg-gradient-to-br from-orange-50 to-orange-100/60 border-orange-300"
+                          : "bg-white border-slate-200"
+                      }`}
+                    >
+                      {/* Top: Rank + Avatar + Name + Progress */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {completed > 0 && rank <= 3 ? (
+                            <span className="text-2xl shrink-0">
+                              {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+                            </span>
+                          ) : (
+                            <span className="grid size-7 place-items-center rounded-full bg-emerald-100 font-black text-emerald-700 text-xs shrink-0">
+                              {rank}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => setSelectedPetStudentId(st.student_id)}
+                            title="Bấm để đổi thú cưng"
+                            className="size-9 rounded-full border border-emerald-200 bg-white grid place-items-center text-lg shrink-0 hover:scale-110 transition-transform shadow-xs"
+                          >
+                            {st.avatar || "🐶"}
+                          </button>
+                          <div className="min-w-0">
+                            <p className="truncate font-extrabold text-slate-900 text-sm leading-tight">{st.name}</p>
+                            <p className="text-[11px] font-semibold text-slate-500">{st.code} • Hạng {rank}</p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-emerald-700 text-sm leading-tight">
+                            {completed}/33 <span className="text-[10px] text-slate-500 font-semibold">cuốn</span>
+                          </p>
+                          {completed > 33 ? (
+                            <p className="text-[10px] font-bold text-amber-600">+{completed - 33} vượt đích!</p>
+                          ) : completed === 33 ? (
+                            <p className="text-[10px] font-bold text-emerald-600">🏁 Về đích!</p>
+                          ) : (
+                            <p className="text-[10px] text-slate-400 font-medium">còn {33 - completed}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Track with Milestones */}
+                      <div className="space-y-1 pt-1">
+                        {/* Milestone scale */}
+                        <div className="relative h-4 text-[9.5px] font-extrabold">
+                          <span className="absolute left-0 text-slate-400">0</span>
+                          <span className="absolute left-1/3 -translate-x-1/2 text-slate-500">11</span>
+                          <span className="absolute left-[45.45%] -translate-x-1/2 text-sky-700 bg-sky-100 px-1 py-0.5 rounded text-[9px] font-black">
+                            🎯 15 (T12)
+                          </span>
+                          <span className="absolute left-2/3 -translate-x-1/2 text-slate-500">22</span>
+                          <span className="absolute right-0 text-amber-700 bg-amber-100 px-1 py-0.5 rounded text-[9px] font-black">
+                            33 🏁 (T4)
+                          </span>
+                        </div>
+
+                        {/* Track Bar */}
+                        <div className="relative h-7 flex items-center">
+                          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-300"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="absolute left-1/3 top-1/2 -translate-y-1/2 h-3.5 w-0.5 bg-white/90" />
+                          <span className="absolute left-[45.45%] top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-sky-400" />
+                          <span className="absolute left-2/3 top-1/2 -translate-y-1/2 h-3.5 w-0.5 bg-white/90" />
+
+                          <span
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-7 rounded-full bg-white border-2 border-emerald-600 shadow-md grid place-items-center text-xs transition-all duration-300"
+                            style={{ left: `${pct}%` }}
+                          >
+                            {completed > 0 ? st.avatar || "🐶" : "🐾"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Controls */}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-dashed border-slate-200">
+                        <button
+                          onClick={() => handleUpdateRace(st.student_id, -1)}
+                          disabled={completed <= 0}
+                          className="h-10 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-xs font-bold hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 flex items-center justify-center gap-1"
+                        >
+                          ↩️ -1 ô
+                        </button>
+                        <button
+                          onClick={() => handleUpdateRace(st.student_id, 1)}
+                          className="col-span-2 h-10 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs flex items-center justify-center gap-1"
+                        >
+                          📖 + 1 ô ĐÃ ĐỌC
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <p className="mt-4 text-xs font-semibold text-slate-500 text-center">
+            🐾 Mỗi bạn có một thú cưng chạy trên đường đua 33 quyển. Bấm vào thú cưng để đổi biểu tượng yêu thích!
+          </p>
         </section>
       )}
 

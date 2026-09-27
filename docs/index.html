@@ -1023,6 +1023,44 @@
               </div>
             </div>
 
+            <!-- Milestone Goals Summary Banner -->
+            <div class="race-milestones-summary-card">
+              <div class="ms-pill ms-pill-t12">
+                <span class="ms-icon">🎯</span>
+                <div class="ms-body">
+                  <div class="ms-title">MỐC THÁNG 12</div>
+                  <div class="ms-val">15 Quyển Sách</div>
+                </div>
+              </div>
+              <div class="ms-pill ms-pill-t4">
+                <span class="ms-icon">🏁</span>
+                <div class="ms-body">
+                  <div class="ms-title">ĐÍCH THÁNG 4</div>
+                  <div class="ms-val">33 Quyển Sách</div>
+                </div>
+              </div>
+              <div class="ms-pill ms-pill-avg">
+                <span class="ms-icon">🌟</span>
+                <div class="ms-body">
+                  <div class="ms-title">MỤC TIÊU LỚP</div>
+                  <div class="ms-val" id="race-total-readers-badge">29 Độc Giả 3A7</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Race Search and Filters -->
+            <div class="race-toolbar-container">
+              <div class="race-search-box">
+                <input type="text" id="lib-race-search-input" class="form-control" style="height: 44px; border-radius: 14px; font-weight: 600;" placeholder="🔍 Tìm tên bạn trên đường đua (29 bạn)..." oninput="app.onRaceSearch(this.value)">
+              </div>
+              <div class="race-filter-pills-row">
+                <button class="race-filter-pill active" onclick="app.filterRaceList('all', this)">Tất cả (29)</button>
+                <button class="race-filter-pill" onclick="app.filterRaceList('top3', this)">🏆 Top 3 Dẫn Đầu</button>
+                <button class="race-filter-pill" onclick="app.filterRaceList('milestone15', this)">🎯 Đạt Mốc 15+</button>
+                <button class="race-filter-pill" onclick="app.filterRaceList('finished', this)">🏁 Về Đích (33+)</button>
+              </div>
+            </div>
+
             <!-- Race Board Table -->
             <div class="race-board-wrapper">
               <div class="race-board-table">
@@ -1053,8 +1091,8 @@
                 </div>
               </div>
             </div>
-            <p style="margin-top: 12px; font-size: 12px; color: #94a3b8; text-align: center;">
-              💡 Vuốt ngang để xem trọn đường đua và nút cập nhật trên điện thoại.
+            <p class="race-hint-mobile" style="margin-top: 14px; font-size: 12px; color: #64748b; text-align: center; font-weight: 600;">
+              🐾 Mỗi bạn có một thú cưng chạy trên đường đua 33 quyển. Bấm vào thú cưng để đổi biểu tượng yêu thích!
             </p>
           </div>
         </div>

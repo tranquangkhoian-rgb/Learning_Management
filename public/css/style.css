@@ -1846,6 +1846,141 @@ main.app-main {
   margin: 4px 0 0;
 }
 
+/* Milestone Summary Banner */
+.race-milestones-summary-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ms-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.ms-pill-t12 {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.ms-pill-t4 {
+  background: #fefce8;
+  border-color: #fef08a;
+}
+
+.ms-pill-avg {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.ms-icon {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ms-body {
+  min-width: 0;
+}
+
+.ms-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.ms-val {
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+/* Race Toolbar (Search & Filter Pills) */
+.race-toolbar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.race-filter-pills-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.race-filter-pills-row::-webkit-scrollbar {
+  display: none;
+}
+
+.race-filter-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 800;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.race-filter-pill.active {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+.race-filter-pill:hover:not(.active) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* Desktop defaults for mobile-adaptive elements */
+.race-track-bar-container {
+  position: relative;
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+.race-track-milestones-mobile {
+  display: none;
+}
+
+.race-rank-mobile {
+  display: none;
+}
+
+.race-progress-unit {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.race-reader-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .race-board-wrapper {
   overflow-x: auto;
   border-radius: 18px;
@@ -2380,20 +2515,356 @@ main.app-main {
 
 /* Responsive adjustments */
 @media (max-width: 900px) {
-  .lib-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .lib-tabs-bar {
-    grid-template-columns: repeat(3, 1fr);
-  }
   .borrow-grid-layout {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  /* Sub-tabs bar: Smooth horizontal scrollable strip */
   .lib-tabs-bar {
-    grid-template-columns: repeat(2, 1fr);
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 16px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .lib-tabs-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .nav-tab-3d {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    border-radius: 14px !important;
+  }
+
+  /* Overview Metrics 4 cards */
+  .lib-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+  .lib-stat-card {
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+  .lib-stat-val {
+    font-size: 22px !important;
+  }
+  .lib-stat-label {
+    font-size: 11px !important;
+  }
+
+  /* Reading Race Mobile Card */
+  .race-section-card {
+    padding: 14px !important;
+    border-radius: 20px !important;
+  }
+
+  .race-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .race-title {
+    font-size: 20px !important;
+    line-height: 1.25 !important;
+  }
+
+  .race-subtitle {
+    font-size: 12px !important;
+  }
+
+  .race-milestones-summary-card {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .ms-pill {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .ms-pill-avg {
+    grid-column: span 2 !important;
+  }
+
+  .ms-icon {
+    font-size: 22px !important;
+  }
+
+  .ms-title {
+    font-size: 9.5px !important;
+  }
+
+  .ms-val {
+    font-size: 13px !important;
+  }
+
+  .race-board-wrapper {
+    overflow-x: visible !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .race-board-table {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Hide Desktop Table Header on Mobile */
+  .race-header-row {
+    display: none !important;
+  }
+
+  /* Student Row becomes a Mobile Card */
+  .race-student-row {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto !important;
+    grid-template-areas:
+      "rank reader progress"
+      "track track track"
+      "controls controls controls" !important;
+    row-gap: 8px !important;
+    column-gap: 10px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 12px !important;
+    border-radius: 18px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+  }
+
+  .race-student-row.rank-1 {
+    border-color: #fde68a !important;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15) !important;
+  }
+
+  .race-student-row.rank-2 {
+    border-color: #cbd5e1 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+  }
+
+  .race-student-row.rank-3 {
+    border-color: #fed7aa !important;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%) !important;
+  }
+
+  .race-col-rank {
+    grid-area: rank !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .rank-badge {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  .rank-medal-icon {
+    font-size: 26px !important;
+  }
+
+  .race-reader-info {
+    grid-area: reader !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  .race-pet-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 20px !important;
+  }
+
+  .race-reader-names {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .race-reader-name {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
+  }
+
+  .race-reader-code {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+  }
+
+  .race-rank-mobile {
+    display: inline-block !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #059669 !important;
+    background: #ecfdf5 !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+  }
+
+  .race-progress-text {
+    grid-area: progress !important;
+    text-align: right !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+  }
+
+  .race-progress-main {
+    font-size: 15px !important;
+    font-weight: 900 !important;
+    color: #065f46 !important;
+    line-height: 1.1 !important;
+  }
+
+  .race-progress-unit {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+  }
+
+  .race-progress-sub {
+    font-size: 11px !important;
+    margin-top: 1px !important;
+  }
+
+  /* Track layout on mobile */
+  .race-track-cell {
+    grid-area: track !important;
+    width: 100% !important;
+    margin-top: 6px !important;
+    margin-bottom: 4px !important;
+    padding: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .race-track-milestones-mobile {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 16px !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .rt-m {
+    position: absolute !important;
+    transform: translateX(-50%) !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+
+  .rt-0 {
+    left: 0% !important;
+    transform: translateX(0%) !important;
+    color: #94a3b8 !important;
+  }
+
+  .rt-11 {
+    left: 33.33% !important;
+    color: #64748b !important;
+  }
+
+  .rt-15 {
+    left: 45.45% !important;
+    color: #0284c7 !important;
+    font-weight: 900 !important;
+    background: #e0f2fe !important;
+    padding: 1px 4px !important;
+    border-radius: 4px !important;
+  }
+
+  .rt-22 {
+    left: 66.66% !important;
+    color: #64748b !important;
+  }
+
+  .rt-33 {
+    left: 100% !important;
+    transform: translateX(-100%) !important;
+    color: #b45309 !important;
+    font-weight: 900 !important;
+    background: #fef3c7 !important;
+    padding: 1px 4px !important;
+    border-radius: 4px !important;
+  }
+
+  .race-track-bar-container {
+    position: relative !important;
+    width: 100% !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .race-track-bg {
+    height: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .race-runner-marker {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 18px !important;
+  }
+
+  /* Teacher Touch-friendly Action Buttons */
+  .race-controls-cell {
+    grid-area: controls !important;
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 2fr !important;
+    gap: 8px !important;
+    margin-top: 4px !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed #e2e8f0 !important;
+  }
+
+  .btn-race-step {
+    height: 42px !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+
+  .btn-race-step.dec {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .btn-race-step.inc {
+    background: #059669 !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25) !important;
   }
 }
 
