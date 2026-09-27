@@ -119,6 +119,20 @@
         </button>
       </div>
 
+      <!-- READING RACE & LIBRARY DIRECT SHORTCUT BOX -->
+      <div class="kiosk-shortcut-card" style="background: linear-gradient(135deg, #ecfdf5, #f0fdf4); border: 2px solid #10b981; margin-top: 14px;">
+        <div class="kiosk-shortcut-info">
+          <div class="kiosk-shortcut-icon" style="background: #10b981; color: white;">📖</div>
+          <div>
+            <h4 style="color: #065f46;">3A7 – Hành Trình Đọc Sách • One Book, One Thought</h4>
+            <p>Đường đua 33 quyển sách & Khám phá 75 đầu sách thư viện Lớp 3A7</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="app.openPublicLibrary()" style="background: #059669; border-color: #047857; font-weight: 800;">
+          🏁 Xem Đường Đua & Kho Sách ➔
+        </button>
+      </div>
+
       <div class="login-footer">
         <p>© 2026 Lớp 3A7 • Trường Tiểu Học Ánh Dương • Hệ Thống Nộp Bài & Điểm Số Cô Linh</p>
       </div>
@@ -291,6 +305,7 @@
       <button class="nav-tab" onclick="app.switchTab('pane-analytics')">📊 Thống Kê 3 Chiều</button>
       <button class="nav-tab" onclick="app.switchTab('pane-students')">👥 Quản Lý Học Sinh</button>
       <button class="nav-tab" onclick="app.switchTab('pane-print')">🏷️ In Thẻ QR Mini (A4)</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-library')">📖 Thư Viện & Đọc Sách</button>
       <button class="nav-tab" onclick="app.switchTab('pane-settings')">⚙️ Cài Đặt & Google Sheets</button>
     </div>
   </nav>
@@ -920,6 +935,303 @@
       </div>
     </section>
 
+    <!-- ====================================================================
+         TAB 8: THƯ VIỆN & ĐƯỜNG ĐUA ĐỌC SÁCH 3A7 (ONE BOOK, ONE THOUGHT)
+         ==================================================================== -->
+    <section id="pane-library" class="tab-pane">
+      <div class="lib-container">
+
+        <!-- Hero Header -->
+        <div class="lib-hero-header">
+          <div class="lib-hero-brand">
+            <div class="lib-hero-icon">📖</div>
+            <div class="lib-hero-titles">
+              <h2>3A7 – HÀNH TRÌNH ĐỌC SÁCH</h2>
+              <p>ONE BOOK, ONE THOUGHT • ĐƯỜNG ĐUA 33 QUYỂN SÁCH</p>
+            </div>
+          </div>
+          <div class="lib-hero-actions">
+            <button class="btn btn-outline btn-sm" onclick="app.loadLibraryData()">
+              🔄 Làm Mới Dữ Liệu
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="app.openNewBookModal()">
+              ➕ Thêm Sách Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Overview Metric Stats Cards -->
+        <div class="lib-stats-grid">
+          <div class="lib-stat-card">
+            <div class="lib-stat-icon emerald">📚</div>
+            <div class="lib-stat-val" id="lib-stat-total-books">75</div>
+            <div class="lib-stat-label">Sách trong thư viện</div>
+          </div>
+          <div class="lib-stat-card">
+            <div class="lib-stat-icon sky">📖</div>
+            <div class="lib-stat-val" id="lib-stat-borrowed-books">0</div>
+            <div class="lib-stat-label">Đang được mượn</div>
+          </div>
+          <div class="lib-stat-card">
+            <div class="lib-stat-icon violet">👥</div>
+            <div class="lib-stat-val" id="lib-stat-readers">29</div>
+            <div class="lib-stat-label">Độc giả (Lớp 3A7)</div>
+          </div>
+          <div class="lib-stat-card">
+            <div class="lib-stat-icon rose">⏰</div>
+            <div class="lib-stat-val" id="lib-stat-overdue-books">0</div>
+            <div class="lib-stat-label">Đã quá hạn</div>
+          </div>
+        </div>
+
+        <!-- 3D Library Navigation Sub-Tabs -->
+        <div class="lib-tabs-bar">
+          <button type="button" class="nav-tab-3d nav-tab-race active" onclick="app.switchLibSubTab('race')">
+            🎯 Hành Trình
+          </button>
+          <button type="button" class="nav-tab-3d nav-tab-borrow" onclick="app.switchLibSubTab('borrow')">
+            📥 Mượn Sách
+          </button>
+          <button type="button" class="nav-tab-3d nav-tab-return" onclick="app.switchLibSubTab('return')">
+            📤 Trả Sách
+          </button>
+          <button type="button" class="nav-tab-3d nav-tab-library" onclick="app.switchLibSubTab('catalog')">
+            📚 Kho Sách
+          </button>
+          <button type="button" class="nav-tab-3d nav-tab-stats" onclick="app.switchLibSubTab('stats')">
+            📊 Thống Kê
+          </button>
+        </div>
+
+        <!-- SUB-PANE 1: HÀNH TRÌNH (ĐƯỜNG ĐUA 33 QUYỂN SÁCH) -->
+        <div id="lib-sub-race" class="lib-sub-pane active">
+          <div class="race-section-card">
+            <div class="race-header">
+              <div>
+                <span class="race-badge">🌟 TOÀN LỚP CÙNG TIẾN LÊN</span>
+                <h3 class="race-title">
+                  Đường đua 33 quyển sách 🏁
+                </h3>
+                <p class="race-subtitle">
+                  Danh sách tự xếp từ bạn đọc nhiều nhất xuống ít nhất. Bằng số sách sẽ cùng hạng.
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-kiosk" onclick="app.openJournalReviewScanner()">
+                  📷 Quét Sổ – Duyệt Đúc Kết
+                </button>
+              </div>
+            </div>
+
+            <!-- Race Board Table -->
+            <div class="race-board-wrapper">
+              <div class="race-board-table">
+                <!-- Header Row -->
+                <div class="race-grid-row race-header-row">
+                  <span>Hạng</span>
+                  <span>Độc giả</span>
+                  <div class="race-track-header">
+                    <div class="race-track-header-top">
+                      <span style="position: absolute; left: 45.45%; transform: translateX(-50%);">Tháng 12</span>
+                      <span style="position: absolute; right: 0;">Tháng 4</span>
+                    </div>
+                    <div class="race-track-header-bot">
+                      <span style="position: absolute; left: 0;">0</span>
+                      <span style="position: absolute; left: 33.33%; transform: translateX(-50%);">11</span>
+                      <span style="position: absolute; left: 45.45%; transform: translateX(-50%); font-weight: 900; color: #38bdf8;">15</span>
+                      <span style="position: absolute; left: 66.66%; transform: translateX(-50%);">22</span>
+                      <span style="position: absolute; right: 0; font-weight: 900; color: #fbbf24;">33 🏁</span>
+                    </div>
+                  </div>
+                  <span style="text-align: right;">Tiến độ</span>
+                  <span style="text-align: center;" id="lib-race-header-ctrl">Cô cập nhật</span>
+                </div>
+
+                <!-- Dynamically populated 29 student rows -->
+                <div id="lib-race-tbody">
+                  <!-- Rows injected here -->
+                </div>
+              </div>
+            </div>
+            <p style="margin-top: 12px; font-size: 12px; color: #94a3b8; text-align: center;">
+              💡 Vuốt ngang để xem trọn đường đua và nút cập nhật trên điện thoại.
+            </p>
+          </div>
+        </div>
+
+        <!-- SUB-PANE 2: MƯỢN SÁCH -->
+        <div id="lib-sub-borrow" class="lib-sub-pane">
+          <div class="borrow-grid-layout">
+            <!-- Left: Stepper -->
+            <div class="borrow-step-card">
+              <span class="borrow-step-badge step1">BƯỚC 1</span>
+              <h3 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 0 0 12px;">Chọn Học Sinh</h3>
+              
+              <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px;">
+                <select id="lib-borrow-student-select" class="form-control" style="height: 52px; font-size: 15px; font-weight: 700;" onchange="app.onLibBorrowStudentChange()">
+                  <option value="">-- Chọn tên trong danh sách 29 bạn --</option>
+                </select>
+                <button type="button" class="btn btn-outline" style="height: 52px; border-radius: 16px; padding: 0 16px; font-weight: 800;" onclick="app.openLibScanner('student')">
+                  📷 Quét Thẻ
+                </button>
+              </div>
+
+              <!-- Selected Student Notification -->
+              <div id="lib-borrow-student-selected" class="borrow-selected-badge" style="display: none;">
+                <span>✅</span>
+                <span id="lib-borrow-student-name">Chưa chọn học sinh</span>
+              </div>
+
+              <div style="height: 1px; background: #e2e8f0; margin: 24px 0;"></div>
+
+              <span class="borrow-step-badge step2">BƯỚC 2</span>
+              <h3 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 0 0 12px;">Chọn Hoặc Quét Sách</h3>
+
+              <button type="button" class="scan-aqua-btn" style="margin-bottom: 14px;" onclick="app.openLibScanner('bookBorrow')">
+                <span>📷 Mở Camera Quét Mã Sách</span>
+              </button>
+
+              <div class="form-group">
+                <label class="form-label" for="lib-borrow-book-select">Hoặc chọn sách từ kho 75 đầu sách:</label>
+                <select id="lib-borrow-book-select" class="form-control" style="height: 50px; font-weight: 600;" onchange="app.onLibBorrowBookChange()">
+                  <option value="">-- Chọn cuốn sách cần mượn --</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="lib-borrow-days">Số ngày mượn:</label>
+                <select id="lib-borrow-days" class="form-control" style="font-weight: 600;">
+                  <option value="7">7 ngày (1 tuần)</option>
+                  <option value="14" selected>14 ngày (2 tuần - Khuyên dùng)</option>
+                  <option value="21">21 ngày (3 tuần)</option>
+                  <option value="30">30 ngày (1 tháng)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="lib-borrow-notes">Ghi chú (tùy chọn):</label>
+                <input type="text" id="lib-borrow-notes" class="form-control" placeholder="Ví dụ: Đọc tại lớp, mang về nhà...">
+              </div>
+
+              <button type="button" class="btn btn-primary btn-block" style="height: 52px; font-size: 16px; font-weight: 800; border-radius: 16px; margin-top: 16px;" onclick="app.confirmBorrowBook()">
+                ✅ Xác Nhận Cho Mượn Sách
+              </button>
+            </div>
+
+            <!-- Right: Active Loans Table -->
+            <div class="borrow-step-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0;">
+                  Sách Đang Được Mượn (<span id="lib-active-loans-count">0</span>)
+                </h3>
+              </div>
+              <div id="lib-active-loans-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 560px; overflow-y: auto;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANE 3: TRẢ SÁCH -->
+        <div id="lib-sub-return" class="lib-sub-pane">
+          <div class="return-hero-card">
+            <div class="return-circle-icon">📤</div>
+            <h2 style="font-size: 28px; font-weight: 900; color: #17352a; margin: 0 0 8px;">Trả Sách Thư Viện</h2>
+            <p style="font-size: 15px; color: #64748b; margin: 0 0 24px;">
+              Không cần chọn học sinh. Chỉ cần đưa mã QR trên cuốn sách vào camera hoặc chọn từ danh sách đang mượn.
+            </p>
+            <button type="button" class="scan-aqua-btn" style="max-width: 440px; margin: 0 auto 20px;" onclick="app.openLibScanner('bookReturn')">
+              <span>📷 Quét Mã QR Để Trả Sách</span>
+            </button>
+
+            <div style="max-width: 440px; margin: 0 auto; text-align: left;">
+              <label class="form-label">Hoặc nhập nhanh Mã sách (SACH001...) hoặc STT (1..75):</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="lib-manual-return-code" class="form-control" placeholder="Nhập: SACH001 hoặc 1" style="text-transform: uppercase; font-weight: 800; text-align: center;">
+                <button type="button" class="btn btn-primary" style="white-space: nowrap; font-weight: 800;" onclick="app.manualReturnBook()">
+                  Trả Ngay ➔
+                </button>
+              </div>
+            </div>
+
+            <div style="height: 1px; background: #e2e8f0; margin: 32px 0 24px;"></div>
+            <h4 style="font-size: 16px; font-weight: 800; color: #334155; margin-bottom: 12px; text-align: left;">
+              Danh sách sách đang mượn cần trả:
+            </h4>
+            <div id="lib-return-loans-list" style="display: flex; flex-direction: column; gap: 8px; text-align: left;">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANE 4: KHO SÁCH (CATALOG) -->
+        <div id="lib-sub-catalog" class="lib-sub-pane">
+          <div class="catalog-toolbar">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <span style="font-size: 12px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1px;">DANH MỤC THƯ VIỆN</span>
+                <h3 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 2px 0 0;">75 Đầu Sách Lớp 3A7</h3>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-sm" onclick="app.resetBooksCatalogToSeed()">
+                  🔄 Khôi Phục 75 Cuốn Gốc
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="app.openNewBookModal()">
+                  ➕ Thêm Sách
+                </button>
+              </div>
+            </div>
+
+            <!-- Search input -->
+            <div class="catalog-search-row">
+              <input type="text" id="lib-catalog-search-input" class="form-control" style="height: 48px; border-radius: 16px; font-weight: 600;" placeholder="🔍 Tìm tên sách, tác giả, người đóng góp, mã kệ..." oninput="app.onCatalogSearch(this.value)">
+            </div>
+
+            <!-- Category Pills -->
+            <div class="catalog-pills-row">
+              <span style="font-size: 12px; font-weight: 700; color: #64748b;">Thể loại:</span>
+              <button class="cat-pill active" onclick="app.filterCatalogCategory('all', this)">Tất cả (75)</button>
+              <button class="cat-pill" onclick="app.filterCatalogCategory('Kỹ năng sống', this)">Kỹ năng sống (45)</button>
+              <button class="cat-pill" onclick="app.filterCatalogCategory('Truyện hay', this)">Truyện hay (12)</button>
+              <button class="cat-pill" onclick="app.filterCatalogCategory('Tư duy', this)">Tư duy - Khoa học (11)</button>
+              <button class="cat-pill" onclick="app.filterCatalogCategory('Danh nhân', this)">Danh nhân (7)</button>
+            </div>
+          </div>
+
+          <!-- Books Card List -->
+          <div id="lib-catalog-books-list" class="books-card-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- SUB-PANE 5: THỐNG KÊ (STATS) -->
+        <div id="lib-sub-stats" class="lib-sub-pane">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Top Readers -->
+            <div class="race-section-card">
+              <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
+                <span>🏆</span> Top 5 Bạn Đọc Nhiều Nhất
+              </h3>
+              <div id="lib-stats-top-readers" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <!-- Category Distribution -->
+            <div class="race-section-card">
+              <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
+                <span>📊</span> Phân Bổ Sách Theo Thể Loại
+              </h3>
+              <div id="lib-stats-categories" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
   </div> <!-- /#view-teacher-app -->
 
@@ -1153,5 +1465,183 @@
   <script src="js/vendor/scanner.js"></script>
   <script src="js/client_db.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- ====================================================================
+       STANDALONE PUBLIC VIEW: THƯ VIỆN & ĐƯỜNG ĐUA ĐỌC SÁCH (CHO PHỤ HUYNH & HỌC SINH)
+       ==================================================================== -->
+  <div id="view-public-library" style="display: none; min-height: 100vh; background: #f4fbf4; padding-bottom: 50px;">
+    <!-- Public Header -->
+    <header class="app-header" style="background: white; border-bottom: 1px solid #d1fae5; position: sticky; top: 0; z-index: 20;">
+      <div class="header-container" style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px;">
+        <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+          <div class="brand-icon" style="background: linear-gradient(135deg, #059669, #10b981); color: white; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 22px;">📖</div>
+          <div class="brand-info">
+            <h1 style="font-size: 18px; font-weight: 900; color: #17352a; margin: 0;">3A7 – HÀNH TRÌNH ĐỌC SÁCH</h1>
+            <p style="font-size: 12px; font-weight: 800; color: #059669; margin: 0; letter-spacing: 1px;">ONE BOOK, ONE THOUGHT</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="app.exitPublicLibrary()">
+            ⬅️ Về Màn Hình Chính
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main" style="max-width: 1200px; margin: 20px auto 0; padding: 0 16px;" id="public-library-mount">
+      <!-- Cloned or mounted library container -->
+    </main>
+  </div>
+
+
+  <!-- MODAL: CAMERA SCANNER CHO THƯ VIỆN (QUÉT THẺ HS, QUÉT SÁCH, TRẢ SÁCH) -->
+  <div id="modal-lib-scan" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 500px; text-align: center;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="lib-scan-modal-title">📷 Quét Mã QR</h3>
+        <button class="modal-close" onclick="app.closeLibScanner()">&times;</button>
+      </div>
+      <div>
+        <p style="font-size: 14px; color: #64748b; margin-bottom: 12px;" id="lib-scan-modal-desc">
+          Đặt mã QR trước camera để quét
+        </p>
+        <div class="camera-box" style="margin: 0 auto 16px; border-radius: 20px; overflow: hidden; max-width: 380px; height: 280px; position: relative; background: #000;">
+          <video id="lib-scan-video" style="width: 100%; height: 100%; object-fit: cover;" autoplay playsinline muted></video>
+          <div class="scan-reticle"></div>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 10px;">
+          <button class="btn btn-outline" onclick="app.closeLibScanner()">Đóng</button>
+          <button class="btn btn-secondary" onclick="app.switchLibCameraFacing()">🔄 Đổi Camera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CHỌN AVATAR THÚ CƯNG TRÊN ĐƯỜNG ĐUA -->
+  <div id="modal-pet-avatar" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 480px; text-align: center;">
+      <div class="modal-header">
+        <h3 class="modal-title">🐾 Chọn Thú Cưng Đồng Hành</h3>
+        <button class="modal-close" onclick="app.closePetAvatarModal()">&times;</button>
+      </div>
+      <div>
+        <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">
+          Chọn biểu tượng thú cưng đại diện cho bạn <strong id="pet-avatar-student-name">...</strong> trên đường đua 33 quyển sách:
+        </p>
+        <div id="pet-avatar-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px;">
+          <!-- 30 cute pets dynamically generated -->
+        </div>
+        <button class="btn btn-outline" onclick="app.closePetAvatarModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: QUÉT SỔ & DUYỆT ĐÚC KẾT (CỘNG +1 Ô VÀO ĐƯỜNG ĐUA) -->
+  <div id="modal-journal-review" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📖 Duyệt Đúc Kết Sổ Đọc Sách</h3>
+        <button class="modal-close" onclick="app.closeJournalReviewModal()">&times;</button>
+      </div>
+      <div>
+        <div class="form-group">
+          <label class="form-label" for="jr-student-select">Học sinh đọc xong:</label>
+          <select id="jr-student-select" class="form-control" style="font-weight: 700;">
+            <!-- 29 students -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="jr-book-title">Tên cuốn sách đã hoàn thành:</label>
+          <input type="text" id="jr-book-title" class="form-control" placeholder="Ví dụ: Hoàng tử bé, Tôi là Bêtô...">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="jr-review-notes">Lời khen / Ghi nhận của cô Linh:</label>
+          <textarea id="jr-review-notes" class="form-control" rows="2" placeholder="Ví dụ: Đúc kết rất sâu sắc, chữ viết sạch đẹp!"></textarea>
+        </div>
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: #065f46; font-weight: 700;">
+          ✨ Khi nhấn Duyệt, học sinh sẽ được tự động cộng <strong>+1 ô</strong> trên Đường đua 33 quyển sách!
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn btn-outline" onclick="app.closeJournalReviewModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.confirmJournalReview()">🌟 Duyệt & Cộng +1 Ô</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM SÁCH MỚI -->
+  <div id="modal-new-book" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📚 Thêm Sách Mới Vào Thư Viện</h3>
+        <button class="modal-close" onclick="app.closeNewBookModal()">&times;</button>
+      </div>
+      <div>
+        <div class="form-group">
+          <label class="form-label" for="nb-title">Tên sách (*):</label>
+          <input type="text" id="nb-title" class="form-control" placeholder="Nhập tên sách đầy đủ...">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="nb-author">Tác giả / Biên soạn:</label>
+          <input type="text" id="nb-author" class="form-control" placeholder="Nhập tên tác giả...">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="nb-category">Thể loại:</label>
+            <select id="nb-category" class="form-control">
+              <option value="Truyện hay">Truyện hay</option>
+              <option value="Kỹ năng sống">Kỹ năng sống</option>
+              <option value="Tư duy">Tư duy - Khoa học</option>
+              <option value="Danh nhân">Danh nhân</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="nb-shelf">Mã kệ:</label>
+            <input type="text" id="nb-shelf" class="form-control" value="K1" placeholder="Ví dụ: K1, K2, K3">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="nb-contrib">Người đóng góp:</label>
+            <input type="text" id="nb-contrib" class="form-control" placeholder="Ví dụ: Thiện Nhân, Cô Linh...">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="nb-condition">Tình trạng:</label>
+            <select id="nb-condition" class="form-control">
+              <option value="Tốt">Tốt</option>
+              <option value="Mới">Mới</option>
+              <option value="Cũ">Cũ</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button class="btn btn-outline" onclick="app.closeNewBookModal()">Hủy</button>
+          <button class="btn btn-primary" onclick="app.saveNewBook()">💾 Thêm Vào Kho Sách</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: XEM & IN MÃ QR SÁCH -->
+  <div id="modal-book-qr" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 440px; text-align: center;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="book-qr-modal-title">🏷️ Nhãn Mã QR Sách</h3>
+        <button class="modal-close" onclick="app.closeBookQrModal()">&times;</button>
+      </div>
+      <div style="padding: 10px 0;">
+        <div id="book-qr-preview-svg" class="lib-qr-box">
+          <!-- QR SVG rendered here -->
+        </div>
+        <h4 id="book-qr-preview-title" style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0 0 4px;">Tên sách</h4>
+        <p id="book-qr-preview-code" style="font-size: 14px; font-weight: 900; color: #059669; letter-spacing: 1px; margin: 0 0 16px;">SACH001</p>
+        <div style="display: flex; justify-content: center; gap: 10px;">
+          <button class="btn btn-outline" onclick="app.closeBookQrModal()">Đóng</button>
+          <button class="btn btn-primary" onclick="app.printCurrentBookQr()">🖨️ In Nhãn Sách</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

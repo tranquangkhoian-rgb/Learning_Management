@@ -190,8 +190,49 @@ def test_all():
         assert 'viewBox="0 0 29 29"' in output
     print(" -> PASS: server.py /api/qr route verified directly with HTTP 200 SVG response.")
 
+    # 14. Test Library & Reading Race ("Đường đua đọc sách 3A7")
+    books = database.get_books()
+    assert len(books) == 75, f"Expected 75 books, got {len(books)}"
+    assert books[0]["title"] == "Quiz! Khoa học kì thú - Toán học đố mẹo"
+    assert books[0]["contributed_by"] == "Thiện Nhân"
+    assert books[-1]["title"] == "Hóa ra mình cũng tuyệt đấy chứ! - Bí kíp giúp trẻ tự tin"
+    assert books[-1]["contributed_by"] == "Phúc Hưng"
+    print(f" -> PASS: Library catalog seeded with exactly 75 books from Danh_sach_sach_lop_3A7.xlsx (STT 1 to 75).")
+
+    race = database.get_reading_race()
+    assert len(race) == 29, f"Expected 29 students in reading race, got {len(race)}"
+    print(f" -> PASS: Reading race initialized for all 29 students with default pet avatars and 33-book target.")
+
+    # Test borrow & return cycle
+    st_first = database.get_students()[0]
+    loan = database.borrow_book(st_first["code"], "SACH002", 14, "Mượn sách đọc tại nhà")
+    assert loan["status"] == "borrowed"
+    assert loan["student_code"] == st_first["code"]
+    book2 = database.get_book_by_code("SACH002")
+    assert book2["status"] == "borrowed"
+
+    active_loans = database.get_active_loans()
+    assert any(l["book_code"] == "SACH002" for l in active_loans)
+
+    ret = database.return_book("SACH002", "Đã đọc xong")
+    assert ret["success"] is True
+    book2_after = database.get_book_by_code("SACH002")
+    assert book2_after["status"] == "available"
+
+    # Test race increment
+    database.update_reading_race(st_first["id"], delta=2)
+    race_after = database.get_reading_race()
+    st_race = next(r for r in race_after if r["student_id"] == st_first["id"])
+    assert st_race["completed"] >= 2
+    print(f" -> PASS: Borrow & return cycle and reading race progress (+1/+2 ô) verified successfully.")
+
+    stats = database.get_library_stats()
+    assert stats["totalBooks"] == 75
+    assert stats["readersCount"] == 29
+    print(f" -> PASS: Library overview stats verified (Total books: {stats['totalBooks']}, Readers: {stats['readersCount']}).")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (13/13)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (14/14)")
     print("============================================================")
 
 if __name__ == "__main__":

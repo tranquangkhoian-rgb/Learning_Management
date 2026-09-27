@@ -6,6 +6,7 @@ import KioskView from "@/components/KioskView";
 import GradingView from "@/components/GradingView";
 import TrackingView from "@/components/TrackingView";
 import AnalyticsView from "@/components/AnalyticsView";
+import LibraryView from "@/components/LibraryView";
 import StudentProfileView from "@/components/StudentProfileView";
 import PrintQrSheet from "@/components/PrintQrSheet";
 import SettingsView from "@/components/SettingsView";
@@ -148,6 +149,8 @@ export default function Home() {
         )}
 
         {activeTab === "tracking" && <TrackingView assignments={assignments} />}
+
+        {activeTab === "library" && <LibraryView students={students} />}
 
         {activeTab === "analytics" && <AnalyticsView />}
 

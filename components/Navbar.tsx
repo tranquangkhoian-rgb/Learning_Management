@@ -26,6 +26,7 @@ export default function Navbar({
     { id: "kiosk", label: "🎯 Góc Nộp Bài" },
     { id: "grade", label: "✍️ Chấm Bài Nhanh", highlight: true },
     { id: "tracking", label: "📋 Bảng Theo Dõi Bài" },
+    { id: "library", label: "📖 Thư Viện & Đọc Sách" },
     { id: "analytics", label: "📊 Thống Kê 3 Chiều" },
     { id: "students", label: "👤 Hồ Sơ Học Sinh" },
     { id: "print", label: "🏷️ In Thẻ QR Mini (A4)" },

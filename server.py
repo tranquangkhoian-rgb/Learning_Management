@@ -147,6 +147,25 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 return self.send_json(database.get_submission_history(int(sid), int(aid)))
             return self.send_json({"error": "Missing student_id or assignment_id"}, 400)
 
+        elif path == "/api/books":
+            q = query.get("q", [""])[0]
+            cat = query.get("category", [""])[0]
+            return self.send_json(database.get_books(q, cat))
+
+        elif path.startswith("/api/books/"):
+            bid = path.split("/")[-1]
+            book = database.get_book_by_code(bid) if not bid.isdigit() else database.get_book_by_id(int(bid))
+            return self.send_json(book if book else {"error": "Book not found"}, 200 if book else 404)
+
+        elif path == "/api/loans":
+            return self.send_json(database.get_active_loans())
+
+        elif path == "/api/race":
+            return self.send_json(database.get_reading_race())
+
+        elif path == "/api/library/stats":
+            return self.send_json(database.get_library_stats())
+
         elif path == "/api/export-csv":
             aid = query.get("assignment_id", [None])[0]
             if not aid:
@@ -342,6 +361,57 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 return self.send_json({"success": False, "error": str(e)}, 500)
 
+        elif path == "/api/books":
+            title = body.get("title", "")
+            if not title:
+                return self.send_json({"error": "Tiêu đề sách là bắt buộc!"}, 400)
+            nb = database.add_book(
+                title=title,
+                author=body.get("author", ""),
+                category=body.get("category", "Truyện hay"),
+                shelf_code=body.get("shelf_code", "K1"),
+                contributed_by=body.get("contributed_by", "Thư viện lớp"),
+                condition=body.get("condition", "Tốt")
+            )
+            return self.send_json(nb, 201)
+
+        elif path == "/api/loans/borrow":
+            student_id = body.get("student_id") or body.get("student_code")
+            book_id = body.get("book_id") or body.get("book_code") or body.get("book_stt")
+            due_days = int(body.get("due_days", 14))
+            notes = body.get("notes", "")
+            if not student_id or not book_id:
+                return self.send_json({"error": "Cần cung cấp mã học sinh và mã sách!"}, 400)
+            try:
+                loan = database.borrow_book(student_id, book_id, due_days, notes)
+                return self.send_json(loan, 201)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/loans/return":
+            book_id = body.get("book_id") or body.get("book_code") or body.get("book_stt")
+            notes = body.get("notes", "")
+            if not book_id:
+                return self.send_json({"error": "Cần cung cấp mã sách hoặc STT sách để trả!"}, 400)
+            try:
+                ret = database.return_book(book_id, notes)
+                return self.send_json(ret, 200)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/race/update":
+            student_id = body.get("student_id")
+            delta = int(body.get("delta", 1)) if "delta" in body else 1
+            set_completed = body.get("completed")
+            avatar = body.get("avatar")
+            if not student_id:
+                return self.send_json({"error": "Missing student_id"}, 400)
+            try:
+                race = database.update_reading_race(int(student_id), delta=delta, set_completed=set_completed, avatar=avatar)
+                return self.send_json(race)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
         self.send_json({"error": "Endpoint not found"}, 404)
 
     def do_PUT(self):
@@ -379,6 +449,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             except ValueError:
                 return self.send_json({"error": "Invalid ID"}, 400)
 
+        elif path.startswith("/api/books/"):
+            try:
+                bid = int(path.split("/")[-1])
+                updated_b = database.update_book(bid, body)
+                return self.send_json(updated_b)
+            except ValueError:
+                return self.send_json({"error": "Invalid book ID"}, 400)
+
         self.send_json({"error": "Endpoint not found"}, 404)
 
     def do_DELETE(self):
@@ -400,6 +478,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 return self.send_json({"success": True})
             except ValueError:
                 return self.send_json({"error": "Invalid ID"}, 400)
+
+        elif path.startswith("/api/books/"):
+            try:
+                bid = int(path.split("/")[-1])
+                database.delete_book(bid)
+                return self.send_json({"success": True})
+            except ValueError:
+                return self.send_json({"error": "Invalid book ID"}, 400)
 
         self.send_json({"error": "Endpoint not found"}, 404)
 

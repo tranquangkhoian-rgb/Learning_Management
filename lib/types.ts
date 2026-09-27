@@ -116,3 +116,55 @@ export interface AnalyticsData {
   assignment_stats: AssignmentStats[];
   whole_class: WholeClassStats;
 }
+
+export interface Book {
+  id: number;
+  stt: number;
+  code: string;
+  title: string;
+  author: string;
+  category: string;
+  shelf_code: string;
+  contributed_by: string;
+  condition: string;
+  status: "available" | "borrowed";
+  created_at?: string;
+}
+
+export interface BookLoan {
+  id: number;
+  book_id: number;
+  book_title: string;
+  book_code: string;
+  student_id: number;
+  student_code: string;
+  student_name: string;
+  borrow_date: string;
+  due_date: string;
+  return_date?: string | null;
+  status: "borrowed" | "returned" | "overdue";
+  notes?: string;
+  created_at?: string;
+}
+
+export interface ReadingRaceEntry {
+  student_id: number;
+  code: string;
+  name: string;
+  order_num: number;
+  completed: number;
+  avatar: string;
+  rank: number;
+  percentage: number;
+  last_updated?: string;
+}
+
+export interface LibraryStats {
+  totalBooks: number;
+  borrowedCount: number;
+  readersCount: number;
+  overdueCount: number;
+  totalCompletedReadings: number;
+  categories: Record<string, number>;
+}
+

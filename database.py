@@ -10,6 +10,7 @@ Stores:
 
 import os
 import re
+import json
 import sqlite3
 from datetime import datetime
 
@@ -72,6 +73,39 @@ def init_db():
         teacher_note TEXT DEFAULT '',
         operator TEXT DEFAULT 'Học sinh',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS books (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stt INTEGER UNIQUE NOT NULL,
+        code TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        author TEXT DEFAULT '',
+        category TEXT DEFAULT 'Truyện hay',
+        shelf_code TEXT DEFAULT 'K1',
+        contributed_by TEXT DEFAULT 'Thư viện lớp',
+        condition TEXT DEFAULT 'Tốt',
+        status TEXT DEFAULT 'available', -- 'available', 'borrowed'
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS book_loans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        borrow_date TEXT NOT NULL,
+        due_date TEXT NOT NULL,
+        return_date TEXT DEFAULT NULL,
+        status TEXT DEFAULT 'borrowed', -- 'borrowed', 'returned', 'overdue'
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS reading_race (
+        student_id INTEGER PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+        completed INTEGER DEFAULT 0,
+        avatar TEXT DEFAULT '🐶',
+        last_updated TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
@@ -197,6 +231,38 @@ def init_db():
             INSERT INTO submission_events (student_id, assignment_id, event_type, attempt_number, timestamp, is_late, score, status, teacher_note, operator)
             VALUES (3, ?, 'submit', 1, ?, 1, NULL, 'Đã nộp', '', 'Học sinh')
         """, (asgn_id2, now.strftime("%Y-%m-%d 08:45:00")))
+
+    # Seed 75 Books from data/books_seed.json
+    cursor.execute("SELECT COUNT(*) FROM books")
+    book_count = cursor.fetchone()[0]
+    if book_count == 0:
+        seed_path = os.path.join(DB_DIR, "books_seed.json")
+        if os.path.exists(seed_path):
+            with open(seed_path, "r", encoding="utf-8") as bf:
+                seed_books = json.load(bf)
+                for b in seed_books:
+                    cursor.execute("""
+                        INSERT INTO books (stt, code, title, author, category, shelf_code, contributed_by, condition, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        b["stt"], b["code"], b["title"], b.get("author", ""),
+                        b.get("category", "Truyện hay"), b.get("shelf_code", "K1"),
+                        b.get("contributed_by", "Thư viện lớp"), b.get("condition", "Tốt"),
+                        b.get("status", "available")
+                    ))
+
+    # Seed Reading Race entries for all students
+    cursor.execute("SELECT COUNT(*) FROM reading_race")
+    race_count = cursor.fetchone()[0]
+    if race_count == 0:
+        cursor.execute("SELECT id, order_num FROM students ORDER BY order_num ASC")
+        all_st = cursor.fetchall()
+        pet_avatars = ['🐶', '🐱', '🦊', '🐰', '🐼', '🦁', '🐯', '🐨', '🦄', '🐸',
+                       '🐵', '🐻', '🐧', '🐤', '🦉', '🐺', '🐗', '🐴', '🐝', '🐙',
+                       '🦋', '🐢', '🐬', '🐳', '🦖', '🦔', '🐿️', '🦩', '🦚']
+        for i, s in enumerate(all_st):
+            av = pet_avatars[i % len(pet_avatars)]
+            cursor.execute("INSERT INTO reading_race (student_id, completed, avatar) VALUES (?, 0, ?)", (s[0], av))
 
     conn.commit()
     conn.close()
@@ -909,6 +975,304 @@ def get_student_profile(student_id):
         "student": student,
         "assignments": assignment_details,
         "score_trend": score_trend
+    }
+
+# =====================================================================
+# LIBRARY & READING RACE MODULE ("ĐƯỜNG ĐUA ĐỌC SÁCH 3A7")
+# =====================================================================
+
+def get_books(query="", category=""):
+    conn = get_db()
+    cursor = conn.cursor()
+    sql = "SELECT * FROM books WHERE 1=1"
+    params = []
+    if category and category != "all":
+        sql += " AND category = ?"
+        params.append(category)
+    if query:
+        q = f"%{query.strip()}%"
+        sql += " AND (title LIKE ? OR author LIKE ? OR contributed_by LIKE ? OR code LIKE ?)"
+        params.extend([q, q, q, q])
+    sql += " ORDER BY stt ASC"
+    cursor.execute(sql, params)
+    books = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return books
+
+def get_book_by_id(book_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_book_by_code(code_or_stt):
+    conn = get_db()
+    cursor = conn.cursor()
+    code_str = str(code_or_stt).strip()
+    cursor.execute("SELECT * FROM books WHERE code = ? OR stt = ?", (code_str.upper(), code_str))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def add_book(title, author="", category="Truyện hay", shelf_code="K1", contributed_by="Thư viện lớp", condition="Tốt"):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT MAX(stt) FROM books")
+    max_stt = cursor.fetchone()[0] or 0
+    next_stt = max_stt + 1
+    code = f"SACH{next_stt:03d}"
+    cursor.execute("""
+        INSERT INTO books (stt, code, title, author, category, shelf_code, contributed_by, condition, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available')
+    """, (next_stt, code, title.strip(), author.strip(), category.strip(), shelf_code.strip(), contributed_by.strip(), condition.strip()))
+    book_id = cursor.lastrowid
+    conn.commit()
+    cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+    new_book = dict(cursor.fetchone())
+    conn.close()
+    return new_book
+
+def update_book(book_id, data):
+    conn = get_db()
+    cursor = conn.cursor()
+    fields = []
+    params = []
+    for k in ["title", "author", "category", "shelf_code", "contributed_by", "condition", "status"]:
+        if k in data:
+            fields.append(f"{k} = ?")
+            params.append(data[k])
+    if fields:
+        params.append(book_id)
+        cursor.execute(f"UPDATE books SET {', '.join(fields)} WHERE id = ?", params)
+        conn.commit()
+    cursor.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def delete_book(book_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+def borrow_book(student_id_or_code, book_id_or_code, due_days=14, notes=""):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Find student
+    s_val = str(student_id_or_code).strip()
+    cursor.execute("SELECT * FROM students WHERE id = ? OR code = ?", (s_val, s_val.upper()))
+    student = cursor.fetchone()
+    if not student:
+        conn.close()
+        raise ValueError(f"Không tìm thấy học sinh: {student_id_or_code}")
+
+    # Find book
+    b_val = str(book_id_or_code).strip()
+    cursor.execute("SELECT * FROM books WHERE id = ? OR code = ? OR stt = ?", (b_val, b_val.upper(), b_val))
+    book = cursor.fetchone()
+    if not book:
+        conn.close()
+        raise ValueError(f"Không tìm thấy sách: {book_id_or_code}")
+
+    if book["status"] == "borrowed":
+        conn.close()
+        raise ValueError(f"Cuốn sách '{book['title']}' hiện đang được mượn, chưa trả về thư viện!")
+
+    now = datetime.now()
+    due = datetime.fromtimestamp(now.timestamp() + due_days * 86400)
+    borrow_date_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    due_date_str = due.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Insert loan
+    cursor.execute("""
+        INSERT INTO book_loans (book_id, student_id, borrow_date, due_date, status, notes)
+        VALUES (?, ?, ?, ?, 'borrowed', ?)
+    """, (book["id"], student["id"], borrow_date_str, due_date_str, notes))
+    loan_id = cursor.lastrowid
+
+    # Update book status
+    cursor.execute("UPDATE books SET status = 'borrowed' WHERE id = ?", (book["id"],))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "id": loan_id,
+        "book_id": book["id"],
+        "book_title": book["title"],
+        "book_code": book["code"],
+        "student_id": student["id"],
+        "student_code": student["code"],
+        "student_name": student["full_name"],
+        "borrow_date": borrow_date_str,
+        "due_date": due_date_str,
+        "status": "borrowed",
+        "notes": notes
+    }
+
+def return_book(book_id_or_code, notes=""):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    b_val = str(book_id_or_code).strip()
+    cursor.execute("SELECT * FROM books WHERE id = ? OR code = ? OR stt = ?", (b_val, b_val.upper(), b_val))
+    book = cursor.fetchone()
+    if not book:
+        conn.close()
+        raise ValueError(f"Không tìm thấy sách: {book_id_or_code}")
+
+    # Find active loan
+    cursor.execute("""
+        SELECT l.*, s.full_name as student_name, s.code as student_code
+        FROM book_loans l
+        JOIN students s ON l.student_id = s.id
+        WHERE l.book_id = ? AND l.status = 'borrowed'
+        ORDER BY l.id DESC LIMIT 1
+    """, (book["id"],))
+    loan = cursor.fetchone()
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if loan:
+        cursor.execute("""
+            UPDATE book_loans
+            SET status = 'returned', return_date = ?, notes = CASE WHEN ? != '' THEN ? ELSE notes END
+            WHERE id = ?
+        """, (now_str, notes, notes, loan["id"]))
+
+    cursor.execute("UPDATE books SET status = 'available' WHERE id = ?", (book["id"],))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "book_id": book["id"],
+        "book_title": book["title"],
+        "book_code": book["code"],
+        "student_id": loan["student_id"] if loan else None,
+        "student_name": loan["student_name"] if loan else "Chưa rõ",
+        "return_date": now_str
+    }
+
+def get_active_loans():
+    conn = get_db()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("""
+        SELECT l.id, l.book_id, b.title as book_title, b.code as book_code, b.stt as book_stt,
+               l.student_id, s.full_name as student_name, s.code as student_code,
+               l.borrow_date, l.due_date, l.status, l.notes,
+               CASE WHEN l.due_date < ? THEN 1 ELSE 0 END as is_overdue
+        FROM book_loans l
+        JOIN books b ON l.book_id = b.id
+        JOIN students s ON l.student_id = s.id
+        WHERE l.status = 'borrowed'
+        ORDER BY l.borrow_date DESC
+    """, (now_str,))
+    loans = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return loans
+
+def get_reading_race():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT s.id as student_id, s.code, s.full_name as name, s.order_num,
+               COALESCE(r.completed, 0) as completed,
+               COALESCE(r.avatar, '🐶') as avatar,
+               r.last_updated
+        FROM students s
+        LEFT JOIN reading_race r ON s.id = r.student_id
+        WHERE s.is_active = 1
+        ORDER BY completed DESC, s.order_num ASC
+    """)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    # Assign ranks with ties
+    ranked = []
+    current_rank = 1
+    for i, row in enumerate(rows):
+        if i > 0 and row["completed"] < rows[i - 1]["completed"]:
+            current_rank = i + 1
+        row_copy = dict(row)
+        row_copy["rank"] = current_rank
+        row_copy["percentage"] = min(100.0, round((row["completed"] / 33.0) * 100, 1))
+        ranked.append(row_copy)
+    return ranked
+
+def update_reading_race(student_id, delta=1, set_completed=None, avatar=None):
+    conn = get_db()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Ensure record exists
+    cursor.execute("SELECT completed, avatar FROM reading_race WHERE student_id = ?", (student_id,))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO reading_race (student_id, completed, avatar, last_updated) VALUES (?, 0, '🐶', ?)", (student_id, now_str))
+        curr_completed = 0
+        curr_avatar = '🐶'
+    else:
+        curr_completed = row["completed"]
+        curr_avatar = row["avatar"]
+
+    if set_completed is not None:
+        new_completed = max(0, int(set_completed))
+    else:
+        new_completed = max(0, curr_completed + delta)
+
+    new_avatar = avatar if avatar else curr_avatar
+
+    cursor.execute("""
+        UPDATE reading_race
+        SET completed = ?, avatar = ?, last_updated = ?
+        WHERE student_id = ?
+    """, (new_completed, new_avatar, now_str, student_id))
+
+    conn.commit()
+    conn.close()
+    return get_reading_race()
+
+def get_library_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute("SELECT COUNT(*) FROM books")
+    total_books = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM book_loans WHERE status = 'borrowed'")
+    borrowed_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM students WHERE is_active = 1")
+    readers_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM book_loans WHERE status = 'borrowed' AND due_date < ?", (now_str,))
+    overdue_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT SUM(completed) FROM reading_race")
+    total_read = cursor.fetchone()[0] or 0
+
+    # Category counts
+    cursor.execute("SELECT category, COUNT(*) as cnt FROM books GROUP BY category")
+    categories = {r["category"]: r["cnt"] for r in cursor.fetchall()}
+
+    conn.close()
+
+    return {
+        "totalBooks": total_books,
+        "borrowedCount": borrowed_count,
+        "readersCount": readers_count,
+        "overdueCount": overdue_count,
+        "totalCompletedReadings": total_read,
+        "categories": categories
     }
 
 # --- Quick Test when run directly ---
