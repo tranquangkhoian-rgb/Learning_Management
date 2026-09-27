@@ -278,9 +278,223 @@ def test_all():
         assert f.read() == css_content, "docs/css/style.css not in sync with public/css/style.css"
     print(" -> PASS: All mirror files (public/, docs/, root) are 100% in sync.")
 
+    # 17. Test Universal Student Password Verification and Updates
+    # Reset to default '1234' to ensure idempotency
+    database.update_student_password("HS01", "1234")
+    assert database.verify_student_password("HS01", "1234") is True
+    assert database.verify_student_password("HS01", "wrong_pass") is False
+    # Update password for HS01
+    upd_res = database.update_student_password("HS01", "5678")
+    assert upd_res is True
+    assert database.verify_student_password("HS01", "5678") is True
+    assert database.verify_student_password("HS01", "1234") is False
+    # Reset back to 1234
+    database.update_student_password("HS01", "1234")
+    assert database.verify_student_password("HS01", "1234") is True
+    print(" -> PASS: Universal student password verification and update verified successfully (default: '1234').")
+
+    # 18. Test Student Reading Summary (Integration in Student Portal)
+    summary = database.get_student_reading_summary("HS01")
+    assert summary is not None
+    assert summary["student"]["code"] == "HS01"
+    assert "race" in summary
+    assert "active_loans" in summary
+    assert "target" in summary["race"]
+    assert summary["race"]["target"] == 33
+    assert "stats" in summary
+    print(f" -> PASS: Student reading summary for HS01 verified (Race completed: {summary['race']['completed']}/33, Active loans: {len(summary['active_loans'])}).")
+
+    # Clean up HS01 race test increment
+    conn = database.get_db()
+    c = conn.cursor()
+    c.execute("UPDATE reading_race SET completed = 0 WHERE student_id = ?", (st_first["id"],))
+    conn.commit()
+    conn.close()
+
+    # 19. Test Excel Book Parser and Import Engine
+    excel_path = "Danh_sach_sach_lop_3A7.xlsx"
+    parsed_books = database.parse_excel_books(excel_path)
+    assert len(parsed_books) >= 70, f"Expected at least 70 books parsed from Excel, got {len(parsed_books)}"
+    assert parsed_books[0]["title"] == "Quiz! Khoa học kì thú - Toán học đố mẹo"
+    print(f" -> PASS: Excel book parser successfully extracted {len(parsed_books)} books directly from OpenXML without external libraries.")
+
+    # Test Book update and import logic
+    test_update = database.update_book("SACH001", {"title": "Quiz! Khoa học kì thú - Tập 1 (Đã chỉnh sửa)", "author": "Nhiều tác giả", "category": "Khoa học"})
+    assert test_update is not None
+    b1_check = database.get_book_by_code("SACH001")
+    assert "Đã chỉnh sửa" in b1_check["title"]
+    # Revert back
+    database.update_book("SACH001", {"title": "Quiz! Khoa học kì thú - Toán học đố mẹo", "author": "Nhiều tác giả", "category": "Khoa học"})
+    b1_reverted = database.get_book_by_code("SACH001")
+    assert b1_reverted["title"] == "Quiz! Khoa học kì thú - Toán học đố mẹo"
+    print(" -> PASS: Book metadata editing and update verified successfully.")
+
+    # 20. Test UI Contracts: Student Private Password, Portal Race Widget, Teacher-only Borrow, Excel Import Modal
+    # 20a. No manual student code text input, only QR scan or tap name
+    assert 'id="student-code-form"' not in html_content, "Manual student code form must be removed from public/index.html"
+    assert "modal-student-password" in html_content, "Missing student password modal in public/index.html"
+    assert "promptStudentPassword" in js_content, "Missing promptStudentPassword in public/js/app.js"
+    assert "submitStudentPassword" in js_content, "Missing submitStudentPassword in public/js/app.js"
+
+    # 20b. Reading race integrated into Student Portal
+    assert "student-race-portal-card" in html_content, "Missing student race portal card in public/index.html"
+    assert "sp-race-runner" in html_content, "Missing runner avatar on portal track in public/index.html"
+    assert "sp-borrowed-books-container" in html_content, "Missing active borrowed books list in public/index.html"
+
+    # 20c. Teacher-only borrow and return tabs
+    assert 'id="btn-lib-tab-borrow"' in html_content, "Missing ID for borrow tab in public/index.html"
+    assert 'id="btn-lib-tab-return"' in html_content, "Missing ID for return tab in public/index.html"
+    assert "switchLibSubTab" in js_content, "Missing switchLibSubTab in public/js/app.js"
+
+    # 20d. Edit book modal & Excel import modal
+    assert "modal-edit-book" in html_content, "Missing modal-edit-book in public/index.html"
+    assert "modal-import-excel-books" in html_content, "Missing modal-import-excel-books in public/index.html"
+    assert "openEditBookModal" in js_content, "Missing openEditBookModal in public/js/app.js"
+    assert "openImportExcelModal" in js_content, "Missing openImportExcelModal in public/js/app.js"
+    assert "handleExcelFileSelected" in js_content, "Missing handleExcelFileSelected in public/js/app.js"
+
+    # 20e. Settings: Universal student password manager
+    assert "settings-student-pwd-tbody" in html_content, "Missing student password table in public/index.html"
+    assert "renderStudentPasswordTable" in js_content, "Missing renderStudentPasswordTable in public/js/app.js"
+    assert "resetStudentPassword" in js_content, "Missing resetStudentPassword in public/js/app.js"
+
+    # 20f. Live sync polling mechanism
+    assert "startLiveSync" in js_content, "Missing startLiveSync in public/js/app.js"
+    assert "silentSyncData" in js_content, "Missing silentSyncData in public/js/app.js"
+    print(" -> PASS: All UI contracts (No-manual-input login, Student portal race widget, Teacher-only borrow, Excel import, Universal password manager, Live sync) verified.")
+
+    # 21. Test Match Every Device's Code to Default & Real-time Cross-device Change Sync
+    # 21a. Test reset_all_student_passwords to default '1234'
+    assert database.reset_all_student_passwords("1234") is True
+    pw_map = database.get_student_passwords()
+    assert len(pw_map) >= 29, f"Expected at least 29 passwords mapped, got {len(pw_map)}"
+    assert pw_map["HS01"] == "1234"
+    assert pw_map["HS29"] == "1234"
+
+    # 21b. Test when someone changes a code, it updates and propagates
+    assert database.update_student_password("HS10", "7788") is True
+    assert database.verify_student_password("HS10", "7788") is True
+    pw_map_after = database.get_student_passwords()
+    assert pw_map_after["HS10"] == "7788"
+    # Reset back to default
+    assert database.reset_all_student_passwords("1234") is True
+    assert database.verify_student_password("HS10", "1234") is True
+
+    # 21c. Test server endpoints for password sync and reset-all
+    req_pwd = b"GET /api/students/passwords HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_pwd = MockSocket(req_pwd)
+    handler_pwd = server.LMSRequestHandler(sock_pwd, ("127.0.0.1", 12345), None)
+    out_pwd = sock_pwd.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_pwd
+    assert '"HS01": "1234"' in out_pwd
+
+    # 21d. Test UI & ClientDB contracts for cross-device sync
+    assert "resetAllStudentsPasswords" in js_content, "Missing resetAllStudentsPasswords in public/js/app.js"
+    assert "Khôi Phục Toàn Bộ Về Mặc Định" in html_content, "Missing reset all passwords button in public/index.html"
+    assert "modal-student-change-pwd" in html_content, "Missing modal-student-change-pwd in public/index.html"
+    assert "openStudentChangePasswordModal" in js_content, "Missing openStudentChangePasswordModal in public/js/app.js"
+    assert "submitStudentChangePassword" in js_content, "Missing submitStudentChangePassword in public/js/app.js"
+    assert "initCloudSyncRelay" in js_content, "Missing initCloudSyncRelay in public/js/app.js"
+    assert "broadcastCloudSync" in js_content, "Missing broadcastCloudSync in public/js/app.js"
+    assert "handleCloudSyncMessage" in js_content, "Missing handleCloudSyncMessage in public/js/app.js"
+    print(" -> PASS: Match every device's code to default and cross-device sync contracts verified successfully.")
+
+    # 22. Test Teacher Animal Group & Ranking System & Device-Specific Passwords
+    # 22a. Animal Groups Configuration & Database Schema
+    cfg = database.get_animal_groups_config()
+    assert "dolphin" in cfg, "Missing dolphin tier in ANIMAL_GROUPS_CONFIG"
+    assert "monkey" in cfg, "Missing monkey tier in ANIMAL_GROUPS_CONFIG"
+    assert "orange_cat" in cfg, "Missing orange_cat tier in ANIMAL_GROUPS_CONFIG"
+    assert "turtle_snail" in cfg, "Missing turtle_snail tier in ANIMAL_GROUPS_CONFIG"
+    assert len(cfg["dolphin"]["options"]) >= 4, "Expected at least 4 dolphin options"
+    assert len(cfg["turtle_snail"]["options"]) >= 4, "Expected at least 4 turtle/snail options"
+
+    # Verify student seed distribution
+    all_sts = database.get_students()
+    hs01 = next(s for s in all_sts if s["code"] == "HS01")
+    assert hs01["animal_group"] == "dolphin", f"Expected HS01 to be dolphin, got {hs01['animal_group']}"
+    hs02 = next(s for s in all_sts if s["code"] == "HS02")
+    assert hs02["animal_group"] == "monkey", f"Expected HS02 to be monkey, got {hs02['animal_group']}"
+    hs22 = next(s for s in all_sts if s["code"] == "HS22")
+    assert hs22["animal_group"] == "turtle_snail", f"Expected HS22 to be turtle_snail, got {hs22['animal_group']}"
+
+    # Verify updating animal group
+    up_res = database.update_student_animal_group("HS05", "dolphin", "🦅", "Đại bàng tinh anh")
+    assert up_res and up_res.get("success") is True, "Failed to update student animal group"
+    hs05 = next(s for s in database.get_students() if s["code"] == "HS05")
+    assert hs05["animal_group"] == "dolphin"
+    assert hs05["animal_symbol"] == "🦅"
+    assert hs05["animal_title"] == "Đại bàng tinh anh"
+
+    # Verify tracking matrix includes animal group fields
+    matrix_data = database.get_assignment_tracking_matrix(1)
+    rows = matrix_data.get("matrix", matrix_data.get("rows", []))
+    assert len(rows) >= 29
+    assert "animal_group" in rows[0]
+    assert "animal_symbol" in rows[0]
+    assert "animal_title" in rows[0]
+
+    # 22b. API Server Endpoints for Animal Groups
+    req_ag = b"GET /api/animal-groups HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_ag = MockSocket(req_ag)
+    server.LMSRequestHandler(sock_ag, ("127.0.0.1", 12345), None)
+    out_ag = sock_ag.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_ag
+    assert "dolphin" in out_ag
+    assert "monkey" in out_ag
+    assert "orange_cat" in out_ag
+    assert "turtle_snail" in out_ag
+
+    post_ag_body = json.dumps({
+        "animal_group": "turtle_snail",
+        "animal_symbol": "🐌",
+        "animal_title": "Ốc sên nỗ lực"
+    })
+    req_post_ag = (
+        f"POST /api/students/{hs05['id']}/animal-group HTTP/1.1\r\n"
+        f"Host: localhost\r\n"
+        f"Content-Type: application/json\r\n"
+        f"Content-Length: {len(post_ag_body.encode('utf-8'))}\r\n"
+        f"Connection: close\r\n\r\n{post_ag_body}"
+    ).encode("utf-8")
+    sock_post_ag = MockSocket(req_post_ag)
+    server.LMSRequestHandler(sock_post_ag, ("127.0.0.1", 12345), None)
+    out_post_ag = sock_post_ag.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_post_ag
+    assert '"success": true' in out_post_ag
+
+    # 22c. Frontend UI & ClientDB contracts
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_content = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_content = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        client_db_content = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_content = f.read()
+
+    # Animal group UI
+    assert "modal-assign-animal-group" in html_content, "Missing modal-assign-animal-group in public/index.html"
+    assert "animal-filter-bar" in html_content, "Missing animal-filter-bar in public/index.html"
+    assert "tracking-animal-filter" in html_content, "Missing tracking-animal-filter in public/index.html"
+    assert "openAssignAnimalGroupModal" in js_content, "Missing openAssignAnimalGroupModal in public/js/app.js"
+    assert "selectStudentAnimal" in js_content, "Missing selectStudentAnimal in public/js/app.js"
+    assert "saveStudentAnimalGroup" in js_content, "Missing saveStudentAnimalGroup in public/js/app.js"
+    assert "setStudentAnimalFilter" in js_content, "Missing setStudentAnimalFilter in public/js/app.js"
+    assert "badge-animal-dolphin" in css_content, "Missing badge-animal-dolphin in style.css"
+    assert "badge-animal-monkey" in css_content, "Missing badge-animal-monkey in style.css"
+
+    # Device-specific local password contracts
+    assert "getDeviceStudentPassword" in client_db_content, "Missing getDeviceStudentPassword in client_db.js"
+    assert "updateDeviceStudentPassword" in client_db_content, "Missing updateDeviceStudentPassword in client_db.js"
+    assert "resetDeviceAllPasswords" in client_db_content, "Missing resetDeviceAllPasswords in client_db.js"
+    assert "lms_device_passwords" in client_db_content, "Missing lms_device_passwords storage key in client_db.js"
+    print(" -> PASS: Teacher Animal Group & Ranking System and Device-Specific Password contracts verified successfully.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (16/16)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (22/22)")
     print("============================================================")
 
 if __name__ == "__main__":
     test_all()
+
