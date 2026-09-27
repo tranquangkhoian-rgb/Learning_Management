@@ -178,8 +178,12 @@ class LMSApp {
     try {
       if (this.serverAvailable) {
         const res = await fetch("/api/students");
-        if (res.ok) this.students = await res.json();
-        else this.students = window.ClientDB.getStudents();
+        if (res.ok) {
+          this.students = await res.json();
+          if (window.ClientDB) window.ClientDB.saveStudentsList(this.students);
+        } else {
+          this.students = window.ClientDB.getStudents();
+        }
       } else {
         this.students = window.ClientDB.getStudents();
       }
@@ -3428,33 +3432,158 @@ class LMSApp {
     }
   }
 
-  // --- Real-time Live Synchronization (Req 7) ---
+  // --- Universal Cloud Relay Sync & Real-time Live Synchronization (Req 7) ---
+  initCloudSyncRelay() {
+    if (typeof window === "undefined") return;
+    if (this._cloudRelayInitialized) return;
+    this._cloudRelayInitialized = true;
+
+    // Connect to Server-Sent Events (SSE) for instant cross-device updates
+    if (window.EventSource) {
+      try {
+        this._cloudEventSource = new EventSource("https://ntfy.sh/lms_colinh_3a7_v3_sync/sse");
+        this._cloudEventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.handleCloudSyncMessage(data);
+          } catch {}
+        };
+        this._cloudEventSource.onerror = () => {
+          // SSE reconnects automatically; ignore background connection errors
+        };
+      } catch (e) {
+        console.warn("[CloudSync]: EventSource init error", e);
+      }
+    }
+
+    // Poll latest messages on start and window focus
+    this.pollCloudRelay();
+  }
+
+  async broadcastCloudSync(payload) {
+    try {
+      await fetch("https://ntfy.sh/lms_colinh_3a7_v3_sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn("[CloudSync]: broadcast skipped", e);
+    }
+  }
+
+  async pollCloudRelay() {
+    try {
+      const res = await fetch("https://ntfy.sh/lms_colinh_3a7_v3_sync/json?poll=1");
+      if (!res.ok) return;
+      const text = await res.text();
+      const lines = text.trim().split("\n");
+      for (const line of lines) {
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (obj && obj.message) {
+            let data = null;
+            try { data = JSON.parse(obj.message); } catch { data = obj.message; }
+            if (data && typeof data === "object") {
+              this.handleCloudSyncMessage(data);
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  handleCloudSyncMessage(data) {
+    if (!data || !data.type) return;
+
+    if (data.type === "password_change") {
+      const sid = data.student_id;
+      const scode = (data.student_code || "").toUpperCase();
+      const newPass = String(data.password || "1234").trim();
+      let updated = false;
+
+      this.students.forEach(s => {
+        if ((sid && s.id == sid) || (scode && s.code && s.code.toUpperCase() === scode)) {
+          if (s.password !== newPass) {
+            s.password = newPass;
+            updated = true;
+          }
+        }
+      });
+
+      if (updated) {
+        if (window.ClientDB) {
+          window.ClientDB.saveStudentsList(this.students);
+        }
+        this.renderStudentPasswordTable();
+        this.renderLoginStudentPicker();
+        if (this.currentUserRole === "student" && this.currentStudent) {
+          const matched = this.students.find(s => s.id == this.currentStudent.id);
+          if (matched) this.currentStudent = matched;
+        }
+        console.log(`[CloudSync]: Password for ${scode || sid} updated across devices to "${newPass}"!`);
+      }
+    } else if (data.type === "password_reset_all") {
+      const pass = String(data.password || "1234").trim();
+      this.students.forEach(s => s.password = pass);
+      if (window.ClientDB) {
+        window.ClientDB.resetAllPasswordsToDefault(pass);
+      }
+      this.renderStudentPasswordTable();
+      this.renderLoginStudentPicker();
+      console.log(`[CloudSync]: All 29 student passwords reset to "${pass}" across devices!`);
+    } else if (data.type === "race_update") {
+      if (data.student_id && data.completed !== undefined) {
+        const entry = this.readingRace.find(r => r.student_id == data.student_id);
+        if (entry) {
+          entry.completed = Number(data.completed) || 0;
+          this.applyRaceFilters();
+          if (this.currentUserRole === "student" && this.currentStudent && this.currentStudent.id == data.student_id) {
+            this.renderStudentPortal(this.currentStudent);
+          }
+        }
+      }
+    }
+  }
+
   startLiveSync() {
+    this.initCloudSyncRelay();
+
     if (this._syncInterval) clearInterval(this._syncInterval);
     this._syncInterval = setInterval(() => {
       if (document.visibilityState === "visible") {
         this.silentSyncData();
       }
-    }, 3500);
+    }, 3200);
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         this.silentSyncData();
+        this.pollCloudRelay();
       }
     });
 
     window.addEventListener("focus", () => {
       this.silentSyncData();
+      this.pollCloudRelay();
     });
   }
 
   async silentSyncData() {
-    if (!this.serverAvailable) return;
+    if (!this.serverAvailable) {
+      // On static GitHub Pages, poll Cloud Relay to pick up cross-device password changes
+      this.pollCloudRelay();
+      return;
+    }
+
     try {
-      const [resRace, resStats] = await Promise.all([
+      const [resRace, resStats, resPasswords] = await Promise.all([
         fetch("/api/race"),
-        fetch("/api/library/stats")
+        fetch("/api/library/stats"),
+        fetch("/api/students/passwords")
       ]);
+
       if (resRace.ok) {
         const freshRace = await resRace.json();
         const oldStr = JSON.stringify(this.readingRace);
@@ -3469,9 +3598,32 @@ class LMSApp {
           }
         }
       }
+
       if (resStats.ok) {
         const freshStats = await resStats.json();
         this.renderLibraryStats(freshStats);
+      }
+
+      if (resPasswords.ok) {
+        const freshPasswords = await resPasswords.json();
+        let passwordsChanged = false;
+        this.students.forEach(s => {
+          const sPwd = freshPasswords[s.code] || freshPasswords[String(s.id)];
+          if (sPwd && s.password !== sPwd) {
+            s.password = sPwd;
+            passwordsChanged = true;
+          }
+        });
+        if (passwordsChanged) {
+          if (window.ClientDB) window.ClientDB.saveStudentsList(this.students);
+          this.renderStudentPasswordTable();
+          this.renderLoginStudentPicker();
+          if (this.currentUserRole === "student" && this.currentStudent) {
+            const cur = this.students.find(s => s.id == this.currentStudent.id);
+            if (cur) this.currentStudent = cur;
+          }
+          console.log("[LiveSync]: Passwords synchronized across devices from server.");
+        }
       }
     } catch {
       // background poll ignores errors
@@ -3517,7 +3669,7 @@ class LMSApp {
   async resetStudentPassword(studentId) {
     const st = this.students.find(s => s.id == studentId);
     const name = st ? st.full_name : `Học sinh #${studentId}`;
-    if (!confirm(`Đặt lại mật khẩu của "${name}" về mặc định "1234"?`)) return;
+    if (!confirm(`Đặt lại mật khẩu của "${name}" về mặc định "1234"?\nMật khẩu sẽ được đồng bộ ngay lập tức tới mọi thiết bị.`)) return;
 
     try {
       if (this.serverAvailable) {
@@ -3527,13 +3679,53 @@ class LMSApp {
           body: JSON.stringify({ password: "1234" })
         });
         if (!res.ok) throw new Error("Đặt lại mật khẩu thất bại trên máy chủ.");
-      } else {
-        window.ClientDB.updateStudentPassword(studentId, "1234");
       }
-      if (st) st.password = "1234";
       if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, "1234");
-      alert(`✅ Đã đặt lại mật khẩu cho "${name}" về "1234"!`);
+      if (st) st.password = "1234";
+
+      // Broadcast to all other devices in real-time
+      await this.broadcastCloudSync({
+        type: "password_change",
+        student_id: studentId,
+        student_code: st ? st.code : "",
+        password: "1234"
+      });
+
+      alert(`✅ Đã đặt lại mật khẩu cho "${name}" về "1234" trên mọi thiết bị!`);
       this.renderStudentPasswordTable();
+      this.renderLoginStudentPicker();
+    } catch (e) {
+      alert("Lỗi: " + e.message);
+    }
+  }
+
+  async resetAllStudentsPasswords() {
+    if (!confirm("⚠️ Bạn có chắc chắn muốn đặt lại mật khẩu của TẤT CẢ 29 học sinh về mặc định '1234'?\n\nThao tác này sẽ đồng bộ và khôi phục mã trên MỌI thiết bị (Laptop, Điện thoại, Máy tính bảng).")) return;
+
+    try {
+      if (this.serverAvailable) {
+        await fetch("/api/students/reset-all-passwords", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "1234" })
+        });
+      }
+
+      if (window.ClientDB) {
+        window.ClientDB.resetAllPasswordsToDefault("1234");
+      }
+
+      this.students.forEach(s => s.password = "1234");
+
+      // Broadcast to all other devices in real-time
+      await this.broadcastCloudSync({
+        type: "password_reset_all",
+        password: "1234"
+      });
+
+      alert("✅ Đã đặt lại mật khẩu của toàn bộ 29 học sinh về '1234' trên mọi thiết bị!");
+      this.renderStudentPasswordTable();
+      this.renderLoginStudentPicker();
     } catch (e) {
       alert("Lỗi: " + e.message);
     }
@@ -3543,7 +3735,7 @@ class LMSApp {
     const st = this.students.find(s => s.id == studentId);
     const name = st ? st.full_name : `Học sinh #${studentId}`;
     const cur = st ? (st.password || "1234") : "1234";
-    const newPass = prompt(`Nhập mật khẩu mới cho "${name}":`, cur);
+    const newPass = prompt(`Nhập mật khẩu mới cho "${name}":\n(Sẽ tự động cập nhật ngay trên tất cả điện thoại/laptop khác)`, cur);
     if (newPass === null) return;
     const cleanPass = newPass.trim();
     if (!cleanPass) {
@@ -3559,15 +3751,121 @@ class LMSApp {
           body: JSON.stringify({ password: cleanPass })
         });
         if (!res.ok) throw new Error("Đổi mật khẩu thất bại trên máy chủ.");
-      } else {
-        window.ClientDB.updateStudentPassword(studentId, cleanPass);
       }
-      if (st) st.password = cleanPass;
       if (window.ClientDB) window.ClientDB.updateStudentPassword(studentId, cleanPass);
-      alert(`✅ Đã đổi mật khẩu cho "${name}" thành công!`);
+      if (st) st.password = cleanPass;
+
+      // Broadcast to all other devices in real-time
+      await this.broadcastCloudSync({
+        type: "password_change",
+        student_id: studentId,
+        student_code: st ? st.code : "",
+        password: cleanPass
+      });
+
+      alert(`✅ Đã đổi mật khẩu cho "${name}" thành công! Mật khẩu mới "${cleanPass}" đã được đồng bộ lên toàn bộ thiết bị.`);
       this.renderStudentPasswordTable();
+      this.renderLoginStudentPicker();
     } catch (e) {
       alert("Lỗi: " + e.message);
+    }
+  }
+
+  // --- Student Self-Change Password Modal ---
+  openStudentChangePasswordModal() {
+    if (!this.currentStudent) return;
+    const modal = document.getElementById("modal-student-change-pwd");
+    const sub = document.getElementById("modal-st-change-pwd-subtitle");
+    const curInp = document.getElementById("st-change-pwd-cur");
+    const newInp = document.getElementById("st-change-pwd-new");
+    const confInp = document.getElementById("st-change-pwd-confirm");
+    const errEl = document.getElementById("st-change-pwd-err");
+
+    if (sub) sub.innerText = `${this.currentStudent.order_num}. ${this.currentStudent.full_name} • ${this.currentStudent.code}`;
+    if (curInp) curInp.value = "";
+    if (newInp) newInp.value = "";
+    if (confInp) confInp.value = "";
+    if (errEl) { errEl.style.display = "none"; errEl.innerText = ""; }
+
+    if (modal) modal.style.display = "flex";
+  }
+
+  closeStudentChangePasswordModal() {
+    const modal = document.getElementById("modal-student-change-pwd");
+    if (modal) modal.style.display = "none";
+  }
+
+  async submitStudentChangePassword() {
+    if (!this.currentStudent) return;
+    const curInp = document.getElementById("st-change-pwd-cur");
+    const newInp = document.getElementById("st-change-pwd-new");
+    const confInp = document.getElementById("st-change-pwd-confirm");
+    const errEl = document.getElementById("st-change-pwd-err");
+
+    const curVal = (curInp ? curInp.value : "").trim();
+    const newVal = (newInp ? newInp.value : "").trim();
+    const confVal = (confInp ? confInp.value : "").trim();
+
+    const expectedCur = (this.currentStudent.password || "1234").trim();
+
+    if (curVal !== expectedCur) {
+      if (errEl) {
+        errEl.innerText = "❌ Mật khẩu hiện tại chưa chính xác! (Mặc định nếu chưa đổi là 1234)";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+
+    if (newVal.length < 4) {
+      if (errEl) {
+        errEl.innerText = "❌ Mật khẩu mới cần có ít nhất 4 ký tự!";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+
+    if (newVal !== confVal) {
+      if (errEl) {
+        errEl.innerText = "❌ Xác nhận mật khẩu mới không khớp!";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+
+    try {
+      const sid = this.currentStudent.id;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/students/${sid}/password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: newVal })
+        });
+        if (!res.ok) throw new Error("Máy chủ không thể lưu mật khẩu mới.");
+      }
+
+      if (window.ClientDB) window.ClientDB.updateStudentPassword(sid, newVal);
+      this.currentStudent.password = newVal;
+
+      const stInList = this.students.find(s => s.id == sid);
+      if (stInList) stInList.password = newVal;
+
+      // Broadcast to all other devices in real-time
+      await this.broadcastCloudSync({
+        type: "password_change",
+        student_id: sid,
+        student_code: this.currentStudent.code,
+        password: newVal
+      });
+
+      this.closeStudentChangePasswordModal();
+      alert(`🎉 Đổi mật khẩu thành công!\nMật khẩu mới của con là "${newVal}" và đã được đồng bộ trên mọi thiết bị.`);
+      this.renderStudentPasswordTable();
+      this.renderLoginStudentPicker();
+    } catch (e) {
+      if (errEl) {
+        errEl.innerText = "Lỗi: " + e.message;
+        errEl.style.display = "block";
+      }
     }
   }
 

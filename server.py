@@ -101,6 +101,9 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/students":
             return self.send_json(database.get_students())
 
+        elif path == "/api/students/passwords":
+            return self.send_json(database.get_student_passwords())
+
         elif path.startswith("/api/students/"):
             try:
                 sid = int(path.split("/")[-1])
@@ -251,12 +254,17 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             st_list = database.reset_students_to_default()
             return self.send_json(st_list)
 
+        elif path == "/api/students/reset-all-passwords":
+            default_pwd = body.get("password", "1234")
+            database.reset_all_student_passwords(default_pwd)
+            return self.send_json({"success": True, "password": default_pwd})
+
         elif path.startswith("/api/students/") and path.endswith("/password"):
             try:
                 sid = path.split("/")[-2]
                 new_pwd = body.get("password", "1234")
                 database.update_student_password(sid, new_pwd)
-                return self.send_json({"success": True, "student_id": sid})
+                return self.send_json({"success": True, "student_id": sid, "password": new_pwd})
             except Exception as e:
                 return self.send_json({"error": str(e)}, 400)
 

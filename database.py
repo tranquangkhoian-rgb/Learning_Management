@@ -376,6 +376,36 @@ def update_student_password(student_id_or_code, new_password):
     conn.close()
     return True
 
+def reset_all_student_passwords(default_pass="1234"):
+    """
+    Resets all active students' passwords back to default (default: '1234').
+    Ensures every device's code is synchronized and matches the default.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    clean_pass = str(default_pass).strip() if default_pass else "1234"
+    cursor.execute("UPDATE students SET password = ? WHERE is_active = 1", (clean_pass,))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_student_passwords():
+    """
+    Returns a dictionary mapping student code -> password and student id -> password
+    for rapid cross-device synchronization.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, code, password FROM students WHERE is_active = 1")
+    rows = cursor.fetchall()
+    conn.close()
+    res = {}
+    for r in rows:
+        pwd = r["password"] or "1234"
+        res[r["code"]] = pwd
+        res[str(r["id"])] = pwd
+    return res
+
 def verify_student_password(student_id_or_code, input_password):
     conn = get_db()
     cursor = conn.cursor()
@@ -432,13 +462,13 @@ def reset_students_to_default():
         if row:
             cursor.execute("""
                 UPDATE students
-                SET full_name = ?, gender = ?, order_num = ?, is_active = 1, class_name = 'Lớp 3A7'
+                SET full_name = ?, gender = ?, order_num = ?, is_active = 1, class_name = 'Lớp 3A7', password = '1234'
                 WHERE id = ?
             """, (name, gender, order_num, row[0]))
         else:
             cursor.execute("""
-                INSERT INTO students (code, full_name, gender, order_num, class_name, is_active)
-                VALUES (?, ?, ?, ?, 'Lớp 3A7', 1)
+                INSERT INTO students (code, full_name, gender, order_num, class_name, is_active, password)
+                VALUES (?, ?, ?, ?, 'Lớp 3A7', 1, '1234')
             """, (code, name, gender, order_num))
     conn.commit()
     conn.close()

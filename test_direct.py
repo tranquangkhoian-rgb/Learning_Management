@@ -363,8 +363,44 @@ def test_all():
     assert "silentSyncData" in js_content, "Missing silentSyncData in public/js/app.js"
     print(" -> PASS: All UI contracts (No-manual-input login, Student portal race widget, Teacher-only borrow, Excel import, Universal password manager, Live sync) verified.")
 
+    # 21. Test Match Every Device's Code to Default & Real-time Cross-device Change Sync
+    # 21a. Test reset_all_student_passwords to default '1234'
+    assert database.reset_all_student_passwords("1234") is True
+    pw_map = database.get_student_passwords()
+    assert len(pw_map) >= 29, f"Expected at least 29 passwords mapped, got {len(pw_map)}"
+    assert pw_map["HS01"] == "1234"
+    assert pw_map["HS29"] == "1234"
+
+    # 21b. Test when someone changes a code, it updates and propagates
+    assert database.update_student_password("HS10", "7788") is True
+    assert database.verify_student_password("HS10", "7788") is True
+    pw_map_after = database.get_student_passwords()
+    assert pw_map_after["HS10"] == "7788"
+    # Reset back to default
+    assert database.reset_all_student_passwords("1234") is True
+    assert database.verify_student_password("HS10", "1234") is True
+
+    # 21c. Test server endpoints for password sync and reset-all
+    req_pwd = b"GET /api/students/passwords HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_pwd = MockSocket(req_pwd)
+    handler_pwd = server.LMSRequestHandler(sock_pwd, ("127.0.0.1", 12345), None)
+    out_pwd = sock_pwd.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_pwd
+    assert '"HS01": "1234"' in out_pwd
+
+    # 21d. Test UI & ClientDB contracts for cross-device sync
+    assert "resetAllStudentsPasswords" in js_content, "Missing resetAllStudentsPasswords in public/js/app.js"
+    assert "Khôi Phục Toàn Bộ Về Mặc Định" in html_content, "Missing reset all passwords button in public/index.html"
+    assert "modal-student-change-pwd" in html_content, "Missing modal-student-change-pwd in public/index.html"
+    assert "openStudentChangePasswordModal" in js_content, "Missing openStudentChangePasswordModal in public/js/app.js"
+    assert "submitStudentChangePassword" in js_content, "Missing submitStudentChangePassword in public/js/app.js"
+    assert "initCloudSyncRelay" in js_content, "Missing initCloudSyncRelay in public/js/app.js"
+    assert "broadcastCloudSync" in js_content, "Missing broadcastCloudSync in public/js/app.js"
+    assert "handleCloudSyncMessage" in js_content, "Missing handleCloudSyncMessage in public/js/app.js"
+    print(" -> PASS: Match every device's code to default and cross-device sync contracts verified successfully.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (20/20)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (21/21)")
     print("============================================================")
 
 if __name__ == "__main__":
