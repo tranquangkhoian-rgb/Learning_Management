@@ -388,6 +388,7 @@
       <button class="nav-tab active" onclick="app.switchTab('pane-kiosk')">🎯 Góc Nộp Bài</button>
       <button class="nav-tab highlight" onclick="app.switchTab('pane-grade')">✍️ Chấm Bài Nhanh</button>
       <button class="nav-tab" onclick="app.switchTab('pane-homework')">📚 Quản Lý Bài Tập</button>
+      <button class="nav-tab" onclick="app.switchTab('pane-teams')">🏆 Quản Lý Nhóm</button>
       <button class="nav-tab" onclick="app.switchTab('pane-tracking')">📋 Bảng Theo Dõi Bài</button>
       <button class="nav-tab" onclick="app.switchTab('pane-analytics')">📊 Thống Kê 3 Chiều</button>
       <button class="nav-tab" onclick="app.switchTab('pane-students')">👥 Quản Lý Học Sinh</button>
@@ -515,6 +516,53 @@
                   <p id="grade-st-info" style="font-size: 13px; color: var(--text-muted);">Mã: HS01 • Lần nộp 1 (Đúng hạn)</p>
                 </div>
                 <span id="grade-attempt-badge" class="badge badge-blue">Lần 1</span>
+              </div>
+
+              <!-- Animal Mascot Classification (Teacher customization during grading) -->
+              <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
+                    🐾 Phân loại linh vật học sinh (Bấm để đổi ngay):
+                  </label>
+                  <span id="grade-selected-animal-label" style="font-size: 12px; font-weight: 700; color: var(--primary);">🐱 Mèo cam chăm chỉ</span>
+                </div>
+                <div class="grade-animal-grid">
+                  <button type="button" class="animal-tier-btn" data-group="dolphin" onclick="app.selectGradingAnimal('dolphin', '🐬', 'Cá heo thông thái')">
+                    <span class="animal-icon">🐬</span>
+                    <span class="animal-name">Cá heo</span>
+                    <span class="animal-sub">Thông thái (Smart)</span>
+                  </button>
+                  <button type="button" class="animal-tier-btn" data-group="monkey" onclick="app.selectGradingAnimal('monkey', '🐵', 'Khỉ con nhanh nhẹn')">
+                    <span class="animal-icon">🐵</span>
+                    <span class="animal-name">Khỉ con</span>
+                    <span class="animal-sub">Vượt trội (Kinda smart)</span>
+                  </button>
+                  <button type="button" class="animal-tier-btn" data-group="orange_cat" onclick="app.selectGradingAnimal('orange_cat', '🐱', 'Mèo cam chăm chỉ')">
+                    <span class="animal-icon">🐱</span>
+                    <span class="animal-name">Mèo cam</span>
+                    <span class="animal-sub">Tiêu chuẩn (Ordinary)</span>
+                  </button>
+                  <button type="button" class="animal-tier-btn" data-group="turtle_snail" onclick="app.selectGradingAnimal('turtle_snail', '🐢', 'Rùa con kiên trì')">
+                    <span class="animal-icon">🐢</span>
+                    <span class="animal-name">Rùa / Sên</span>
+                    <span class="animal-sub">Cần cố gắng (Improve)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Questions Breakdown (Mục câu hỏi bài tập) -->
+              <div class="form-group" style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B; font-size: 13px;">
+                    📝 Đánh giá từng câu hỏi bài tập:
+                  </label>
+                  <button type="button" class="btn btn-outline btn-xs" onclick="app.markAllGradeQuestionsCorrect()" style="font-size: 11px; padding: 2px 8px;">
+                    ✅ Đúng tất cả
+                  </button>
+                </div>
+                <div id="grade-questions-container" class="grade-questions-list">
+                  <!-- Dynamically rendered: Question 1, Question 2, Question 3, Question 4... -->
+                </div>
               </div>
 
               <!-- Previous history preview -->
@@ -649,6 +697,49 @@
               <!-- Dynamically populated -->
             </tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====================================================================
+         TAB: QUẢN LÝ NHÓM HỌC TẬP (TEAMS MANAGEMENT)
+         ==================================================================== -->
+    <section id="pane-teams" class="tab-pane">
+      <div class="card">
+        <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div class="card-title">🏆 Quản Lý Nhóm Học Tập Lớp 3A7</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+              Tạo các nhóm thi đua, phân công học sinh không giới hạn số lượng, tùy chỉnh màu cờ sắc áo, biểu tượng và tên nhóm.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-primary" onclick="app.openCreateTeamModal()">
+              ➕ Tạo Nhóm Mới
+            </button>
+          </div>
+        </div>
+
+        <!-- Team Stats Bar -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div class="stat-card" style="border-left: 4px solid var(--primary);">
+            <div class="stat-label">Tổng số nhóm</div>
+            <div class="stat-value" id="teams-stat-total" style="color: var(--primary);">0</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid #10B981;">
+            <div class="stat-label">Học sinh đã vào nhóm</div>
+            <div class="stat-value" id="teams-stat-assigned" style="color: #10B981;">0</div>
+          </div>
+          <div class="stat-card" style="border-left: 4px solid #F59E0B;">
+            <div class="stat-label">Quy mô nhóm lớn nhất</div>
+            <div class="stat-value" id="teams-stat-max" style="color: #F59E0B;">0</div>
+          </div>
+        </div>
+
+        <!-- Teams Grid Container -->
+        <div id="teams-grid" class="teams-grid-container">
+          <!-- Dynamically populated or Empty state -->
         </div>
       </div>
     </section>
@@ -1506,6 +1597,25 @@
           <input type="number" id="new-asg-maxscore" class="form-control" value="10" min="1" max="100">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">Danh sách câu hỏi trong bài:</label>
+            <div class="quick-question-presets" style="display: flex; gap: 4px;">
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(3)">3 câu</span>
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(4)">4 câu</span>
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(5)">5 câu</span>
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(6)">6 câu</span>
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(8)">8 câu</span>
+              <span class="preset-chip" onclick="app.setNewAsgQuestionPreset(10)">10 câu</span>
+            </div>
+          </div>
+          <div id="new-asg-questions-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; background: #F8FAFC; border-radius: 8px; border: 1px solid var(--border);">
+            <!-- Dynamic question rows -->
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="app.addNewAsgQuestionRow()" style="margin-top: 6px; font-size: 12px;">
+            ➕ Thêm câu hỏi
+          </button>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="new-asg-notes">Ghi Chú Yêu Cầu:</label>
           <textarea id="new-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
         </div>
@@ -1559,6 +1669,25 @@
           <input type="number" id="edit-asg-maxscore" class="form-control" value="10" min="1" max="100">
         </div>
         <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">Danh sách câu hỏi trong bài:</label>
+            <div class="quick-question-presets" style="display: flex; gap: 4px;">
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(3)">3 câu</span>
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(4)">4 câu</span>
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(5)">5 câu</span>
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(6)">6 câu</span>
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(8)">8 câu</span>
+              <span class="preset-chip" onclick="app.setEditAsgQuestionPreset(10)">10 câu</span>
+            </div>
+          </div>
+          <div id="edit-asg-questions-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; background: #F8FAFC; border-radius: 8px; border: 1px solid var(--border);">
+            <!-- Dynamic question rows -->
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="app.addEditAsgQuestionRow()" style="margin-top: 6px; font-size: 12px;">
+            ➕ Thêm câu hỏi
+          </button>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="edit-asg-notes">Ghi Chú Yêu Cầu:</label>
           <textarea id="edit-asg-notes" class="form-control" rows="2" placeholder="Ví dụ: Hoàn thành sạch đẹp vào vở ô ly..."></textarea>
         </div>
@@ -1566,6 +1695,99 @@
           <button class="btn btn-outline" onclick="app.closeEditAssignmentModal()">Hủy</button>
           <button class="btn btn-primary" onclick="app.saveEditedAssignment()">Lưu Thay Đổi</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODAL: TẠO / SỬA NHÓM HỌC TẬP (TEAMS MANAGEMENT)
+       ==================================================================== -->
+  <div id="team-editor-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 640px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="team-modal-title">🏆 Tạo Nhóm Học Tập Mới</h3>
+        <button class="modal-close" onclick="app.closeTeamModal()">&times;</button>
+      </div>
+      <div style="overflow-y: auto; padding-right: 4px; flex: 1;">
+        <input type="hidden" id="team-modal-id">
+        
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="team-modal-name">Tên Nhóm:</label>
+            <input type="text" id="team-modal-name" class="form-control" placeholder="Ví dụ: Biệt Đội Rồng Vàng">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="team-modal-icon">Biểu Tượng / Icon:</label>
+            <input type="text" id="team-modal-icon" class="form-control" value="⭐" style="font-size: 20px; text-align: center;">
+          </div>
+        </div>
+
+        <!-- Quick Icon Selector Chips -->
+        <div style="margin-top: -6px; margin-bottom: 12px;">
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Gợi ý biểu tượng:</div>
+          <div class="team-quick-icons" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('⭐')">⭐</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🐬')">🐬</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🦁')">🦁</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🐯')">🐯</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🚀')">🚀</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🔥')">🔥</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('⚡')">⚡</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🦅')">🦅</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🦊')">🦊</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('👑')">👑</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🏆')">🏆</button>
+            <button type="button" class="icon-chip" onclick="app.setTeamIcon('🌈')">🌈</button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="team-modal-color">Màu Sắc Đại Diện:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="color" id="team-modal-color" value="#2563EB" style="width: 44px; height: 38px; padding: 2px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer;">
+              <div class="team-quick-colors" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <span class="color-dot" style="background: #2563EB;" onclick="app.setTeamColor('#2563EB')"></span>
+                <span class="color-dot" style="background: #7C3AED;" onclick="app.setTeamColor('#7C3AED')"></span>
+                <span class="color-dot" style="background: #059669;" onclick="app.setTeamColor('#059669')"></span>
+                <span class="color-dot" style="background: #D97706;" onclick="app.setTeamColor('#D97706')"></span>
+                <span class="color-dot" style="background: #E11D48;" onclick="app.setTeamColor('#E11D48')"></span>
+                <span class="color-dot" style="background: #0891B2;" onclick="app.setTeamColor('#0891B2')"></span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="team-modal-image">Link Ảnh Đội (Tùy chọn):</label>
+            <input type="text" id="team-modal-image" class="form-control" placeholder="URL ảnh đại diện...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="team-modal-motto">Khẩu Hiệu / Slogan Nhóm:</label>
+          <input type="text" id="team-modal-motto" class="form-control" placeholder="Ví dụ: Đoàn kết là sức mạnh - Tự tin chiến thắng!">
+        </div>
+
+        <!-- Student Multi-select Member List -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">
+              👥 Thành Viên (<span id="team-modal-selected-count">0</span> đã chọn - Không giới hạn):
+            </label>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-outline btn-xs" onclick="app.toggleAllTeamStudents(true)">Chọn tất cả</button>
+              <button type="button" class="btn btn-outline btn-xs" onclick="app.toggleAllTeamStudents(false)">Bỏ chọn</button>
+            </div>
+          </div>
+          <input type="text" id="team-modal-student-search" class="form-control form-control-sm" placeholder="🔍 Tìm nhanh học sinh..." oninput="app.filterTeamStudentSelection()" style="margin-bottom: 8px;">
+          <div id="team-modal-student-list" class="team-student-checklist" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #F8FAFC; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px;">
+            <!-- Dynamically populated with student checkboxes -->
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <button class="btn btn-outline" onclick="app.closeTeamModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="app.saveTeam()">💾 Lưu Thông Tin Nhóm</button>
       </div>
     </div>
   </div>
