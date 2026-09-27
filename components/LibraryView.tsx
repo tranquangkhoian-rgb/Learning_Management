@@ -164,6 +164,140 @@ export default function LibraryView({ students }: LibraryViewProps) {
     return matchCat && matchQ;
   });
 
+  const handleResetBooksCatalog = async () => {
+    if (!confirm("Khôi phục danh mục 75 cuốn sách gốc từ file Excel? Dữ liệu sách hiện tại sẽ được cập nhật lại theo danh sách chuẩn.")) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/books/reset", { method: "POST" });
+      if (res.ok) {
+        alert("✅ Đã khôi phục 75 cuốn sách chuẩn thành công!");
+        loadData();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePrintAllBooksQr = () => {
+    if (!books || books.length === 0) {
+      alert("Chưa có danh sách sách trong kho để in!");
+      return;
+    }
+    const sorted = [...books].sort((a, b) => (a.stt || 0) - (b.stt || 0));
+    const totalCount = sorted.length;
+    const className = "LỚP 3A7";
+    const schoolName = "TRƯỜNG TH ÁNH DƯƠNG";
+
+    const cardsHtml = sorted.map((b, idx) => {
+      const qrSvg = `<img src="/api/qr?text=${encodeURIComponent(b.code)}" alt="${b.code}" style="width:100%;height:100%;" />`;
+      const safeTitle = (b.title || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeAuthor = (b.author || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeContrib = (b.contributed_by || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeCategory = (b.category || "Chung").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeShelf = (b.shelf_code || "K1").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const bookStt = b.stt || (idx + 1);
+
+      return `
+        <div class="book-qr-card">
+          <div class="qr-col">
+            <div class="qr-graphic">${qrSvg}</div>
+            <div class="book-code-mono">${b.code}</div>
+          </div>
+          <div class="info-col">
+            <div class="header-line">
+              <span class="class-tag">${className}</span>
+              <span class="stt-tag">STT #${bookStt}</span>
+            </div>
+            <div class="book-title" title="${safeTitle}">${safeTitle}</div>
+            ${safeAuthor ? `<div class="book-author">✍️ ${safeAuthor}</div>` : ""}
+            <div class="footer-meta">
+              <span class="shelf-pill">📍 Kệ ${safeShelf}</span>
+              <span class="cat-pill">${safeCategory}</span>
+            </div>
+            ${safeContrib ? `<div class="contrib-line">🎁 Sách của: <strong>${safeContrib}</strong></div>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Mã QR Sách Lớp 3A7 (${totalCount} Cuốn) - Xuất PDF / In</title>
+  <style>
+    @page { size: A4 portrait; margin: 8mm 6mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+    .no-print-bar { position: sticky; top: 0; z-index: 9999; background: #065f46; color: #ffffff; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .no-print-bar .title-group h2 { margin: 0; font-size: 16px; font-weight: 800; }
+    .no-print-bar .title-group p { margin: 2px 0 0; font-size: 12px; opacity: 0.9; }
+    .btn-action { border: none; outline: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; }
+    .btn-print { background: #10b981; color: #ffffff; }
+    .btn-close { background: rgba(255,255,255,0.2); color: #ffffff; margin-left: 8px; }
+    .page-container { max-width: 210mm; margin: 12px auto; background: #ffffff; padding: 6mm; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-radius: 8px; }
+    .sheet-header { text-align: center; border-bottom: 2px solid #059669; padding-bottom: 6px; margin-bottom: 8px; }
+    .sheet-header h1 { margin: 0; font-size: 14pt; font-weight: 900; color: #065f46; text-transform: uppercase; }
+    .sheet-header p { margin: 2px 0 0; font-size: 9pt; font-weight: 600; color: #475569; }
+    .books-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+    .book-qr-card { border: 1.5px dashed #059669; border-radius: 6px; padding: 4px 6px; background: #ffffff; display: flex; align-items: center; gap: 6px; height: 38mm; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }
+    .qr-col { width: 29mm; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+    .qr-graphic { width: 27mm; height: 27mm; }
+    .qr-graphic img { width: 100% !important; height: 100% !important; display: block; }
+    .book-code-mono { font-family: monospace; font-size: 8pt; font-weight: 900; color: #065f46; margin-top: 1px; }
+    .info-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+    .header-line { display: flex; justify-content: space-between; align-items: center; }
+    .class-tag { font-size: 6.5pt; font-weight: 800; color: #047857; text-transform: uppercase; }
+    .stt-tag { font-size: 6.5pt; font-weight: 800; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 0.5px 3px; border-radius: 3px; }
+    .book-title { font-size: 8.5pt; font-weight: 800; color: #0f172a; line-height: 1.15; max-height: 2.3em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin: 1px 0; }
+    .book-author { font-size: 6.5pt; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .footer-meta { display: flex; align-items: center; gap: 4px; margin-top: 1px; }
+    .shelf-pill { font-size: 6.5pt; font-weight: 700; background: #fef3c7; color: #92400e; padding: 1px 4px; border-radius: 3px; }
+    .cat-pill { font-size: 6pt; font-weight: 700; background: #f1f5f9; color: #475569; padding: 1px 4px; border-radius: 3px; }
+    .contrib-line { font-size: 6.5pt; color: #047857; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    @media print {
+      body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
+      .no-print-bar { display: none !important; }
+      .page-container { max-width: 100% !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; }
+      .book-qr-card { border: 1px dashed #334155 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div class="title-group">
+      <h2>📚 BỘ NHÃN MÃ QR KHO SÁCH (${totalCount} CUỐN)</h2>
+      <p>💡 Chọn máy in hoặc chọn <strong>"Lưu dưới dạng PDF" (Save as PDF)</strong> để xuất file PDF in tem nhãn.</p>
+    </div>
+    <div>
+      <button class="btn-action btn-print" onclick="window.print()">🖨️ In / Xuất PDF Ngay</button>
+      <button class="btn-action btn-close" onclick="window.close()">✖️ Đóng</button>
+    </div>
+  </div>
+  <div class="page-container">
+    <div class="sheet-header">
+      <h1>DANH MỤC TEM MÃ QR SÁCH - ${className}</h1>
+      <p>${schoolName} • TỔNG CỘNG: ${totalCount} ĐẦU SÁCH • HỆ THỐNG THƯ VIỆN LỚP HỌC</p>
+    </div>
+    <div class="books-grid">
+      ${cardsHtml}
+    </div>
+  </div>
+  <script>
+    window.onload = function() { setTimeout(function() { window.print(); }, 400); };
+  </script>
+</body>
+</html>`;
+
+    const printWin = window.open("", "_blank");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(fullHtml);
+      printWin.document.close();
+    }
+  };
+
   const petAvatars = ['🐶', '🐱', '🦊', '🐰', '🐼', '🦁', '🐯', '🐨', '🦄', '🐸',
                       '🐵', '🐻', '🐧', '🐤', '🦉', '🐺', '🐗', '🐴', '🐝', '🐙',
                       '🦋', '🐢', '🐬', '🐳', '🦖', '🦔', '🐿️', '🦩', '🦚', '🐮'];
@@ -559,6 +693,20 @@ export default function LibraryView({ students }: LibraryViewProps) {
               <div>
                 <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Danh mục thư viện</p>
                 <h3 className="text-xl font-black text-slate-900">75 Đầu Sách Lớp 3A7</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrintAllBooksQr}
+                  className="px-3.5 py-1.5 rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  🖨️ In QR Sách (PDF)
+                </button>
+                <button
+                  onClick={handleResetBooksCatalog}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  🔄 Khôi Phục 75 Cuốn Gốc
+                </button>
               </div>
             </div>
 

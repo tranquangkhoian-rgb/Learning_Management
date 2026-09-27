@@ -231,8 +231,38 @@ def test_all():
     assert stats["readersCount"] == 29
     print(f" -> PASS: Library overview stats verified (Total books: {stats['totalBooks']}, Readers: {stats['readersCount']}).")
 
+    # 15. Verify "In QR Sách (PDF)" button and export function
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_content = f.read()
+    assert "printAllBooksQrSheet()" in html_content, "Missing printAllBooksQrSheet in public/index.html"
+    assert "In QR Sách (PDF)" in html_content, "Missing 'In QR Sách (PDF)' button text in public/index.html"
+    
+    # Verify button position: In QR Sách must precede Khôi Phục 75 Cuốn Gốc
+    idx_print = html_content.find("printAllBooksQrSheet()")
+    idx_reset = html_content.find("resetBooksCatalogToSeed()")
+    assert idx_print != -1 and idx_reset != -1, "Both buttons must exist"
+    assert idx_print < idx_reset, "'In QR Sách (PDF)' must be placed before 'Khôi Phục 75 Cuốn Gốc'"
+    print(" -> PASS: 'In QR Sách (PDF)' button is verified right before 'Khôi Phục 75 Cuốn Gốc' in Kho Sách toolbar.")
+
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_content = f.read()
+    assert "printAllBooksQrSheet()" in js_content, "Missing printAllBooksQrSheet() method in public/js/app.js"
+    assert "Mã QR Sách Lớp 3A7" in js_content, "Missing book QR print layout in public/js/app.js"
+    print(" -> PASS: printAllBooksQrSheet() method and A4 PDF printing template verified in public/js/app.js.")
+
+    # Verify mirrors are in sync
+    with open("index.html", "r", encoding="utf-8") as f:
+        assert f.read() == html_content, "index.html not in sync with public/index.html"
+    with open("docs/index.html", "r", encoding="utf-8") as f:
+        assert f.read() == html_content, "docs/index.html not in sync with public/index.html"
+    with open("js/app.js", "r", encoding="utf-8") as f:
+        assert f.read() == js_content, "js/app.js not in sync with public/js/app.js"
+    with open("docs/js/app.js", "r", encoding="utf-8") as f:
+        assert f.read() == js_content, "docs/js/app.js not in sync with public/js/app.js"
+    print(" -> PASS: All mirror files (public/, docs/, root) are 100% in sync.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (14/14)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (15/15)")
     print("============================================================")
 
 if __name__ == "__main__":
