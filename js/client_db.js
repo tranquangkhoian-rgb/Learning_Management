@@ -1183,6 +1183,31 @@ class ClientDBEngine {
   }
 
   initStorage() {
+    const MATCH_DEFAULT_KEY = "lms_passwords_v3_matched";
+    // Guarantee that every device opening the app has all student passwords matched to default '1234'
+    if (localStorage.getItem(MATCH_DEFAULT_KEY) !== "true") {
+      try {
+        const raw = localStorage.getItem("lms_students");
+        let list = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list) || list.length === 0) list = DEFAULT_STUDENTS_3A7;
+        list = list.map((s, idx) => ({
+          ...s,
+          order_num: s.order_num || (idx + 1),
+          password: "1234"
+        }));
+        localStorage.setItem("lms_students", JSON.stringify(list));
+
+        // Also ensure teacher_pin is default '1234'
+        const setRaw = localStorage.getItem("lms_settings");
+        let settings = setRaw ? JSON.parse(setRaw) : DEFAULT_SETTINGS;
+        settings.teacher_pin = "1234";
+        localStorage.setItem("lms_settings", JSON.stringify(settings));
+      } catch (e) {
+        console.error("Error matching device codes to default:", e);
+      }
+      localStorage.setItem(MATCH_DEFAULT_KEY, "true");
+    }
+
     if (!localStorage.getItem("lms_students")) {
       localStorage.setItem("lms_students", JSON.stringify(DEFAULT_STUDENTS_3A7));
     }
@@ -1238,6 +1263,52 @@ class ClientDBEngine {
     } catch {
       return DEFAULT_STUDENTS_3A7;
     }
+  }
+
+  saveStudentsList(list) {
+    if (Array.isArray(list)) {
+      localStorage.setItem("lms_students", JSON.stringify(list));
+      return true;
+    }
+    return false;
+  }
+
+  resetAllPasswordsToDefault(defaultPass = "1234") {
+    const clean = String(defaultPass || "1234").trim();
+    const list = this.getStudents().map(s => ({
+      ...s,
+      password: clean
+    }));
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return list;
+  }
+
+  getStudentPasswordsMap() {
+    const list = this.getStudents();
+    const map = {};
+    list.forEach(s => {
+      const pwd = s.password || "1234";
+      map[s.code] = pwd;
+      map[String(s.id)] = pwd;
+    });
+    return map;
+  }
+
+  syncPasswordsFromMap(map) {
+    if (!map || typeof map !== "object") return false;
+    const list = this.getStudents();
+    let changed = false;
+    list.forEach(s => {
+      const newPwd = map[s.code] || map[String(s.id)];
+      if (newPwd && s.password !== newPwd) {
+        s.password = newPwd;
+        changed = true;
+      }
+    });
+    if (changed) {
+      localStorage.setItem("lms_students", JSON.stringify(list));
+    }
+    return changed;
   }
 
   updateStudentPassword(studentIdOrCode, newPassword) {
