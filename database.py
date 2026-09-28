@@ -20,6 +20,63 @@ from datetime import datetime
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "learning.db")
 
+# 1. Homeroom Groups (Fixed 6 Groups: Group 1 - Group 6)
+HOMEROOM_GROUPS_CONFIG = {
+    "Nhóm 1": {"name": "Nhóm 1", "color": "#EF4444", "bg_color": "#FEF2F2", "border_color": "#FCA5A5", "badge": "🔴"},
+    "Nhóm 2": {"name": "Nhóm 2", "color": "#3B82F6", "bg_color": "#EFF6FF", "border_color": "#93C5FD", "badge": "🔵"},
+    "Nhóm 3": {"name": "Nhóm 3", "color": "#10B981", "bg_color": "#ECFDF5", "border_color": "#6EE7B7", "badge": "🟢"},
+    "Nhóm 4": {"name": "Nhóm 4", "color": "#F59E0B", "bg_color": "#FFFBEB", "border_color": "#FCD34D", "badge": "🟡"},
+    "Nhóm 5": {"name": "Nhóm 5", "color": "#8B5CF6", "bg_color": "#F5F3FF", "border_color": "#C4B5FD", "badge": "🟣"},
+    "Nhóm 6": {"name": "Nhóm 6", "color": "#F97316", "bg_color": "#FFF7ED", "border_color": "#FDBA74", "badge": "🟠"},
+}
+
+# 2. Academic Ability Groups (Flexible: Math & Vietnamese - Dolphins, Monkeys, Cats, Ants)
+ABILITY_GROUPS_CONFIG = {
+    "dolphin": {
+        "key": "dolphin",
+        "name": "Cá Heo",
+        "symbol": "🐬",
+        "color": "#0284C7",
+        "bg_color": "#E0F2FE",
+        "border_color": "#7DD3FC",
+        "badge_color": "#0284C7",
+        "desc": "Tiêu biểu, xuất sắc"
+    },
+    "monkey": {
+        "key": "monkey",
+        "name": "Khỉ Con",
+        "symbol": "🐒",
+        "color": "#D97706",
+        "bg_color": "#FEF3C7",
+        "border_color": "#FBBF24",
+        "badge_color": "#D97706",
+        "desc": "Nhanh nhẹn, khá"
+    },
+    "cat": {
+        "key": "cat",
+        "name": "Mèo Con",
+        "symbol": "🐱",
+        "color": "#EA580C",
+        "bg_color": "#FFEDD5",
+        "border_color": "#FB923C",
+        "badge_color": "#EA580C",
+        "desc": "Cần củng cố, trung bình"
+    },
+    "ant": {
+        "key": "ant",
+        "name": "Kiến Chăm",
+        "symbol": "🐜",
+        "color": "#16A34A",
+        "bg_color": "#DCFCE7",
+        "border_color": "#86EFAC",
+        "badge_color": "#16A34A",
+        "desc": "Cần hỗ trợ, chăm chỉ"
+    }
+}
+# Backward compatibility aliases
+ABILITY_GROUPS_CONFIG["orange_cat"] = ABILITY_GROUPS_CONFIG["cat"]
+ABILITY_GROUPS_CONFIG["turtle_snail"] = ABILITY_GROUPS_CONFIG["ant"]
+
 # Teacher Animal Group & Mascot Tiers (Clean, friendly names without embarrassing words)
 ANIMAL_GROUPS_CONFIG = {
     "dolphin": {
@@ -67,6 +124,21 @@ ANIMAL_GROUPS_CONFIG = {
             {"symbol": "🐰", "name": "🐰"},
         ]
     },
+    "cat": {
+        "tier": "cat",
+        "tier_name": "🐱",
+        "badge_color": "#EA580C",
+        "bg_color": "#FFEDD5",
+        "border_color": "#FB923C",
+        "default_symbol": "🐱",
+        "default_name": "🐱",
+        "options": [
+            {"symbol": "🐱", "name": "🐱"},
+            {"symbol": "🐶", "name": "🐶"},
+            {"symbol": "🐼", "name": "🐼"},
+            {"symbol": "🐰", "name": "🐰"},
+        ]
+    },
     "turtle_snail": {
         "tier": "turtle_snail",
         "tier_name": "🐢",
@@ -81,6 +153,21 @@ ANIMAL_GROUPS_CONFIG = {
             {"symbol": "🦥", "name": "🦥"},
             {"symbol": "🦔", "name": "🦔"},
             {"symbol": "🐜", "name": "🐜"},
+        ]
+    },
+    "ant": {
+        "tier": "ant",
+        "tier_name": "🐜",
+        "badge_color": "#16A34A",
+        "bg_color": "#DCFCE7",
+        "border_color": "#86EFAC",
+        "default_symbol": "🐜",
+        "default_name": "🐜",
+        "options": [
+            {"symbol": "🐜", "name": "🐜"},
+            {"symbol": "🐢", "name": "🐢"},
+            {"symbol": "🐌", "name": "🐌"},
+            {"symbol": "🦥", "name": "🦥"},
         ]
     }
 }
@@ -218,7 +305,15 @@ def init_db():
     if "group_name" not in st_cols:
         cursor.execute("ALTER TABLE students ADD COLUMN group_name TEXT DEFAULT 'Nhóm 1'")
     if "group_color" not in st_cols:
-        cursor.execute("ALTER TABLE students ADD COLUMN group_color TEXT DEFAULT '#3B82F6'")
+        cursor.execute("ALTER TABLE students ADD COLUMN group_color TEXT DEFAULT '#EF4444'")
+    if "homeroom_group" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN homeroom_group TEXT DEFAULT 'Nhóm 1'")
+    if "math_group" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN math_group TEXT DEFAULT 'cat'")
+    if "viet_group" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN viet_group TEXT DEFAULT 'cat'")
+    if "birthday" not in st_cols:
+        cursor.execute("ALTER TABLE students ADD COLUMN birthday TEXT DEFAULT ''")
 
     # Ensure questions and goals columns exist on assignments table
     cursor.execute("PRAGMA table_info(assignments)")
@@ -272,6 +367,22 @@ def init_db():
     );
     """)
 
+    # Ensure group_change_history table exists for audit logging
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS group_change_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        student_code TEXT DEFAULT '',
+        student_name TEXT DEFAULT '',
+        subject TEXT NOT NULL, -- 'homeroom', 'Toán', 'Tiếng Việt'
+        old_group TEXT DEFAULT '',
+        new_group TEXT NOT NULL,
+        changed_by TEXT DEFAULT 'Cô Linh',
+        reason TEXT DEFAULT '',
+        changed_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     # Ensure all example homework assignments and sample events are purged (start clean)
     cursor.execute("""
         DELETE FROM submission_events 
@@ -318,44 +429,48 @@ def init_db():
     # Clean all animal_title to be strictly the icon symbol without any words
     cursor.execute("UPDATE students SET animal_title = animal_symbol")
 
-    # Initial seed distribution for color groups (divided by different colors)
-    color_group_seeds = [
-        # Nhóm Đỏ (HS01..HS07)
-        ("HS01", "Nhóm Đỏ", "#EF4444"),
-        ("HS02", "Nhóm Đỏ", "#EF4444"),
-        ("HS03", "Nhóm Đỏ", "#EF4444"),
-        ("HS04", "Nhóm Đỏ", "#EF4444"),
-        ("HS05", "Nhóm Đỏ", "#EF4444"),
-        ("HS06", "Nhóm Đỏ", "#EF4444"),
-        ("HS07", "Nhóm Đỏ", "#EF4444"),
-        # Nhóm Xanh Dương (HS08..HS14)
-        ("HS08", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS09", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS10", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS11", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS12", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS13", "Nhóm Xanh Dương", "#3B82F6"),
-        ("HS14", "Nhóm Xanh Dương", "#3B82F6"),
-        # Nhóm Xanh Lá (HS15..HS21)
-        ("HS15", "Nhóm Xanh Lá", "#10B981"),
-        ("HS16", "Nhóm Xanh Lá", "#10B981"),
-        ("HS17", "Nhóm Xanh Lá", "#10B981"),
-        ("HS18", "Nhóm Xanh Lá", "#10B981"),
-        ("HS19", "Nhóm Xanh Lá", "#10B981"),
-        ("HS20", "Nhóm Xanh Lá", "#10B981"),
-        ("HS21", "Nhóm Xanh Lá", "#10B981"),
-        # Nhóm Vàng (HS22..HS29)
-        ("HS22", "Nhóm Vàng", "#F59E0B"),
-        ("HS23", "Nhóm Vàng", "#F59E0B"),
-        ("HS24", "Nhóm Vàng", "#F59E0B"),
-        ("HS25", "Nhóm Vàng", "#F59E0B"),
-        ("HS26", "Nhóm Vàng", "#F59E0B"),
-        ("HS27", "Nhóm Vàng", "#F59E0B"),
-        ("HS28", "Nhóm Vàng", "#F59E0B"),
-        ("HS29", "Nhóm Vàng", "#F59E0B"),
+    # 1. Fixed Homeroom Groups (Nhóm 1 .. Nhóm 6)
+    homeroom_seeds = [
+        # Nhóm 1 (HS01..HS05)
+        ("HS01", "Nhóm 1", "#EF4444"), ("HS02", "Nhóm 1", "#EF4444"), ("HS03", "Nhóm 1", "#EF4444"), ("HS04", "Nhóm 1", "#EF4444"), ("HS05", "Nhóm 1", "#EF4444"),
+        # Nhóm 2 (HS06..HS10)
+        ("HS06", "Nhóm 2", "#3B82F6"), ("HS07", "Nhóm 2", "#3B82F6"), ("HS08", "Nhóm 2", "#3B82F6"), ("HS09", "Nhóm 2", "#3B82F6"), ("HS10", "Nhóm 2", "#3B82F6"),
+        # Nhóm 3 (HS11..HS15)
+        ("HS11", "Nhóm 3", "#10B981"), ("HS12", "Nhóm 3", "#10B981"), ("HS13", "Nhóm 3", "#10B981"), ("HS14", "Nhóm 3", "#10B981"), ("HS15", "Nhóm 3", "#10B981"),
+        # Nhóm 4 (HS16..HS20)
+        ("HS16", "Nhóm 4", "#F59E0B"), ("HS17", "Nhóm 4", "#F59E0B"), ("HS18", "Nhóm 4", "#F59E0B"), ("HS19", "Nhóm 4", "#F59E0B"), ("HS20", "Nhóm 4", "#F59E0B"),
+        # Nhóm 5 (HS21..HS25)
+        ("HS21", "Nhóm 5", "#8B5CF6"), ("HS22", "Nhóm 5", "#8B5CF6"), ("HS23", "Nhóm 5", "#8B5CF6"), ("HS24", "Nhóm 5", "#8B5CF6"), ("HS25", "Nhóm 5", "#8B5CF6"),
+        # Nhóm 6 (HS26..HS29)
+        ("HS26", "Nhóm 6", "#F97316"), ("HS27", "Nhóm 6", "#F97316"), ("HS28", "Nhóm 6", "#F97316"), ("HS29", "Nhóm 6", "#F97316"),
     ]
-    for c_code, c_gname, c_gcolor in color_group_seeds:
-        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE code = ?", (c_gname, c_gcolor, c_code))
+    for h_code, h_name, h_color in homeroom_seeds:
+        cursor.execute("""
+            UPDATE students 
+            SET homeroom_group = COALESCE(NULLIF(homeroom_group, ''), ?),
+                group_name = COALESCE(NULLIF(homeroom_group, ''), ?),
+                group_color = ?
+            WHERE code = ?
+        """, (h_name, h_name, h_color, h_code))
+
+    # 2. Academic Ability Groups (Math & Vietnamese independent)
+    math_seeds = {
+        "HS01": "dolphin", "HS06": "dolphin", "HS11": "dolphin", "HS15": "dolphin", "HS21": "dolphin",
+        "HS02": "monkey", "HS07": "monkey", "HS10": "monkey", "HS14": "monkey", "HS18": "monkey", "HS26": "monkey", "HS29": "monkey",
+        "HS03": "cat", "HS04": "cat", "HS05": "cat", "HS08": "cat", "HS09": "cat", "HS12": "cat", "HS13": "cat", "HS16": "cat", "HS17": "cat", "HS19": "cat", "HS20": "cat", "HS25": "cat",
+        "HS22": "ant", "HS23": "ant", "HS24": "ant", "HS27": "ant", "HS28": "ant"
+    }
+    for m_code, m_grp in math_seeds.items():
+        cursor.execute("UPDATE students SET math_group = ? WHERE code = ? AND (math_group IS NULL OR math_group = '' OR math_group = 'cat' OR math_group = 'orange_cat')", (m_grp, m_code))
+
+    viet_seeds = {
+        "HS02": "dolphin", "HS07": "dolphin", "HS11": "dolphin", "HS18": "dolphin", "HS24": "dolphin", "HS28": "dolphin",
+        "HS01": "monkey", "HS03": "monkey", "HS06": "monkey", "HS08": "monkey", "HS12": "monkey", "HS15": "monkey", "HS21": "monkey", "HS29": "monkey",
+        "HS04": "cat", "HS09": "cat", "HS10": "cat", "HS13": "cat", "HS14": "cat", "HS16": "cat", "HS19": "cat", "HS25": "cat", "HS26": "cat",
+        "HS05": "ant", "HS17": "ant", "HS20": "ant", "HS22": "ant", "HS23": "ant", "HS27": "ant"
+    }
+    for v_code, v_grp in viet_seeds.items():
+        cursor.execute("UPDATE students SET viet_group = ? WHERE code = ? AND (viet_group IS NULL OR viet_group = '' OR viet_group = 'cat' OR viet_group = 'orange_cat')", (v_grp, v_code))
 
     # Seed Default Settings
     default_settings = {
@@ -405,13 +520,21 @@ def init_db():
 
     cursor.execute("SELECT COUNT(*) FROM students")
     count = cursor.fetchone()[0]
-    if count == 0 or count == 30: # Migrate from old 30 generic students to 29 3A7 students
+    if count == 0:
         cursor.execute("DELETE FROM submission_events")
         cursor.execute("DELETE FROM students")
         cursor.executemany(
             "INSERT INTO students (code, full_name, gender, order_num, class_name) VALUES (?, ?, ?, ?, 'Lớp 3A7')",
             seed_students
         )
+        for code, (grp, sym, ttl) in initial_groups.items():
+            cursor.execute("UPDATE students SET animal_group = ?, animal_symbol = ?, animal_title = ? WHERE code = ?", (grp, sym, sym, code))
+        for h_code, h_name, h_color in homeroom_seeds:
+            cursor.execute("UPDATE students SET homeroom_group = ?, group_name = ?, group_color = ? WHERE code = ?", (h_name, h_name, h_color, h_code))
+        for m_code, m_grp in math_seeds.items():
+            cursor.execute("UPDATE students SET math_group = ? WHERE code = ?", (m_grp, m_code))
+        for v_code, v_grp in viet_seeds.items():
+            cursor.execute("UPDATE students SET viet_group = ? WHERE code = ?", (v_grp, v_code))
     # Seed 75 Books from data/books_seed.json
     cursor.execute("SELECT COUNT(*) FROM books")
     book_count = cursor.fetchone()[0]
@@ -477,6 +600,15 @@ def _format_student_row(row_dict):
             row_dict["subject_animals"] = {}
     elif not isinstance(raw_subj, dict):
         row_dict["subject_animals"] = {}
+
+    if not row_dict.get("homeroom_group"):
+        row_dict["homeroom_group"] = row_dict.get("group_name") or "Nhóm 1"
+    if not row_dict.get("math_group"):
+        row_dict["math_group"] = "cat"
+    if not row_dict.get("viet_group"):
+        row_dict["viet_group"] = "cat"
+    if row_dict.get("birthday") is None:
+        row_dict["birthday"] = ""
     return row_dict
 
 def get_students(include_inactive=False):
@@ -514,33 +646,250 @@ def get_student_by_id(student_id):
     conn.close()
     return _format_student_row(dict(row)) if row else None
 
-def add_student(code, full_name, gender="Nam", order_num=None, class_name="Lớp 3A7"):
+def add_student(code, full_name, gender="Nam", order_num=None, class_name="Lớp 3A7", birthday="", homeroom_group="Nhóm 1", math_group="cat", viet_group="cat"):
     conn = get_db()
     cursor = conn.cursor()
     code = code.strip().upper()
     if order_num is None:
         cursor.execute("SELECT COALESCE(MAX(order_num), 0) + 1 FROM students")
         order_num = cursor.fetchone()[0]
+    h_col = HOMEROOM_GROUPS_CONFIG.get(homeroom_group, {}).get("color", "#EF4444")
     cursor.execute("""
-        INSERT INTO students (code, full_name, gender, order_num, class_name)
-        VALUES (?, ?, ?, ?, ?)
-    """, (code, full_name.strip(), gender, order_num, class_name))
+        INSERT INTO students (code, full_name, gender, order_num, class_name, birthday, homeroom_group, group_name, group_color, math_group, viet_group)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (code, full_name.strip(), gender, order_num, class_name, birthday, homeroom_group, homeroom_group, h_col, math_group, viet_group))
     new_id = cursor.lastrowid
+    cursor.execute("INSERT OR IGNORE INTO reading_race (student_id, completed, avatar) VALUES (?, 0, '')", (new_id,))
     conn.commit()
     conn.close()
     return get_student_by_id(new_id)
 
-def update_student(student_id, full_name, gender, code, order_num=None):
+def update_student(student_id, full_name, gender, code, order_num=None, birthday=None, homeroom_group=None, math_group=None, viet_group=None, class_name=None, changed_by="Cô Linh", reason=""):
     conn = get_db()
     cursor = conn.cursor()
+    val = str(student_id).strip()
+    if val.isdigit():
+        cursor.execute("SELECT * FROM students WHERE id = ?", (int(val),))
+    else:
+        cursor.execute("SELECT * FROM students WHERE code = ?", (val.upper(),))
+    cur = cursor.fetchone()
+    if not cur:
+        conn.close()
+        return None
+    cur = dict(cur)
+    sid = cur["id"]
+
+    clean_code = code.strip().upper() if code else cur["code"]
+    clean_name = full_name.strip() if full_name else cur["full_name"]
+    clean_gender = gender if gender in ["Nam", "Nữ"] else cur["gender"]
+    clean_order = order_num if order_num is not None else cur["order_num"]
+    clean_bday = birthday if birthday is not None else cur.get("birthday", "")
+    clean_class = class_name or cur.get("class_name", "Lớp 3A7")
+
+    # Check homeroom change & log
+    h_grp = homeroom_group or cur.get("homeroom_group") or cur.get("group_name") or "Nhóm 1"
+    old_h = cur.get("homeroom_group") or cur.get("group_name") or "Nhóm 1"
+    if homeroom_group and homeroom_group != old_h:
+        cursor.execute("""
+            INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+            VALUES (?, ?, ?, 'homeroom', ?, ?, ?, ?)
+        """, (sid, clean_code, clean_name, old_h, homeroom_group, changed_by, reason or "Cập nhật nhóm sinh hoạt"))
+        h_grp = homeroom_group
+    h_col = HOMEROOM_GROUPS_CONFIG.get(h_grp, {}).get("color", cur.get("group_color", "#3B82F6"))
+
+    # Check math group change & log
+    m_grp = math_group or cur.get("math_group") or "cat"
+    old_m = cur.get("math_group") or "cat"
+    if math_group and math_group != old_m:
+        cursor.execute("""
+            INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+            VALUES (?, ?, ?, 'Toán', ?, ?, ?, ?)
+        """, (sid, clean_code, clean_name, old_m, math_group, changed_by, reason or "Cập nhật nhóm năng lực Toán"))
+        m_grp = math_group
+
+    # Check viet group change & log
+    v_grp = viet_group or cur.get("viet_group") or "cat"
+    old_v = cur.get("viet_group") or "cat"
+    if viet_group and viet_group != old_v:
+        cursor.execute("""
+            INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+            VALUES (?, ?, ?, 'Tiếng Việt', ?, ?, ?, ?)
+        """, (sid, clean_code, clean_name, old_v, viet_group, changed_by, reason or "Cập nhật nhóm năng lực Tiếng Việt"))
+        v_grp = viet_group
+
     cursor.execute("""
         UPDATE students
-        SET full_name = ?, gender = ?, code = ?, order_num = COALESCE(?, order_num)
+        SET full_name = ?, gender = ?, code = ?, order_num = ?,
+            birthday = ?, homeroom_group = ?, group_name = ?, group_color = ?,
+            math_group = ?, viet_group = ?, class_name = ?
         WHERE id = ?
-    """, (full_name.strip(), gender, code.strip().upper(), order_num, student_id))
+    """, (clean_name, clean_gender, clean_code, clean_order, clean_bday, h_grp, h_grp, h_col, m_grp, v_grp, clean_class, sid))
     conn.commit()
     conn.close()
-    return get_student_by_id(student_id)
+    return get_student_by_id(sid)
+
+def bulk_update_student_groups(student_ids, group_type, new_group, changed_by="Cô Linh", reason=""):
+    """
+    Teacher-only bulk group reassignment:
+    - group_type: 'homeroom' | 'Toán' (or 'math') | 'Tiếng Việt' (or 'viet')
+    - Logs each change into group_change_history
+    """
+    if not student_ids:
+        return []
+    conn = get_db()
+    cursor = conn.cursor()
+
+    clean_type = "homeroom"
+    if str(group_type).lower() in ["toán", "toan", "math"]:
+        clean_type = "Toán"
+    elif str(group_type).lower() in ["tiếng việt", "tieng viet", "viet", "vietnamese"]:
+        clean_type = "Tiếng Việt"
+
+    updated = []
+    for sid in student_ids:
+        cursor.execute("SELECT * FROM students WHERE id = ? OR code = ?", (sid, str(sid).upper()))
+        st = cursor.fetchone()
+        if not st:
+            continue
+        st = dict(st)
+        sid_int = st["id"]
+
+        if clean_type == "homeroom":
+            old_g = st.get("homeroom_group") or st.get("group_name") or "Nhóm 1"
+            if old_g != new_group:
+                col = HOMEROOM_GROUPS_CONFIG.get(new_group, {}).get("color", "#3B82F6")
+                cursor.execute("""
+                    UPDATE students 
+                    SET homeroom_group = ?, group_name = ?, group_color = ?
+                    WHERE id = ?
+                """, (new_group, new_group, col, sid_int))
+                cursor.execute("""
+                    INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+                    VALUES (?, ?, ?, 'homeroom', ?, ?, ?, ?)
+                """, (sid_int, st["code"], st["full_name"], old_g, new_group, changed_by, reason or "Chuyển nhóm sinh hoạt hàng loạt"))
+        elif clean_type == "Toán":
+            old_g = st.get("math_group") or "cat"
+            if old_g != new_group:
+                cursor.execute("UPDATE students SET math_group = ? WHERE id = ?", (new_group, sid_int))
+                cursor.execute("""
+                    INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+                    VALUES (?, ?, ?, 'Toán', ?, ?, ?, ?)
+                """, (sid_int, st["code"], st["full_name"], old_g, new_group, changed_by, reason or "Chuyển nhóm năng lực Toán hàng loạt"))
+        elif clean_type == "Tiếng Việt":
+            old_g = st.get("viet_group") or "cat"
+            if old_g != new_group:
+                cursor.execute("UPDATE students SET viet_group = ? WHERE id = ?", (new_group, sid_int))
+                cursor.execute("""
+                    INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+                    VALUES (?, ?, ?, 'Tiếng Việt', ?, ?, ?, ?)
+                """, (sid_int, st["code"], st["full_name"], old_g, new_group, changed_by, reason or "Chuyển nhóm năng lực Tiếng Việt hàng loạt"))
+        updated.append(sid_int)
+
+    conn.commit()
+    conn.close()
+    return [get_student_by_id(x) for x in updated]
+
+def get_group_change_history(student_id=None, subject=None, limit=200):
+    conn = get_db()
+    cursor = conn.cursor()
+    query = "SELECT * FROM group_change_history WHERE 1=1"
+    params = []
+    if student_id:
+        val = str(student_id).strip()
+        if val.isdigit():
+            query += " AND student_id = ?"
+            params.append(int(val))
+        else:
+            query += " AND student_code = ?"
+            params.append(val.upper())
+    if subject:
+        clean_subj = "homeroom" if subject == "homeroom" else ("Toán" if "toán" in subject.lower() or "math" in subject.lower() else "Tiếng Việt")
+        query += " AND subject = ?"
+        params.append(clean_subj)
+
+    query += " ORDER BY changed_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    cursor.execute(query, params)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+def import_students_batch(students_list, replace=False, default_class="Lớp 3A7"):
+    """
+    Batch imports student roster from Excel, Docs, or text list.
+    Supports replace (full overwrite) or append/merge mode.
+    """
+    if not isinstance(students_list, list) or len(students_list) == 0:
+        return {"success": False, "error": "Danh sách học sinh rỗng!"}
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if replace:
+        cursor.execute("UPDATE students SET is_active = 0")
+
+    imported = []
+    for i, s_data in enumerate(students_list):
+        full_name = str(s_data.get("full_name") or s_data.get("name") or "").strip()
+        if not full_name:
+            continue
+        order_num = s_data.get("order_num") or s_data.get("stt") or (i + 1)
+        try:
+            order_num = int(order_num)
+        except Exception:
+            order_num = i + 1
+        code = str(s_data.get("code") or f"HS{order_num:02d}").strip().upper()
+        gender = str(s_data.get("gender") or "Nam").strip()
+        if gender.lower() in ["nữ", "nu", "f", "female"]:
+            gender = "Nữ"
+        else:
+            gender = "Nam"
+
+        birthday = str(s_data.get("birthday") or s_data.get("dob") or "").strip()
+
+        # Homeroom group
+        h_grp = str(s_data.get("homeroom_group") or s_data.get("group_name") or "").strip()
+        if not h_grp or h_grp not in HOMEROOM_GROUPS_CONFIG:
+            g_idx = ((order_num - 1) % 6) + 1
+            h_grp = f"Nhóm {g_idx}"
+        h_col = HOMEROOM_GROUPS_CONFIG.get(h_grp, {}).get("color", "#3B82F6")
+
+        # Math & Viet groups
+        m_grp = str(s_data.get("math_group") or "cat").strip().lower()
+        if m_grp not in ABILITY_GROUPS_CONFIG:
+            m_grp = "cat"
+        v_grp = str(s_data.get("viet_group") or "cat").strip().lower()
+        if v_grp not in ABILITY_GROUPS_CONFIG:
+            v_grp = "cat"
+
+        cursor.execute("SELECT id FROM students WHERE code = ?", (code,))
+        existing = cursor.fetchone()
+        if existing:
+            sid = existing[0]
+            cursor.execute("""
+                UPDATE students
+                SET full_name = ?, gender = ?, order_num = ?, birthday = ?,
+                    homeroom_group = ?, group_name = ?, group_color = ?,
+                    math_group = ?, viet_group = ?, is_active = 1, class_name = ?
+                WHERE id = ?
+            """, (full_name, gender, order_num, birthday, h_grp, h_grp, h_col, m_grp, v_grp, default_class, sid))
+            imported.append(sid)
+        else:
+            cursor.execute("""
+                INSERT INTO students (code, full_name, gender, order_num, birthday, homeroom_group, group_name, group_color, math_group, viet_group, class_name, is_active, password)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '1234')
+            """, (code, full_name, gender, order_num, birthday, h_grp, h_grp, h_col, m_grp, v_grp, default_class))
+            sid = cursor.lastrowid
+            imported.append(sid)
+            cursor.execute("INSERT OR IGNORE INTO reading_race (student_id, completed, avatar) VALUES (?, 0, '')", (sid,))
+
+    conn.commit()
+    conn.close()
+    return {
+        "success": True,
+        "count": len(imported),
+        "students": get_students(include_inactive=False)
+    }
 
 def delete_student(student_id):
     conn = get_db()
@@ -611,6 +960,14 @@ def verify_student_password(student_id_or_code, input_password):
 def get_animal_groups_config():
     """Returns the teacher animal group ranking tiers configuration."""
     return ANIMAL_GROUPS_CONFIG
+
+def get_homeroom_groups_config():
+    """Returns the 6 fixed homeroom groups configuration."""
+    return HOMEROOM_GROUPS_CONFIG
+
+def get_ability_groups_config():
+    """Returns the 4 flexible academic ability groups configuration."""
+    return {k: v for k, v in ABILITY_GROUPS_CONFIG.items() if k in ["dolphin", "monkey", "cat", "ant"]}
 
 def update_student_animal_group(student_id_or_code, group_key, symbol=None, title=None):
     """
@@ -1568,6 +1925,10 @@ def get_assignment_analysis(assignment_id):
             "gender": st["gender"],
             "group_name": st.get("group_name", "Nhóm 1"),
             "group_color": st.get("group_color", "#3B82F6"),
+            "homeroom_group": st.get("homeroom_group") or st.get("group_name") or "Nhóm 1",
+            "math_group": st.get("math_group") or "cat",
+            "viet_group": st.get("viet_group") or "cat",
+            "birthday": st.get("birthday") or "",
             "is_graded": gr is not None,
             "score": st_sc,
             "max_score": asg_max,
@@ -1586,6 +1947,79 @@ def get_assignment_analysis(assignment_id):
             "is_passed": q_item["is_passed"]
         })
 
+    # Competency Groups Aggregation (Math vs Vietnamese ability groups)
+    asg_subj = str(assignment.get("subject", "")).lower()
+    asg_subj_type = str(assignment.get("subject_type", "")).lower()
+    is_math = ("toán" in asg_subj) or (asg_subj_type == "toan")
+    subject_label = "Toán" if is_math else "Tiếng Việt"
+    ability_field = "math_group" if is_math else "viet_group"
+
+    competency_groups = []
+    for g_key in ["dolphin", "monkey", "cat", "ant"]:
+        cfg = ABILITY_GROUPS_CONFIG[g_key]
+        grp_students = [st for st in heatmap_matrix if st.get(ability_field) == g_key]
+        graded_students = [st for st in grp_students if st["is_graded"]]
+
+        grp_targets = []
+        for t in tier2_targets:
+            t_code = t["target_code"]
+            t_name = t["target_name"]
+            t_skills = t["skills"]
+
+            failed_in_grp = []
+            causes_tally = {}
+            for f_st in t.get("failed_students", []):
+                st_match = next((s for s in grp_students if s["student_id"] == f_st["student_id"]), None)
+                if st_match:
+                    failed_in_grp.append(f_st)
+                    for c in f_st.get("causes", []):
+                        if c:
+                            causes_tally[c] = causes_tally.get(c, 0) + 1
+
+            bottlenecks_list = sorted([{"cause": k, "count": v} for k, v in causes_tally.items()], key=lambda x: x["count"], reverse=True)
+            top_bn = bottlenecks_list[0]["cause"] if bottlenecks_list else "Cần củng cố kiến thức"
+
+            failed_cnt = len(failed_in_grp)
+            total_grd = len(graded_students)
+            not_met_pct = round((failed_cnt / max(1, total_grd)) * 100, 1) if total_grd > 0 else 0.0
+
+            grp_targets.append({
+                "target_code": t_code,
+                "target_name": t_name,
+                "skills": t_skills,
+                "total_students": len(grp_students),
+                "graded_students": total_grd,
+                "failed_count": failed_cnt,
+                "passed_count": total_grd - failed_cnt,
+                "not_met_percentage": not_met_pct,
+                "bottlenecks": bottlenecks_list,
+                "top_bottleneck": top_bn,
+                "failed_students": failed_in_grp,
+                "suggested_plan_name": f"Nhóm {cfg['name']} - Rèn {t_code}: {top_bn}"
+            })
+
+        competency_groups.append({
+            "group_key": g_key,
+            "name": cfg["name"],
+            "symbol": cfg["symbol"],
+            "color": cfg["color"],
+            "badge_color": cfg["badge_color"],
+            "bg_color": cfg["bg_color"],
+            "border_color": cfg["border_color"],
+            "desc": cfg["desc"],
+            "student_count": len(grp_students),
+            "students": grp_students,
+            "targets": grp_targets
+        })
+
+    comp_analysis = {
+        "assignment_id": assignment_id,
+        "assignment_title": assignment.get("title", ""),
+        "subject": subject_label,
+        "ability_field": ability_field,
+        "groups": competency_groups
+    }
+
     return {
         "assignment": assignment,
         "tier1": tier1,
@@ -1594,8 +2028,22 @@ def get_assignment_analysis(assignment_id):
         "heatmap": {
             "matrix": heatmap_matrix,
             "summary_row": bottom_summary
-        }
+        },
+        "competency_analysis": comp_analysis,
+        "competency_groups": competency_groups
     }
+
+def get_assignment_competency_analysis(assignment_id):
+    """
+    Returns competency groups aggregation for a specific assignment:
+    - Subject-aware (Math vs Vietnamese)
+    - 4 Groups: 🐬 Cá Heo, 🐒 Khỉ Con, 🐱 Mèo Con, 🐜 Kiến Chăm
+    - Target (MT) performance breakdown, failure rate, and common bottlenecks
+    """
+    analysis = get_assignment_analysis(assignment_id)
+    if not analysis:
+        return None
+    return analysis.get("competency_analysis")
 
 # --- Bottleneck Detection & Clustering ---
 def get_learning_bottlenecks(assignment_id=None):
@@ -2509,8 +2957,9 @@ def get_reading_race():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT s.id as student_id, s.code, s.full_name as name, s.order_num,
+               s.gender, s.group_name, s.group_color,
                COALESCE(r.completed, 0) as completed,
-               COALESCE(r.avatar, '🐶') as avatar,
+               COALESCE(r.avatar, '') as avatar,
                r.last_updated
         FROM students s
         LEFT JOIN reading_race r ON s.id = r.student_id
@@ -2528,6 +2977,7 @@ def get_reading_race():
             current_rank = i + 1
         row_copy = dict(row)
         row_copy["rank"] = current_rank
+        row_copy["is_neutral"] = (row["completed"] == 0)
         row_copy["percentage"] = min(100.0, round((row["completed"] / 33.0) * 100, 1))
         ranked.append(row_copy)
     return ranked
@@ -2611,9 +3061,9 @@ def get_student_reading_summary(student_id_or_code):
 
     val = str(student_id_or_code).strip()
     if val.isdigit():
-        cursor.execute("SELECT id, code, full_name, order_num FROM students WHERE id = ?", (int(val),))
+        cursor.execute("SELECT id, code, full_name, order_num, gender, group_name, group_color FROM students WHERE id = ?", (int(val),))
     else:
-        cursor.execute("SELECT id, code, full_name, order_num FROM students WHERE code = ?", (val.upper(),))
+        cursor.execute("SELECT id, code, full_name, order_num, gender, group_name, group_color FROM students WHERE code = ?", (val.upper(),))
     st = cursor.fetchone()
     if not st:
         conn.close()
@@ -2628,10 +3078,14 @@ def get_student_reading_summary(student_id_or_code):
             "student_id": sid,
             "code": st["code"],
             "name": st["full_name"],
+            "gender": st["gender"],
+            "group_name": st["group_name"],
+            "group_color": st["group_color"],
             "order_num": st["order_num"],
             "completed": 0,
-            "avatar": "🐶",
-            "rank": len(all_race) + 1,
+            "avatar": "",
+            "rank": 1,
+            "is_neutral": True,
             "percentage": 0.0
         }
 

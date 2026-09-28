@@ -1186,10 +1186,239 @@ def test_all():
 
     print(" -> PASS: Client UI, JS, DB, and CSS contracts for pedagogical workflow verified.")
 
+    # 28. Test Neutral Reading Race Starting State & Normal Avatars
+    print("\n--- TEST 28: Neutral Reading Race Starting State & Normal Avatars ---")
+    race = database.get_reading_race()
+    assert len(race) == 29
+    # All students currently have completed == 0 in test suite
+    for r in race:
+        if r["completed"] == 0:
+            assert r.get("is_neutral") is True, f"Student {r['code']} with 0 completed books must be neutral"
+            assert "gender" in r
+            assert "group_name" in r
+            assert "group_color" in r
+    print(" -> PASS: All students with 0 completed books are marked as neutral starting position in database.")
+
+    # ClientDB parity
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_28 = f.read()
+    assert "is_neutral" in db_28
+    assert "gender" in db_28
+
+    # App.js neutral top readers & normal avatars
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_28 = f.read()
+    assert "Tất cả 29 bạn đang ở vạch xuất phát" in js_28
+    assert "Đồng hạng" in js_28
+    assert "student-avatar-circle" in js_28
+
+    print(" -> PASS: Neutral leaderboard logic and normal student avatars verified.")
+
+    # 29. Test Independent Groups, Student Info Editing, Bulk Reassignment, Import & Competency Aggregation
+    print("\n--- TEST 29: Independent Groups, Student Info Editing, Bulk Reassignment, Import & Competency Aggregation ---")
+
+    # 29a. Verify 6 Homeroom Groups and Independent Math/Vietnamese Groups
+    st_test = database.get_student_by_code("HS01")
+    assert st_test is not None
+    assert "homeroom_group" in st_test, "Missing homeroom_group column"
+    assert "math_group" in st_test, "Missing math_group column"
+    assert "viet_group" in st_test, "Missing viet_group column"
+    assert "birthday" in st_test, "Missing birthday column"
+
+    # Homeroom groups config: Nhóm 1..6
+    hr_cfg = database.get_homeroom_groups_config()
+    assert len(hr_cfg) == 6
+    assert "Nhóm 1" in hr_cfg and "Nhóm 6" in hr_cfg
+
+    # Ability groups config: 4 animals
+    ab_cfg = database.get_ability_groups_config()
+    assert len(ab_cfg) == 4
+    for key in ["dolphin", "monkey", "cat", "ant"]:
+        assert key in ab_cfg
+
+    # 29b. Student Info Editing & Independent Group Isolation
+    orig_hr = st_test.get("homeroom_group") or "Nhóm 1"
+    orig_vg = st_test.get("viet_group") or "cat"
+
+    # Update student HS01: set birthday, change Math group to monkey, keep homeroom and viet
+    up_st = database.update_student(
+        st_test["id"],
+        code="HS01",
+        full_name="Nguyễn Vỹ An (Đã Sửa)",
+        gender="Nữ",
+        order_num=1,
+        birthday="2018-05-15",
+        homeroom_group="Nhóm 2",
+        math_group="monkey",
+        viet_group=orig_vg,
+        changed_by="Cô Linh",
+        reason="Chuyển sang nhóm Khỉ Con môn Toán"
+    )
+    assert up_st["full_name"] == "Nguyễn Vỹ An (Đã Sửa)"
+    assert up_st["gender"] == "Nữ"
+    assert up_st["birthday"] == "2018-05-15"
+    assert up_st["homeroom_group"] == "Nhóm 2"
+    assert up_st["math_group"] == "monkey"
+    assert up_st["viet_group"] == orig_vg  # Vietnamese group remains unchanged!
+
+    # Reset student HS01 back to dolphin and Nhóm 1
+    database.update_student(
+        st_test["id"],
+        code="HS01",
+        full_name="Nguyễn Vỹ An",
+        gender="Nữ",
+        order_num=1,
+        birthday="2018-05-15",
+        homeroom_group="Nhóm 1",
+        math_group="dolphin",
+        viet_group=orig_vg,
+        changed_by="Cô Linh",
+        reason="Khôi phục họ tên và nhóm gốc"
+    )
+    print(" -> PASS: Student info editing and independent group isolation verified.")
+
+    # 29c. Group Change History Audit Trail
+    hist = database.get_group_change_history()
+    assert len(hist) > 0
+    # HS01 math group change should be logged
+    hs01_math_logs = [h for h in hist if h["student_code"] == "HS01" and h["subject"] == "Toán"]
+    assert len(hs01_math_logs) > 0
+    latest_m_log = hs01_math_logs[0]
+    assert latest_m_log["new_group"] == "dolphin"
+    assert latest_m_log["changed_by"] == "Cô Linh"
+
+    # HS01 homeroom group change should be logged
+    hs01_hr_logs = [h for h in hist if h["student_code"] == "HS01" and h["subject"] == "homeroom"]
+    assert len(hs01_hr_logs) > 0
+    print(f" -> PASS: Group change history captured {len(hist)} audit log entries successfully.")
+
+    # 29d. Bulk Group Reassignment
+    bulk_sts = [database.get_student_by_code("HS03")["id"], database.get_student_by_code("HS04")["id"]]
+    bulk_res = database.bulk_update_student_groups(
+        student_ids=bulk_sts,
+        group_type="viet",
+        new_group="ant",
+        changed_by="Cô Linh",
+        reason="Cần bồi dưỡng chính tả Tiếng Việt"
+    )
+    assert len(bulk_res) == 2
+    assert database.get_student_by_code("HS03")["viet_group"] == "ant"
+    assert database.get_student_by_code("HS04")["viet_group"] == "ant"
+    print(" -> PASS: Bulk student group reassignment verified.")
+
+    # 29e. Batch Import (Append mode)
+    sample_import = [
+        {"order_num": 30, "code": "HS30", "full_name": "Phạm Gia Bảo", "gender": "Nam", "birthday": "2018-07-10", "homeroom_group": "Nhóm 5", "math_group": "cat", "viet_group": "cat", "class_name": "Lớp 3A7"}
+    ]
+    imp_res = database.import_students_batch(sample_import, replace=False)
+    assert imp_res["success"] is True
+    assert imp_res["count"] == 1
+    st_hs30 = database.get_student_by_code("HS30")
+    assert st_hs30 is not None
+    assert st_hs30["full_name"] == "Phạm Gia Bảo"
+    assert st_hs30["homeroom_group"] == "Nhóm 5"
+    # Clean up HS30 to keep 29 students standard
+    conn = database.get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM students WHERE code = 'HS30'")
+    conn.commit()
+    conn.close()
+    print(" -> PASS: Batch student import (Append mode) verified.")
+
+    # 29f. Competency Group Aggregation & Analysis API
+    comp_analysis = database.get_assignment_competency_analysis(ped_asg_id)
+    assert comp_analysis is not None
+    assert comp_analysis["subject"] == "Toán"
+    groups = comp_analysis["groups"]
+    assert len(groups) == 4
+    for g in groups:
+        assert g["group_key"] in ["dolphin", "monkey", "cat", "ant"]
+        assert "student_count" in g
+        assert "targets" in g
+    print(" -> PASS: Assignment competency group aggregation (4 ability tiers & targets) verified.")
+
+    # 29g. Server Endpoints Verification
+    # GET /api/students/group-history
+    req_gh = b"GET /api/students/group-history HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    sock_gh = MockSocket(req_gh)
+    server.LMSRequestHandler(sock_gh, ("127.0.0.1", 12345), None)
+    out_gh = sock_gh.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_gh
+    assert "HS01" in out_gh
+
+    # POST /api/students/bulk-group
+    bg_payload = json.dumps({
+        "student_ids": [database.get_student_by_code("HS05")["id"]],
+        "group_type": "math",
+        "new_group": "monkey",
+        "changed_by": "Cô Linh",
+        "reason": "API bulk test"
+    }).encode("utf-8")
+    req_bg = f"POST /api/students/bulk-group HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {len(bg_payload)}\r\nConnection: close\r\n\r\n".encode("utf-8") + bg_payload
+    sock_bg = MockSocket(req_bg)
+    server.LMSRequestHandler(sock_bg, ("127.0.0.1", 12345), None)
+    out_bg = sock_bg.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_bg
+    assert '"success": true' in out_bg or '"success":true' in out_bg
+
+    # GET /api/assignments/{id}/competency-analysis
+    req_ca = f"GET /api/assignments/{ped_asg_id}/competency-analysis HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".encode("utf-8")
+    sock_ca = MockSocket(req_ca)
+    server.LMSRequestHandler(sock_ca, ("127.0.0.1", 12345), None)
+    out_ca = sock_ca.out.getvalue().decode("utf-8", errors="ignore")
+    assert "200 OK" in out_ca
+    assert "groups" in out_ca
+
+    print(" -> PASS: Server API endpoints for group-history, bulk-group, and competency-analysis verified.")
+
+    # 29h. Frontend Code Contracts
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html_29 = f.read()
+    with open("public/js/app.js", "r", encoding="utf-8") as f:
+        js_29 = f.read()
+    with open("public/js/client_db.js", "r", encoding="utf-8") as f:
+        db_29 = f.read()
+    with open("public/css/style.css", "r", encoding="utf-8") as f:
+        css_29 = f.read()
+
+    # HTML
+    assert "student-view-switcher" in html_29
+    assert "btn-view-homeroom" in html_29
+    assert "btn-view-math" in html_29
+    assert "btn-view-viet" in html_29
+    assert "student-dynamic-filter-bar" in html_29
+    assert "student-bulk-bar" in html_29
+    assert "modal-import-students" in html_29
+    assert "modal-group-history" in html_29
+    assert "analytics-competency-view" in html_29
+
+    # JS
+    assert "setStudentGroupView" in js_29
+    assert "renderStudentFilterBar" in js_29
+    assert "applyBulkGroupChange" in js_29
+    assert "openImportStudentsModal" in js_29
+    assert "exportStudentsExcel" in js_29
+    assert "openGroupHistoryModal" in js_29
+    assert "renderCompetencyAnalysis" in js_29
+
+    # ClientDB
+    assert "bulkUpdateStudentGroups" in db_29
+    assert "importStudentsBatch" in db_29
+    assert "getGroupChangeHistory" in db_29
+    assert "getAssignmentCompetencyAnalysis" in db_29
+
+    # CSS
+    assert "student-view-switcher" in css_29
+    assert "badge-animal-ant" in css_29
+    assert "competency-card" in css_29
+
+    print(" -> PASS: Frontend HTML, JS, ClientDB, and CSS contracts for group management and competency view verified.")
+
     print("\n============================================================")
-    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (27/27)")
+    print("  ALL DIRECT VERIFICATION TESTS PASSED SUCCESSFULLY! (29/29)")
     print("============================================================")
 
 if __name__ == "__main__":
     test_all()
+
 

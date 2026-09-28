@@ -4499,4 +4499,142 @@ main.app-main {
   border: 1px solid #BFDBFE;
 }
 
+/* Student Group View Switcher & Toolbar */
+.student-view-switcher {
+  display: flex;
+  gap: 6px;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+}
+
+.student-view-switcher .btn {
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.student-view-switcher .btn.active {
+  background: #2563EB;
+  color: #FFFFFF;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+  border-color: #2563EB;
+}
+
+/* Bulk Bar */
+#student-bulk-bar {
+  display: flex;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Animal & Ability Badges */
+.badge-animal-dolphin {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
+}
+
+.badge-animal-monkey {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.badge-animal-cat {
+  background: #FFEDD5;
+  color: #C2410C;
+  border: 1px solid #FED7AA;
+}
+
+.badge-animal-ant {
+  background: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+
+/* Competency Groups View */
+.competency-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.competency-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.competency-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 12px;
+}
+
+.competency-target-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.competency-target-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.competency-bottleneck-box {
+  background: #FEF2F2;
+  border-left: 3px solid #EF4444;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #991B1B;
+  margin-top: 6px;
+}
+
+.competency-failed-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.competency-failed-chip {
+  font-size: 11px;
+  font-weight: 700;
+  background: #FEE2E2;
+  color: #B91C1C;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #FECACA;
+}
+
+/* Import Modal Preview */
+.import-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.import-preview-table th, .import-preview-table td {
+  padding: 6px 10px;
+  border: 1px solid #E2E8F0;
+}
+
+
 

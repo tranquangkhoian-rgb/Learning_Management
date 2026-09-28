@@ -115,6 +115,11 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/students/passwords":
             return self.send_json(database.get_student_passwords())
 
+        elif path == "/api/students/group-history":
+            sid = query.get("student_id", [None])[0]
+            subj = query.get("subject", [None])[0]
+            return self.send_json(database.get_group_change_history(sid, subj))
+
         elif path.startswith("/api/students/"):
             try:
                 sid = int(path.split("/")[-1])
@@ -125,6 +130,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
 
         elif path == "/api/assignments":
             return self.send_json(database.get_assignments())
+
+        elif path.startswith("/api/assignments/") and path.endswith("/competency-analysis"):
+            try:
+                aid = int(path.split("/")[3])
+                comp = database.get_assignment_competency_analysis(aid)
+                return self.send_json(comp if comp else {"error": "Not found"}, 200 if comp else 404)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
 
         elif path.startswith("/api/assignments/") and path.endswith("/analysis"):
             try:
@@ -295,11 +308,58 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             code = body.get("code", "")
             name = body.get("full_name", "")
             gender = body.get("gender", "Nam")
+            order_num = body.get("order_num")
+            birthday = body.get("birthday", "")
+            homeroom_group = body.get("homeroom_group", "Nhóm 1")
+            math_group = body.get("math_group", "cat")
+            viet_group = body.get("viet_group", "cat")
             class_name = body.get("class_name", "Lớp 3A7")
             if not code or not name:
                 return self.send_json({"error": "Mã và Tên học sinh là bắt buộc!"}, 400)
-            st = database.add_student(code, name, gender, class_name=class_name)
+            st = database.add_student(code, name, gender, order_num=order_num, class_name=class_name, birthday=birthday, homeroom_group=homeroom_group, math_group=math_group, viet_group=viet_group)
             return self.send_json(st, 201)
+
+        elif path == "/api/students/bulk-group":
+            try:
+                sids = body.get("student_ids", [])
+                g_type = body.get("group_type", "homeroom")
+                new_grp = body.get("new_group", "")
+                changed_by = body.get("changed_by", "Cô Linh")
+                reason = body.get("reason", "")
+                res = database.bulk_update_student_groups(sids, g_type, new_grp, changed_by, reason)
+                return self.send_json({"success": True, "count": len(res), "students": res})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path == "/api/students/import":
+            try:
+                st_list = body.get("students", [])
+                replace = body.get("replace", False)
+                res = database.import_students_batch(st_list, replace=replace)
+                return self.send_json(res)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        elif path.startswith("/api/students/") and path.split("/")[-1].isdigit():
+            try:
+                sid = int(path.split("/")[-1])
+                st = database.update_student(
+                    sid,
+                    body.get("full_name", ""),
+                    body.get("gender", "Nam"),
+                    body.get("code", ""),
+                    order_num=body.get("order_num"),
+                    birthday=body.get("birthday", ""),
+                    homeroom_group=body.get("homeroom_group"),
+                    math_group=body.get("math_group"),
+                    viet_group=body.get("viet_group"),
+                    class_name=body.get("class_name"),
+                    changed_by=body.get("changed_by", "Cô Linh"),
+                    reason=body.get("reason", "")
+                )
+                return self.send_json(st)
+            except ValueError:
+                return self.send_json({"error": "Invalid ID"}, 400)
 
         elif path == "/api/students/reset":
             st_list = database.reset_students_to_default()
@@ -666,7 +726,14 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                     body.get("full_name", ""),
                     body.get("gender", "Nam"),
                     body.get("code", ""),
-                    body.get("order_num")
+                    order_num=body.get("order_num"),
+                    birthday=body.get("birthday", ""),
+                    homeroom_group=body.get("homeroom_group"),
+                    math_group=body.get("math_group"),
+                    viet_group=body.get("viet_group"),
+                    class_name=body.get("class_name"),
+                    changed_by=body.get("changed_by", "Cô Linh"),
+                    reason=body.get("reason", "")
                 )
                 return self.send_json(st)
             except ValueError:

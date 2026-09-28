@@ -983,30 +983,49 @@ export default function LibraryView({ students }: LibraryViewProps) {
               <span>🏆</span> Top Độc Giả Đọc Nhiều Nhất
             </h3>
             <div className="space-y-3">
-              {raceList.slice(0, 5).map((r, idx) => (
-                <div
-                  key={r.student_id}
-                  className={`flex items-center justify-between p-3 rounded-2xl border ${
-                    idx === 0
-                      ? "bg-amber-50 border-amber-200"
-                      : "bg-slate-50 border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">
-                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
-                    </span>
-                    <span className="text-2xl">{r.avatar || "🐶"}</span>
-                    <div>
-                      <p className="font-extrabold text-sm text-slate-800">{r.name}</p>
-                      <p className="text-[11px] text-slate-500">{r.code}</p>
+              {(() => {
+                const maxCompleted = Math.max(0, ...raceList.map((r) => r.completed || 0));
+                if (maxCompleted === 0) {
+                  return (
+                    <div className="p-4 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl">
+                      <div className="text-2xl mb-1">🏁</div>
+                      <p className="font-extrabold text-sm text-slate-800">Tất cả 29 bạn đang ở vạch xuất phát</p>
+                      <p className="text-xs text-slate-500 mt-1">Chưa có bạn nào hoàn thành sách (Đồng hạng). Bảng Vàng sẽ tự động vinh danh khi có bạn hoàn thành cuốn sách đầu tiên!</p>
                     </div>
-                  </div>
-                  <span className="font-black text-emerald-700 text-sm">
-                    {r.completed} / 33 quyển
-                  </span>
-                </div>
-              ))}
+                  );
+                }
+                return raceList.slice(0, 5).map((r, idx) => {
+                  const comp = r.completed || 0;
+                  const isTopRanked = comp > 0 && idx === 0;
+                  const medal = comp > 0
+                    ? (idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`)
+                    : "—";
+                  return (
+                    <div
+                      key={r.student_id}
+                      className={`flex items-center justify-between p-3 rounded-2xl border ${
+                        isTopRanked
+                          ? "bg-amber-50 border-amber-200"
+                          : "bg-slate-50 border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{medal}</span>
+                        <div className="size-8 rounded-full flex items-center justify-center text-sm font-bold bg-blue-100 text-blue-700">
+                          {r.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-sm text-slate-800">{r.name}</p>
+                          <p className="text-[11px] text-slate-500">{r.code}</p>
+                        </div>
+                      </div>
+                      <span className="font-black text-emerald-700 text-sm">
+                        {r.completed} / 33 quyển
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
 

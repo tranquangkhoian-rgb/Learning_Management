@@ -69,46 +69,63 @@ const ANIMAL_GROUPS_CONFIG = {
   }
 };
 
+const HOMEROOM_GROUPS_CONFIG = {
+  "Nhóm 1": { name: "Nhóm 1", color: "#EF4444", bg_color: "#FEF2F2", border_color: "#FCA5A5", badge: "🔴" },
+  "Nhóm 2": { name: "Nhóm 2", color: "#3B82F6", bg_color: "#EFF6FF", border_color: "#93C5FD", badge: "🔵" },
+  "Nhóm 3": { name: "Nhóm 3", color: "#10B981", bg_color: "#ECFDF5", border_color: "#6EE7B7", badge: "🟢" },
+  "Nhóm 4": { name: "Nhóm 4", color: "#F59E0B", bg_color: "#FFFBEB", border_color: "#FCD34D", badge: "🟡" },
+  "Nhóm 5": { name: "Nhóm 5", color: "#8B5CF6", bg_color: "#F5F3FF", border_color: "#C4B5FD", badge: "🟣" },
+  "Nhóm 6": { name: "Nhóm 6", color: "#F97316", bg_color: "#FFF7ED", border_color: "#FDBA74", badge: "🟠" }
+};
+
+const ABILITY_GROUPS_CONFIG = {
+  "dolphin": { key: "dolphin", name: "Cá Heo", symbol: "🐬", color: "#0284C7", badge_color: "#0284C7", bg_color: "#E0F2FE", border_color: "#7DD3FC", desc: "Tiêu biểu, xuất sắc" },
+  "monkey": { key: "monkey", name: "Khỉ Con", symbol: "🐒", color: "#D97706", badge_color: "#D97706", bg_color: "#FEF3C7", border_color: "#FBBF24", desc: "Nhanh nhẹn, khá" },
+  "cat": { key: "cat", name: "Mèo Con", symbol: "🐱", color: "#EA580C", badge_color: "#EA580C", bg_color: "#FFEDD5", border_color: "#FB923C", desc: "Cần củng cố, trung bình" },
+  "ant": { key: "ant", name: "Kiến Chăm", symbol: "🐜", color: "#16A34A", badge_color: "#16A34A", bg_color: "#DCFCE7", border_color: "#86EFAC", desc: "Cần hỗ trợ, chăm chỉ" }
+};
+ABILITY_GROUPS_CONFIG["orange_cat"] = ABILITY_GROUPS_CONFIG["cat"];
+ABILITY_GROUPS_CONFIG["turtle_snail"] = ABILITY_GROUPS_CONFIG["ant"];
+
 const PRESET_COLOR_GROUPS = [
-  { id: "red", name: "Nhóm Đỏ", color: "#EF4444", bg: "#FEF2F2", border: "#FCA5A5" },
-  { id: "blue", name: "Nhóm Xanh Dương", color: "#3B82F6", bg: "#EFF6FF", border: "#93C5FD" },
-  { id: "green", name: "Nhóm Xanh Lá", color: "#10B981", bg: "#ECFDF5", border: "#6EE7B7" },
-  { id: "yellow", name: "Nhóm Vàng", color: "#F59E0B", bg: "#FFFBEB", border: "#FCD34D" },
-  { id: "purple", name: "Nhóm Tím", color: "#8B5CF6", bg: "#F5F3FF", border: "#C4B5FD" },
-  { id: "orange", name: "Nhóm Cam", color: "#F97316", bg: "#FFF7ED", border: "#FDBA74" },
-  { id: "pink", name: "Nhóm Hồng", color: "#EC4899", bg: "#FDF2F8", border: "#F9A8D4" }
+  { id: "red", name: "Nhóm 1 (Đỏ)", color: "#EF4444", bg: "#FEF2F2", border: "#FCA5A5" },
+  { id: "blue", name: "Nhóm 2 (Xanh Dương)", color: "#3B82F6", bg: "#EFF6FF", border: "#93C5FD" },
+  { id: "green", name: "Nhóm 3 (Xanh Lá)", color: "#10B981", bg: "#ECFDF5", border: "#6EE7B7" },
+  { id: "yellow", name: "Nhóm 4 (Vàng)", color: "#F59E0B", bg: "#FFFBEB", border: "#FCD34D" },
+  { id: "purple", name: "Nhóm 5 (Tím)", color: "#8B5CF6", bg: "#F5F3FF", border: "#C4B5FD" },
+  { id: "orange", name: "Nhóm 6 (Cam)", color: "#F97316", bg: "#FFF7ED", border: "#FDBA74" }
 ];
 
 const DEFAULT_STUDENTS_3A7 = [
-  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
-  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
-  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
-  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Đỏ", group_color: "#EF4444", animal_group: "monkey", animal_symbol: "🦊", animal_title: "🦊", subject_animals: {} },
-  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
-  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "dolphin", animal_symbol: "🦉", animal_title: "🦉", subject_animals: {} },
-  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Dương", group_color: "#3B82F6", animal_group: "monkey", animal_symbol: "🦁", animal_title: "🦁", subject_animals: {} },
-  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "dolphin", animal_symbol: "🦅", animal_title: "🦅", subject_animals: {} },
-  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
-  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Xanh Lá", group_color: "#10B981", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
-  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "🐢", subject_animals: {} },
-  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "🐌", subject_animals: {} },
-  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "🐢", subject_animals: {} },
-  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
-  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "monkey", animal_symbol: "🐆", animal_title: "🐆", subject_animals: {} },
-  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "🐌", subject_animals: {} },
-  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "turtle_snail", animal_symbol: "🦥", animal_title: "🦥", subject_animals: {} },
-  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, class_name: "Lớp 3A7", password: "1234", group_name: "Nhóm Vàng", group_color: "#F59E0B", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} }
+  { id: 1, code: "HS01", full_name: "Vỹ An", gender: "Nữ", order_num: 1, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 1", group_name: "Nhóm 1", group_color: "#EF4444", math_group: "dolphin", viet_group: "monkey", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
+  { id: 2, code: "HS02", full_name: "Tuệ An", gender: "Nữ", order_num: 2, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 1", group_name: "Nhóm 1", group_color: "#EF4444", math_group: "monkey", viet_group: "dolphin", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
+  { id: 3, code: "HS03", full_name: "Lam Anh", gender: "Nữ", order_num: 3, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 1", group_name: "Nhóm 1", group_color: "#EF4444", math_group: "cat", viet_group: "monkey", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 4, code: "HS04", full_name: "Minh Anh", gender: "Nữ", order_num: 4, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 1", group_name: "Nhóm 1", group_color: "#EF4444", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 5, code: "HS05", full_name: "Hoàng Ân", gender: "Nam", order_num: 5, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 1", group_name: "Nhóm 1", group_color: "#EF4444", math_group: "cat", viet_group: "ant", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 6, code: "HS06", full_name: "Gia Bảo", gender: "Nam", order_num: 6, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 2", group_name: "Nhóm 2", group_color: "#3B82F6", math_group: "dolphin", viet_group: "monkey", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
+  { id: 7, code: "HS07", full_name: "Lan Chi", gender: "Nữ", order_num: 7, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 2", group_name: "Nhóm 2", group_color: "#3B82F6", math_group: "monkey", viet_group: "dolphin", animal_group: "monkey", animal_symbol: "🦊", animal_title: "🦊", subject_animals: {} },
+  { id: 8, code: "HS08", full_name: "Thiên Di", gender: "Nữ", order_num: 8, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 2", group_name: "Nhóm 2", group_color: "#3B82F6", math_group: "cat", viet_group: "monkey", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 9, code: "HS09", full_name: "Hải Đăng", gender: "Nam", order_num: 9, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 2", group_name: "Nhóm 2", group_color: "#3B82F6", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 10, code: "HS10", full_name: "Minh Hoàng", gender: "Nam", order_num: 10, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 2", group_name: "Nhóm 2", group_color: "#3B82F6", math_group: "monkey", viet_group: "cat", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
+  { id: 11, code: "HS11", full_name: "Phúc Hưng", gender: "Nam", order_num: 11, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 3", group_name: "Nhóm 3", group_color: "#10B981", math_group: "dolphin", viet_group: "dolphin", animal_group: "dolphin", animal_symbol: "🦉", animal_title: "🦉", subject_animals: {} },
+  { id: 12, code: "HS12", full_name: "Gia Hào", gender: "Nam", order_num: 12, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 3", group_name: "Nhóm 3", group_color: "#10B981", math_group: "cat", viet_group: "monkey", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 13, code: "HS13", full_name: "An Khang", gender: "Nam", order_num: 13, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 3", group_name: "Nhóm 3", group_color: "#10B981", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 14, code: "HS14", full_name: "Đăng Khang", gender: "Nam", order_num: 14, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 3", group_name: "Nhóm 3", group_color: "#10B981", math_group: "monkey", viet_group: "cat", animal_group: "monkey", animal_symbol: "🦁", animal_title: "🦁", subject_animals: {} },
+  { id: 15, code: "HS15", full_name: "Chí Khôi", gender: "Nam", order_num: 15, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 3", group_name: "Nhóm 3", group_color: "#10B981", math_group: "dolphin", viet_group: "monkey", animal_group: "dolphin", animal_symbol: "🦅", animal_title: "🦅", subject_animals: {} },
+  { id: 16, code: "HS16", full_name: "Phương Lâm", gender: "Nữ", order_num: 16, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 4", group_name: "Nhóm 4", group_color: "#F59E0B", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 17, code: "HS17", full_name: "Phúc Lâm", gender: "Nam", order_num: 17, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 4", group_name: "Nhóm 4", group_color: "#F59E0B", math_group: "cat", viet_group: "ant", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 18, code: "HS18", full_name: "Tuệ Linh", gender: "Nữ", order_num: 18, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 4", group_name: "Nhóm 4", group_color: "#F59E0B", math_group: "monkey", viet_group: "dolphin", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} },
+  { id: 19, code: "HS19", full_name: "Hà Linh", gender: "Nữ", order_num: 19, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 4", group_name: "Nhóm 4", group_color: "#F59E0B", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 20, code: "HS20", full_name: "Hà My", gender: "Nữ", order_num: 20, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 4", group_name: "Nhóm 4", group_color: "#F59E0B", math_group: "cat", viet_group: "ant", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 21, code: "HS21", full_name: "Thiện Nhân", gender: "Nam", order_num: 21, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 5", group_name: "Nhóm 5", group_color: "#8B5CF6", math_group: "dolphin", viet_group: "monkey", animal_group: "dolphin", animal_symbol: "🐬", animal_title: "🐬", subject_animals: {} },
+  { id: 22, code: "HS22", full_name: "Mộc Nhi", gender: "Nữ", order_num: 22, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 5", group_name: "Nhóm 5", group_color: "#8B5CF6", math_group: "ant", viet_group: "ant", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "🐢", subject_animals: {} },
+  { id: 23, code: "HS23", full_name: "Hạ Nhiên", gender: "Nữ", order_num: 23, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 5", group_name: "Nhóm 5", group_color: "#8B5CF6", math_group: "ant", viet_group: "ant", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "🐌", subject_animals: {} },
+  { id: 24, code: "HS24", full_name: "Thanh Phương", gender: "Nữ", order_num: 24, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 5", group_name: "Nhóm 5", group_color: "#8B5CF6", math_group: "ant", viet_group: "dolphin", animal_group: "turtle_snail", animal_symbol: "🐢", animal_title: "🐢", subject_animals: {} },
+  { id: 25, code: "HS25", full_name: "Minh Phương", gender: "Nữ", order_num: 25, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 5", group_name: "Nhóm 5", group_color: "#8B5CF6", math_group: "cat", viet_group: "cat", animal_group: "orange_cat", animal_symbol: "🐱", animal_title: "🐱", subject_animals: {} },
+  { id: 26, code: "HS26", full_name: "Gia Phát", gender: "Nam", order_num: 26, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 6", group_name: "Nhóm 6", group_color: "#F97316", math_group: "monkey", viet_group: "cat", animal_group: "monkey", animal_symbol: "🐆", animal_title: "🐆", subject_animals: {} },
+  { id: 27, code: "HS27", full_name: "Minh Tân", gender: "Nam", order_num: 27, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 6", group_name: "Nhóm 6", group_color: "#F97316", math_group: "ant", viet_group: "ant", animal_group: "turtle_snail", animal_symbol: "🐌", animal_title: "🐌", subject_animals: {} },
+  { id: 28, code: "HS28", full_name: "Minh Thư", gender: "Nữ", order_num: 28, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 6", group_name: "Nhóm 6", group_color: "#F97316", math_group: "ant", viet_group: "dolphin", animal_group: "turtle_snail", animal_symbol: "🦥", animal_title: "🦥", subject_animals: {} },
+  { id: 29, code: "HS29", full_name: "Tấn Tài", gender: "Nam", order_num: 29, birthday: "", class_name: "Lớp 3A7", password: "1234", homeroom_group: "Nhóm 6", group_name: "Nhóm 6", group_color: "#F97316", math_group: "monkey", viet_group: "monkey", animal_group: "monkey", animal_symbol: "🐵", animal_title: "🐵", subject_animals: {} }
 ];
 
 const DEFAULT_BOOKS_3A7 = [
@@ -1521,25 +1538,33 @@ class ClientDBEngine {
     return this.updateDeviceStudentPassword(studentIdOrCode, newPassword);
   }
 
-  addStudent(code, fullName, gender = "Nam", orderNum = null) {
+  addStudent(code, fullName, gender, orderNum, className, birthday, homeroomGroup, mathGroup, vietGroup) {
     const list = this.getStudents();
-    const cleanCode = code.trim().toUpperCase();
-    if (list.some(s => s.code.toUpperCase() === cleanCode)) {
-      throw new Error(`Mã học sinh "${cleanCode}" đã tồn tại!`);
-    }
-    const newId = list.length > 0 ? Math.max(...list.map(s => s.id)) + 1 : 1;
-    const maxOrder = list.length > 0 ? Math.max(...list.map(s => s.order_num || 0)) : 0;
+    const cleanCode = (code || "").trim().toUpperCase();
+    const maxId = list.reduce((max, s) => Math.max(max, s.id || 0), 0);
+    const maxOrder = list.reduce((max, s) => Math.max(max, s.order_num || 0), 0);
+    const newId = maxId + 1;
+    const hGrp = homeroomGroup || "Nhóm 1";
+    const hCol = (HOMEROOM_GROUPS_CONFIG[hGrp] && HOMEROOM_GROUPS_CONFIG[hGrp].color) ? HOMEROOM_GROUPS_CONFIG[hGrp].color : "#EF4444";
+
     const st = {
       id: newId,
       code: cleanCode,
       full_name: fullName.trim(),
-      gender: gender || "Học sinh",
+      gender: gender || "Nam",
       order_num: orderNum !== null && orderNum !== undefined ? Number(orderNum) : (maxOrder + 1),
-      class_name: this.getSettings().class_name || "Lớp 3A7",
+      birthday: birthday || "",
+      class_name: className || this.getSettings().class_name || "Lớp 3A7",
       password: "1234",
+      homeroom_group: hGrp,
+      group_name: hGrp,
+      group_color: hCol,
+      math_group: mathGroup || "cat",
+      viet_group: vietGroup || "cat",
       animal_group: "orange_cat",
       animal_symbol: "🐱",
-      animal_title: "🐱"
+      animal_title: "🐱",
+      subject_animals: {}
     };
     list.push(st);
     list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
@@ -1548,19 +1573,206 @@ class ClientDBEngine {
     return st;
   }
 
-  updateStudent(id, code, fullName, gender, orderNum) {
+  updateStudent(id, code, fullName, gender, orderNum, birthday, homeroomGroup, mathGroup, vietGroup, className, changedBy, reason) {
     const list = this.getStudents();
     const idx = list.findIndex(s => s.id == id);
     if (idx === -1) return null;
+    const old = list[idx];
+    const operator = changedBy || "Cô Linh";
+    const notes = reason || "Cập nhật hồ sơ học sinh";
+
+    const hGrp = homeroomGroup || old.homeroom_group || old.group_name || "Nhóm 1";
+    const oldH = old.homeroom_group || old.group_name || "Nhóm 1";
+    if (homeroomGroup && homeroomGroup !== oldH) {
+      this._logGroupChange(old.id, old.code, old.full_name, "homeroom", oldH, homeroomGroup, operator, notes);
+    }
+    const hCol = (HOMEROOM_GROUPS_CONFIG[hGrp] && HOMEROOM_GROUPS_CONFIG[hGrp].color) ? HOMEROOM_GROUPS_CONFIG[hGrp].color : (old.group_color || "#3B82F6");
+
+    const mGrp = mathGroup || old.math_group || "cat";
+    const oldM = old.math_group || "cat";
+    if (mathGroup && mathGroup !== oldM) {
+      this._logGroupChange(old.id, old.code, old.full_name, "Toán", oldM, mathGroup, operator, notes);
+    }
+
+    const vGrp = vietGroup || old.viet_group || "cat";
+    const oldV = old.viet_group || "cat";
+    if (vietGroup && vietGroup !== oldV) {
+      this._logGroupChange(old.id, old.code, old.full_name, "Tiếng Việt", oldV, vietGroup, operator, notes);
+    }
+
     list[idx] = Object.assign({}, list[idx], {
       code: code ? code.trim().toUpperCase() : list[idx].code,
       full_name: fullName ? fullName.trim() : list[idx].full_name,
       gender: gender || list[idx].gender,
-      order_num: orderNum !== undefined && orderNum !== null ? Number(orderNum) : list[idx].order_num
+      order_num: orderNum !== undefined && orderNum !== null ? Number(orderNum) : list[idx].order_num,
+      birthday: birthday !== undefined ? birthday : (list[idx].birthday || ""),
+      homeroom_group: hGrp,
+      group_name: hGrp,
+      group_color: hCol,
+      math_group: mGrp,
+      viet_group: vGrp,
+      class_name: className || list[idx].class_name || "Lớp 3A7"
     });
     list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
     localStorage.setItem("lms_students", JSON.stringify(list));
     return list[idx];
+  }
+
+  _logGroupChange(studentId, studentCode, studentName, subject, oldGroup, newGroup, changedBy, reason) {
+    try {
+      const raw = JSON.parse(localStorage.getItem("lms_group_history") || "[]");
+      const list = Array.isArray(raw) ? raw : [];
+      list.unshift({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        student_id: studentId,
+        student_code: studentCode,
+        student_name: studentName,
+        subject: subject,
+        old_group: oldGroup,
+        new_group: newGroup,
+        changed_by: changedBy || "Cô Linh",
+        reason: reason || "",
+        changed_at: new Date().toISOString().replace("T", " ").substring(0, 19)
+      });
+      localStorage.setItem("lms_group_history", JSON.stringify(list.slice(0, 300)));
+    } catch (e) {
+      console.warn("Failed to log group change:", e);
+    }
+  }
+
+  getGroupChangeHistory(studentId, subject) {
+    try {
+      const raw = JSON.parse(localStorage.getItem("lms_group_history") || "[]");
+      let list = Array.isArray(raw) ? raw : [];
+      if (studentId) {
+        list = list.filter(r => r.student_id == studentId || r.student_code == String(studentId).toUpperCase());
+      }
+      if (subject) {
+        const cleanSubj = subject === "homeroom" ? "homeroom" : (subject.toLowerCase().includes("toán") || subject.toLowerCase().includes("math") ? "Toán" : "Tiếng Việt");
+        list = list.filter(r => r.subject === cleanSubj);
+      }
+      return list;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  bulkUpdateStudentGroups(studentIds, groupType, newGroup, changedBy, reason) {
+    if (!Array.isArray(studentIds) || studentIds.length === 0) return [];
+    const list = this.getStudents();
+    const cleanType = (groupType || "homeroom").toLowerCase();
+    const isMath = cleanType.includes("toán") || cleanType.includes("math");
+    const isViet = cleanType.includes("tiếng việt") || cleanType.includes("viet");
+    const subjLabel = isMath ? "Toán" : (isViet ? "Tiếng Việt" : "homeroom");
+    const operator = changedBy || "Cô Linh";
+    const notes = reason || `Chuyển nhóm ${subjLabel} hàng loạt`;
+
+    const updated = [];
+    studentIds.forEach(sid => {
+      const idx = list.findIndex(s => s.id == sid || s.code == String(sid).toUpperCase());
+      if (idx !== -1) {
+        const st = list[idx];
+        if (subjLabel === "homeroom") {
+          const oldG = st.homeroom_group || st.group_name || "Nhóm 1";
+          if (oldG !== newGroup) {
+            this._logGroupChange(st.id, st.code, st.full_name, "homeroom", oldG, newGroup, operator, notes);
+            st.homeroom_group = newGroup;
+            st.group_name = newGroup;
+            st.group_color = (HOMEROOM_GROUPS_CONFIG[newGroup] && HOMEROOM_GROUPS_CONFIG[newGroup].color) ? HOMEROOM_GROUPS_CONFIG[newGroup].color : "#3B82F6";
+          }
+        } else if (subjLabel === "Toán") {
+          const oldG = st.math_group || "cat";
+          if (oldG !== newGroup) {
+            this._logGroupChange(st.id, st.code, st.full_name, "Toán", oldG, newGroup, operator, notes);
+            st.math_group = newGroup;
+          }
+        } else if (subjLabel === "Tiếng Việt") {
+          const oldG = st.viet_group || "cat";
+          if (oldG !== newGroup) {
+            this._logGroupChange(st.id, st.code, st.full_name, "Tiếng Việt", oldG, newGroup, operator, notes);
+            st.viet_group = newGroup;
+          }
+        }
+        updated.push(st);
+      }
+    });
+
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return updated;
+  }
+
+  importStudentsBatch(studentsList, replace) {
+    if (!Array.isArray(studentsList) || studentsList.length === 0) {
+      return { success: false, error: "Danh sách học sinh rỗng!" };
+    }
+    let list = replace ? [] : this.getStudents();
+    const imported = [];
+
+    studentsList.forEach((sData, i) => {
+      const fullName = (sData.full_name || sData.name || "").trim();
+      if (!fullName) return;
+      let orderNum = parseInt(sData.order_num || sData.stt || (i + 1));
+      if (isNaN(orderNum)) orderNum = i + 1;
+      const code = (sData.code || `HS${orderNum < 10 ? '0' + orderNum : orderNum}`).trim().toUpperCase();
+      let gender = (sData.gender || "Nam").trim();
+      if (["nữ", "nu", "f", "female"].includes(gender.toLowerCase())) {
+        gender = "Nữ";
+      } else {
+        gender = "Nam";
+      }
+      const birthday = sData.birthday || sData.dob || "";
+      let hGrp = (sData.homeroom_group || sData.group_name || "").trim();
+      if (!hGrp || !HOMEROOM_GROUPS_CONFIG[hGrp]) {
+        const gIdx = ((orderNum - 1) % 6) + 1;
+        hGrp = `Nhóm ${gIdx}`;
+      }
+      const hCol = (HOMEROOM_GROUPS_CONFIG[hGrp] && HOMEROOM_GROUPS_CONFIG[hGrp].color) ? HOMEROOM_GROUPS_CONFIG[hGrp].color : "#3B82F6";
+      const mGrp = ABILITY_GROUPS_CONFIG[sData.math_group] ? sData.math_group : "cat";
+      const vGrp = ABILITY_GROUPS_CONFIG[sData.viet_group] ? sData.viet_group : "cat";
+
+      const existingIdx = list.findIndex(s => s.code === code);
+      if (existingIdx !== -1) {
+        list[existingIdx] = Object.assign({}, list[existingIdx], {
+          full_name: fullName,
+          gender: gender,
+          order_num: orderNum,
+          birthday: birthday,
+          homeroom_group: hGrp,
+          group_name: hGrp,
+          group_color: hCol,
+          math_group: mGrp,
+          viet_group: vGrp
+        });
+        imported.push(list[existingIdx]);
+      } else {
+        const maxId = list.reduce((m, s) => Math.max(m, s.id || 0), 0);
+        const newSt = {
+          id: maxId + 1,
+          code: code,
+          full_name: fullName,
+          gender: gender,
+          order_num: orderNum,
+          birthday: birthday,
+          homeroom_group: hGrp,
+          group_name: hGrp,
+          group_color: hCol,
+          math_group: mGrp,
+          viet_group: vGrp,
+          class_name: "Lớp 3A7",
+          password: "1234",
+          animal_group: "orange_cat",
+          animal_symbol: "🐱",
+          animal_title: "🐱",
+          subject_animals: {}
+        };
+        list.push(newSt);
+        imported.push(newSt);
+      }
+    });
+
+    list.sort((a, b) => (a.order_num || 0) - (b.order_num || 0));
+    localStorage.setItem("lms_students", JSON.stringify(list));
+    return { success: true, count: imported.length, students: list };
   }
 
   deleteStudent(id) {
@@ -2314,10 +2526,14 @@ class ClientDBEngine {
       student_id: st.id,
       code: st.code,
       name: st.full_name,
+      gender: st.gender || "",
+      group_name: st.group_name || "Nhóm 1",
+      group_color: st.group_color || "#3B82F6",
       order_num: st.order_num,
       completed: 0,
-      avatar: "🐶",
-      rank: race.length + 1,
+      avatar: "",
+      rank: 1,
+      is_neutral: true,
       percentage: 0
     };
 
@@ -2466,12 +2682,15 @@ class ClientDBEngine {
     const list = students.map((s, idx) => {
       const match = rawRace.find(r => r.student_id == s.id || r.code === s.code);
       const completed = match ? Number(match.completed) || 0 : 0;
-      const avatar = (match && match.avatar) ? match.avatar : petAvatars[idx % petAvatars.length];
+      const avatar = (match && match.avatar) ? match.avatar : "";
       const lastUpdated = match ? match.last_updated : s.created_at;
       return {
         student_id: s.id,
         code: s.code,
         name: s.full_name,
+        gender: s.gender || "",
+        group_name: s.group_name || "Nhóm 1",
+        group_color: s.group_color || "#3B82F6",
         order_num: s.order_num || idx + 1,
         completed: completed,
         avatar: avatar,
@@ -2492,6 +2711,7 @@ class ClientDBEngine {
         currentRank = i + 1;
       }
       list[i].rank = currentRank;
+      list[i].is_neutral = (list[i].completed === 0);
       list[i].percentage = Math.min(100, Math.round((list[i].completed / 33) * 1000) / 10);
     }
 
@@ -2967,8 +3187,12 @@ class ClientDBEngine {
         code: st.code,
         full_name: st.full_name,
         gender: st.gender,
-        group_name: st.group_name || "Nhóm 1",
+        group_name: st.homeroom_group || st.group_name || "Nhóm 1",
         group_color: st.group_color || "#3B82F6",
+        homeroom_group: st.homeroom_group || st.group_name || "Nhóm 1",
+        math_group: st.math_group || "cat",
+        viet_group: st.viet_group || "cat",
+        birthday: st.birthday || "",
         is_graded: Boolean(gr),
         score: stSc,
         max_score: asgMax,
@@ -2985,6 +3209,79 @@ class ClientDBEngine {
       is_passed: item.is_passed
     }));
 
+    // Competency Groups Aggregation (Math vs Vietnamese)
+    const asgSubj = String(asg.subject || "").toLowerCase();
+    const asgSubjType = String(asg.subject_type || "").toLowerCase();
+    const isMath = asgSubj.includes("toán") || asgSubjType === "toan";
+    const subjectLabel = isMath ? "Toán" : "Tiếng Việt";
+    const abilityField = isMath ? "math_group" : "viet_group";
+
+    const competencyGroups = ["dolphin", "monkey", "cat", "ant"].map(gKey => {
+      const cfg = ABILITY_GROUPS_CONFIG[gKey];
+      const grpStudents = heatmapMatrix.filter(st => st[abilityField] === gKey);
+      const gradedStudents = grpStudents.filter(st => st.is_graded);
+
+      const grpTargets = tier2Targets.map(t => {
+        const tCode = t.target_code;
+        const tName = t.target_name;
+        const tSkills = t.skills;
+
+        const failedInGrp = [];
+        const causesTally = {};
+        (t.failed_students || []).forEach(fSt => {
+          if (grpStudents.some(s => s.student_id === fSt.student_id)) {
+            failedInGrp.push(fSt);
+            (fSt.causes || []).forEach(c => {
+              if (c) causesTally[c] = (causesTally[c] || 0) + 1;
+            });
+          }
+        });
+
+        const bottlenecksList = Object.keys(causesTally).map(k => ({ cause: k, count: causesTally[k] })).sort((a, b) => b.count - a.count);
+        const topBn = bottlenecksList.length > 0 ? bottlenecksList[0].cause : "Cần củng cố kiến thức";
+        const failedCnt = failedInGrp.length;
+        const totalGrd = gradedStudents.length;
+        const notMetPct = totalGrd > 0 ? Math.round((failedCnt / totalGrd) * 1000) / 10 : 0.0;
+
+        return {
+          target_code: tCode,
+          target_name: tName,
+          skills: tSkills,
+          total_students: grpStudents.length,
+          graded_students: totalGrd,
+          failed_count: failedCnt,
+          passed_count: totalGrd - failedCnt,
+          not_met_percentage: notMetPct,
+          bottlenecks: bottlenecksList,
+          top_bottleneck: topBn,
+          failed_students: failedInGrp,
+          suggested_plan_name: `Nhóm ${cfg.name} - Rèn ${tCode}: ${topBn}`
+        };
+      });
+
+      return {
+        group_key: gKey,
+        name: cfg.name,
+        symbol: cfg.symbol,
+        color: cfg.color,
+        badge_color: cfg.badge_color,
+        bg_color: cfg.bg_color,
+        border_color: cfg.border_color,
+        desc: cfg.desc,
+        student_count: grpStudents.length,
+        students: grpStudents,
+        targets: grpTargets
+      };
+    });
+
+    const compAnalysis = {
+      assignment_id: assignmentId,
+      assignment_title: asg.title || "",
+      subject: subjectLabel,
+      ability_field: abilityField,
+      groups: competencyGroups
+    };
+
     return {
       assignment: asg,
       tier1: tier1,
@@ -2993,8 +3290,15 @@ class ClientDBEngine {
       heatmap: {
         matrix: heatmapMatrix,
         summary_row: bottomSummary
-      }
+      },
+      competency_analysis: compAnalysis,
+      competency_groups: competencyGroups
     };
+  }
+
+  getAssignmentCompetencyAnalysis(assignmentId) {
+    const ana = this.getAssignmentAnalysis(assignmentId);
+    return ana ? ana.competency_analysis : null;
   }
 
   // --- BOTTLENECK DETECTION & CLUSTERING ---
