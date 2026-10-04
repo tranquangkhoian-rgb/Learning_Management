@@ -407,7 +407,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
                 sid = path.split("/")[-2]
                 g_name = body.get("group_name", "Nhóm 1")
                 g_color = body.get("group_color", "#3B82F6")
-                res = database.update_student_color_group(sid, g_name, g_color)
+                sync_group = body.get("sync_group", True)
+                res = database.update_student_color_group(sid, g_name, g_color, sync_all_in_group=sync_group)
                 return self.send_json(res)
             except Exception as e:
                 return self.send_json({"error": str(e)}, 400)
@@ -461,7 +462,8 @@ class LMSRequestHandler(SimpleHTTPRequestHandler):
             supplementary_task = body.get("supplementary_task", "")
             start_date = body.get("start_date", datetime.now().strftime("%Y-%m-%d"))
             notes = body.get("notes", "")
-            plan = database.create_remediation_plan(asg_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, notes)
+            questions = body.get("questions", [])
+            plan = database.create_remediation_plan(asg_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, notes, questions=questions)
             return self.send_json(plan, 201)
 
         elif path.startswith("/api/remediation-plans/") and path.endswith("/reassess"):

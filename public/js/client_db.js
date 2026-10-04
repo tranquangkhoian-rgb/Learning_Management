@@ -1373,6 +1373,32 @@ class ClientDBEngine {
         return s;
       });
 
+      try {
+        const rawTeams = JSON.parse(localStorage.getItem("lms_teams") || "[]");
+        const teamsList = Array.isArray(rawTeams) ? rawTeams : [];
+        result.forEach(s => {
+          const team = teamsList.find(t => {
+            const mList = Array.isArray(t.members) ? t.members : [];
+            const mIds = Array.isArray(t.member_ids) ? t.member_ids : [];
+            return mList.some(m => m && (m.id == s.id || m.code == s.code)) ||
+                   mIds.some(mid => mid == s.id || mid == s.code);
+          });
+          if (team) {
+            s.team_id = team.id;
+            s.team_name = team.name;
+            s.team_color = team.color || "#3B82F6";
+            s.team_icon = team.icon || "⭐";
+          } else {
+            s.team_id = null;
+            s.team_name = "";
+            s.team_color = "";
+            s.team_icon = "";
+          }
+        });
+      } catch {
+        // ignore
+      }
+
       if (changed) {
         localStorage.setItem("lms_students", JSON.stringify(result));
       }
@@ -1692,6 +1718,14 @@ class ClientDBEngine {
             this._logGroupChange(st.id, st.code, st.full_name, "Tiếng Việt", oldG, newGroup, operator, notes);
             st.viet_group = newGroup;
           }
+        } else if (cleanType.includes("animal") || cleanType.includes("con vật") || cleanType.includes("linh vật")) {
+          const oldG = st.animal_group || "cat";
+          const symMap = { "dolphin": "🐬", "monkey": "🐒", "cat": "🐱", "orange_cat": "🐱", "turtle_snail": "🐢", "ant": "🐢" };
+          const sym = symMap[newGroup] || "🐾";
+          this._logGroupChange(st.id, st.code, st.full_name, "Linh vật", oldG, newGroup, operator, notes);
+          st.animal_group = newGroup;
+          st.animal_symbol = sym;
+          st.animal_title = sym;
         }
         updated.push(st);
       }
@@ -1786,12 +1820,24 @@ class ClientDBEngine {
     return DEFAULT_STUDENTS_3A7;
   }
 
-  updateStudentColorGroup(id, groupName, groupColor) {
+  updateStudentColorGroup(id, groupName, groupColor, syncAllInGroup = true) {
     const list = this.getStudents();
     const idx = list.findIndex(s => s.id == id || s.code == id);
     if (idx === -1) return null;
-    list[idx].group_name = groupName || "Nhóm 1";
-    list[idx].group_color = groupColor || "#3B82F6";
+    const cleanName = groupName || "Nhóm 1";
+    const cleanColor = groupColor || "#3B82F6";
+    list[idx].group_name = cleanName;
+    list[idx].group_color = cleanColor;
+    list[idx].homeroom_group = cleanName;
+
+    if (syncAllInGroup) {
+      list.forEach(s => {
+        if (s.group_name === cleanName || s.homeroom_group === cleanName) {
+          s.group_color = cleanColor;
+        }
+      });
+    }
+
     localStorage.setItem("lms_students", JSON.stringify(list));
     return list[idx];
   }
@@ -1801,7 +1847,8 @@ class ClientDBEngine {
     try {
       const raw = JSON.parse(localStorage.getItem("lms_assignments"));
       const list = Array.isArray(raw) ? raw : [];
-      return list.map(a => {
+      return list.map((a, idx) => {
+        a.stt = idx + 1;
         if (!a.subject || a.subject === "undefined") {
           a.subject = (a.title && a.title.toLowerCase().includes("toán")) ? "Toán" : "Tiếng Việt";
         }
@@ -3117,6 +3164,10 @@ class ClientDBEngine {
         }
       });
 
+      const totalStudentsGraded = Math.max(1, gradedCount);
+      const failedCnt = failedStuds.length;
+      const passedCnt = Math.max(0, totalStudentsGraded - failedCnt);
+      const passRate = Math.round((passedCnt / totalStudentsGraded) * 1000) / 10;
       const tOverallPct = totalPtsPossible > 0 ? Math.round((totalPtsEarned / totalPtsPossible) * 1000) / 10 : 0.0;
 
       tier2Targets.push({
@@ -3126,9 +3177,11 @@ class ClientDBEngine {
         question_nums: tQnums,
         max_score: Math.round(tMax * 100) / 100,
         total_students: gradedCount,
-        failed_count: failedStuds.length,
-        percentage: tOverallPct,
-        is_passed: tOverallPct >= 70.0,
+        passed_count: passedCnt,
+        failed_count: failedCnt,
+        percentage: passRate,
+        points_percentage: tOverallPct,
+        is_passed: passRate >= 70.0,
         failed_students: failedStuds
       });
     });
@@ -3216,9 +3269,68 @@ class ClientDBEngine {
     const subjectLabel = isMath ? "Toán" : "Tiếng Việt";
     const abilityField = isMath ? "math_group" : "viet_group";
 
-    const competencyGroups = ["dolphin", "monkey", "cat", "ant"].map(gKey => {
-      const cfg = ABILITY_GROUPS_CONFIG[gKey];
-      const grpStudents = heatmapMatrix.filter(st => st[abilityField] === gKey);
+    const animalTiersDef = [
+      {
+        key: "dolphin",
+        name: "Cá Heo",
+        symbol: "🐬",
+        tier_label: "Thông minh / Vượt chuẩn",
+        desc: "Học sinh thông minh, tiếp thu bài nhanh và vượt chuẩn",
+        color: "#0284C7",
+        bg_color: "#E0F2FE",
+        border_color: "#7DD3FC",
+        badge_color: "#0284C7",
+        aliases: ["dolphin"]
+      },
+      {
+        key: "monkey",
+        name: "Khỉ Con",
+        symbol: "🐒",
+        tier_label: "Khá giỏi / Nhanh nhẹn",
+        desc: "Học sinh hiểu bài tốt, làm đúng và nhanh nhẹn",
+        color: "#D97706",
+        bg_color: "#FEF3C7",
+        border_color: "#FCD34D",
+        badge_color: "#D97706",
+        aliases: ["monkey"]
+      },
+      {
+        key: "cat",
+        name: "Mèo Con",
+        symbol: "🐱",
+        tier_label: "Đạt chuẩn / Trung bình",
+        desc: "Học sinh nắm được yêu cầu cơ bản, cần rèn luyện tính cẩn thận",
+        color: "#EA580C",
+        bg_color: "#FFEDD5",
+        border_color: "#FB923C",
+        badge_color: "#EA580C",
+        aliases: ["cat", "orange_cat"]
+      },
+      {
+        key: "ant",
+        name: "Rùa & Ốc Sên",
+        symbol: "🐢",
+        tier_label: "Cần rèn luyện / Cố gắng",
+        desc: "Học sinh cần cô kèm cặp thêm, rèn luyện từng bước vững chắc",
+        color: "#16A34A",
+        bg_color: "#DCFCE7",
+        border_color: "#86EFAC",
+        badge_color: "#16A34A",
+        aliases: ["turtle_snail", "ant"]
+      }
+    ];
+
+    const competencyGroups = animalTiersDef.map(aDef => {
+      const gKey = aDef.key;
+      const aliases = aDef.aliases;
+      let grpStudents = heatmapMatrix.filter(st => {
+        return aliases.includes(st[abilityField]) || aliases.includes(st.animal_group);
+      });
+      if (gKey === "cat") {
+        const allKnown = [].concat(...animalTiersDef.map(a => a.aliases));
+        const extra = heatmapMatrix.filter(st => !allKnown.includes(st[abilityField]) && !allKnown.includes(st.animal_group));
+        grpStudents = grpStudents.concat(extra);
+      }
       const gradedStudents = grpStudents.filter(st => st.is_graded);
 
       const grpTargets = tier2Targets.map(t => {
@@ -3255,19 +3367,20 @@ class ClientDBEngine {
           bottlenecks: bottlenecksList,
           top_bottleneck: topBn,
           failed_students: failedInGrp,
-          suggested_plan_name: `Nhóm ${cfg.name} - Rèn ${tCode}: ${topBn}`
+          suggested_plan_name: `Nhóm ${aDef.name} - Rèn ${tCode}: ${topBn}`
         };
       });
 
       return {
         group_key: gKey,
-        name: cfg.name,
-        symbol: cfg.symbol,
-        color: cfg.color,
-        badge_color: cfg.badge_color,
-        bg_color: cfg.bg_color,
-        border_color: cfg.border_color,
-        desc: cfg.desc,
+        name: aDef.name,
+        symbol: aDef.symbol,
+        tier_label: aDef.tier_label,
+        color: aDef.color,
+        badge_color: aDef.badge_color,
+        bg_color: aDef.bg_color,
+        border_color: aDef.border_color,
+        desc: aDef.desc,
         student_count: grpStudents.length,
         students: grpStudents,
         targets: grpTargets
@@ -3347,7 +3460,7 @@ class ClientDBEngine {
   }
 
   // --- REMEDIATION PLANS & REASSESSMENT ---
-  createRemediationPlan(assignmentId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask = "", startDate = "", notes = "") {
+  createRemediationPlan(assignmentId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask = "", startDate = "", notes = "", questions = []) {
     const raw = JSON.parse(localStorage.getItem("lms_remediation_plans") || "[]");
     const list = Array.isArray(raw) ? raw : [];
     const newId = list.length > 0 ? Math.max(...list.map(p => p.id || 0)) + 1 : 1;
@@ -3367,6 +3480,7 @@ class ClientDBEngine {
       start_date: startDate || new Date().toISOString().substring(0, 10),
       status: "active",
       notes: String(notes || "").trim(),
+      questions: Array.isArray(questions) ? questions : [],
       reassessments: [],
       created_at: this.nowStr(),
       updated_at: this.nowStr()
@@ -3385,6 +3499,7 @@ class ClientDBEngine {
     return {
       ...plan,
       student_ids: Array.isArray(plan.student_ids) ? plan.student_ids : [],
+      questions: Array.isArray(plan.questions) ? plan.questions : [],
       reassessments: Array.isArray(plan.reassessments) ? plan.reassessments : [],
       students: (plan.student_ids || []).map(sid => studentsMap[sid]).filter(Boolean)
     };
@@ -3400,6 +3515,7 @@ class ClientDBEngine {
     return list.map(p => ({
       ...p,
       student_ids: Array.isArray(p.student_ids) ? p.student_ids : [],
+      questions: Array.isArray(p.questions) ? p.questions : [],
       reassessments: Array.isArray(p.reassessments) ? p.reassessments : [],
       students: (p.student_ids || []).map(sid => studentsMap[sid]).filter(Boolean)
     }));

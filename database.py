@@ -362,10 +362,15 @@ def init_db():
         status TEXT DEFAULT 'active',
         reassessments TEXT DEFAULT '[]',
         notes TEXT DEFAULT '',
+        questions TEXT DEFAULT '[]',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """)
+    try:
+        cursor.execute("ALTER TABLE remediation_plans ADD COLUMN questions TEXT DEFAULT '[]'")
+    except Exception:
+        pass
 
     # Ensure group_change_history table exists for audit logging
     cursor.execute("""
@@ -607,6 +612,14 @@ def _format_student_row(row_dict):
         row_dict["math_group"] = "cat"
     if not row_dict.get("viet_group"):
         row_dict["viet_group"] = "cat"
+    if "team_id" not in row_dict:
+        row_dict["team_id"] = None
+    if "team_name" not in row_dict:
+        row_dict["team_name"] = ""
+    if "team_color" not in row_dict:
+        row_dict["team_color"] = ""
+    if "team_icon" not in row_dict:
+        row_dict["team_icon"] = ""
     if row_dict.get("birthday") is None:
         row_dict["birthday"] = ""
     return row_dict
@@ -619,6 +632,36 @@ def get_students(include_inactive=False):
     else:
         cursor.execute("SELECT * FROM students WHERE is_active = 1 ORDER BY order_num ASC, code ASC")
     rows = [_format_student_row(dict(r)) for r in cursor.fetchall()]
+
+    try:
+        cursor.execute("""
+            SELECT tm.student_id, t.id as team_id, t.name as team_name, t.color as team_color, t.icon as team_icon
+            FROM team_members tm
+            JOIN teams t ON tm.team_id = t.id
+        """)
+        team_map = {}
+        for tr in cursor.fetchall():
+            team_map[tr["student_id"]] = {
+                "team_id": tr["team_id"],
+                "team_name": tr["team_name"],
+                "team_color": tr["team_color"],
+                "team_icon": tr["team_icon"]
+            }
+        for st in rows:
+            t_info = team_map.get(st["id"])
+            if t_info:
+                st["team_id"] = t_info["team_id"]
+                st["team_name"] = t_info["team_name"]
+                st["team_color"] = t_info["team_color"]
+                st["team_icon"] = t_info["team_icon"]
+            else:
+                st["team_id"] = None
+                st["team_name"] = ""
+                st["team_color"] = ""
+                st["team_icon"] = ""
+    except Exception:
+        pass
+
     conn.close()
     return rows
 
@@ -783,6 +826,15 @@ def bulk_update_student_groups(student_ids, group_type, new_group, changed_by="C
                     INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
                     VALUES (?, ?, ?, 'Tiếng Việt', ?, ?, ?, ?)
                 """, (sid_int, st["code"], st["full_name"], old_g, new_group, changed_by, reason or "Chuyển nhóm năng lực Tiếng Việt hàng loạt"))
+        elif clean_type in ["animal", "animal_group", "con vật", "linh vật"]:
+            old_g = st.get("animal_group") or "cat"
+            sym_map = {"dolphin": "🐬", "monkey": "🐒", "cat": "🐱", "orange_cat": "🐱", "turtle_snail": "🐢", "ant": "🐢"}
+            sym = sym_map.get(new_group, "🐾")
+            cursor.execute("UPDATE students SET animal_group = ?, animal_symbol = ?, animal_title = ? WHERE id = ?", (new_group, sym, sym, sid_int))
+            cursor.execute("""
+                INSERT INTO group_change_history (student_id, student_code, student_name, subject, old_group, new_group, changed_by, reason)
+                VALUES (?, ?, ?, 'Linh vật', ?, ?, ?, ?)
+            """, (sid_int, st["code"], st["full_name"], old_g, new_group, changed_by, reason or "Cập nhật nhóm linh vật con vật"))
         updated.append(sid_int)
 
     conn.commit()
@@ -1009,9 +1061,10 @@ def update_student_animal_group(student_id_or_code, group_key, symbol=None, titl
         "border_color": cfg["border_color"]
     }
 
-def update_student_color_group(student_id_or_code, group_name, group_color):
+def update_student_color_group(student_id_or_code, group_name, group_color, sync_all_in_group=True):
     """
     Teacher-only: Updates a student's assigned color group (e.g. 'Nhóm Đỏ', '#EF4444').
+    If sync_all_in_group is True, syncs group_color for all students sharing the same group_name.
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -1019,16 +1072,21 @@ def update_student_color_group(student_id_or_code, group_name, group_color):
     clean_color = str(group_color or "#3B82F6").strip()
     val = str(student_id_or_code).strip()
     if val.isdigit():
-        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE id = ?", (clean_name, clean_color, int(val)))
+        cursor.execute("UPDATE students SET homeroom_group = ?, group_name = ?, group_color = ? WHERE id = ?", (clean_name, clean_name, clean_color, int(val)))
     else:
-        cursor.execute("UPDATE students SET group_name = ?, group_color = ? WHERE code = ?", (clean_name, clean_color, val.upper()))
+        cursor.execute("UPDATE students SET homeroom_group = ?, group_name = ?, group_color = ? WHERE code = ?", (clean_name, clean_name, clean_color, val.upper()))
+    
+    if sync_all_in_group:
+        cursor.execute("UPDATE students SET group_color = ? WHERE group_name = ? OR homeroom_group = ?", (clean_color, clean_name, clean_name))
+
     conn.commit()
     conn.close()
     return {
         "success": True,
         "student_id": student_id_or_code,
         "group_name": clean_name,
-        "group_color": clean_color
+        "group_color": clean_color,
+        "synced_group": sync_all_in_group
     }
 
 def update_student_subject_animal(student_id_or_code, subject, group_key, symbol=None, title=None):
@@ -1197,6 +1255,8 @@ def get_assignments(include_inactive=False):
         cursor.execute("SELECT * FROM assignments WHERE is_active = 1 ORDER BY id DESC")
     rows = [_format_assignment_row(dict(r)) for r in cursor.fetchall()]
     conn.close()
+    for idx, a in enumerate(rows):
+        a["stt"] = idx + 1
     return rows
 
 def get_assignment_by_id(assignment_id):
@@ -1857,6 +1917,12 @@ def get_assignment_analysis(assignment_id):
                 })
 
         t_overall_pct = round((total_pts_earned / max(0.1, total_pts_possible)) * 100, 1) if total_pts_possible > 0 else 0.0
+        total_students_graded = max(1, graded_count)
+        failed_cnt = len(failed_studs)
+        passed_cnt = max(0, total_students_graded - failed_cnt)
+        pass_rate = round((passed_cnt / total_students_graded) * 100, 1)
+        # Goal is completed when student achievement rate meets benchmark (>= 70%)
+        is_passed = (pass_rate >= 70.0)
 
         tier2_targets.append({
             "target_code": t_code,
@@ -1865,9 +1931,11 @@ def get_assignment_analysis(assignment_id):
             "question_nums": t_qnums,
             "max_score": round(t_max, 2),
             "total_students": graded_count,
-            "failed_count": len(failed_studs),
-            "percentage": t_overall_pct,
-            "is_passed": t_overall_pct >= 70.0,
+            "passed_count": passed_cnt,
+            "failed_count": failed_cnt,
+            "percentage": pass_rate,
+            "points_percentage": t_overall_pct,
+            "is_passed": is_passed,
             "failed_students": failed_studs
         })
 
@@ -1928,6 +1996,8 @@ def get_assignment_analysis(assignment_id):
             "homeroom_group": st.get("homeroom_group") or st.get("group_name") or "Nhóm 1",
             "math_group": st.get("math_group") or "cat",
             "viet_group": st.get("viet_group") or "cat",
+            "animal_group": st.get("animal_group") or "cat",
+            "animal_symbol": st.get("animal_symbol") or "🐱",
             "birthday": st.get("birthday") or "",
             "is_graded": gr is not None,
             "score": st_sc,
@@ -1955,9 +2025,72 @@ def get_assignment_analysis(assignment_id):
     ability_field = "math_group" if is_math else "viet_group"
 
     competency_groups = []
-    for g_key in ["dolphin", "monkey", "cat", "ant"]:
-        cfg = ABILITY_GROUPS_CONFIG[g_key]
-        grp_students = [st for st in heatmap_matrix if st.get(ability_field) == g_key]
+    animal_tiers_def = [
+        {
+            "key": "dolphin",
+            "name": "Cá Heo",
+            "symbol": "🐬",
+            "tier_label": "Thông minh / Vượt chuẩn",
+            "desc": "Học sinh thông minh, tiếp thu bài nhanh và vượt chuẩn",
+            "color": "#0284C7",
+            "bg_color": "#E0F2FE",
+            "border_color": "#7DD3FC",
+            "badge_color": "#0284C7",
+            "aliases": ["dolphin"]
+        },
+        {
+            "key": "monkey",
+            "name": "Khỉ Con",
+            "symbol": "🐒",
+            "tier_label": "Khá giỏi / Nhanh nhẹn",
+            "desc": "Học sinh hiểu bài tốt, làm đúng và nhanh nhẹn",
+            "color": "#D97706",
+            "bg_color": "#FEF3C7",
+            "border_color": "#FCD34D",
+            "badge_color": "#D97706",
+            "aliases": ["monkey"]
+        },
+        {
+            "key": "cat",
+            "name": "Mèo Con",
+            "symbol": "🐱",
+            "tier_label": "Đạt chuẩn / Trung bình",
+            "desc": "Học sinh nắm được yêu cầu cơ bản, cần rèn luyện tính cẩn thận",
+            "color": "#EA580C",
+            "bg_color": "#FFEDD5",
+            "border_color": "#FB923C",
+            "badge_color": "#EA580C",
+            "aliases": ["cat", "orange_cat"]
+        },
+        {
+            "key": "ant",
+            "name": "Rùa & Ốc Sên",
+            "symbol": "🐢",
+            "tier_label": "Cần rèn luyện / Cố gắng",
+            "desc": "Học sinh cần cô kèm cặp thêm, rèn luyện từng bước vững chắc",
+            "color": "#16A34A",
+            "bg_color": "#DCFCE7",
+            "border_color": "#86EFAC",
+            "badge_color": "#16A34A",
+            "aliases": ["turtle_snail", "ant"]
+        }
+    ]
+
+    for a_def in animal_tiers_def:
+        g_key = a_def["key"]
+        aliases = a_def["aliases"]
+        grp_students = [
+            st for st in heatmap_matrix
+            if (st.get(ability_field) in aliases) or (st.get("animal_group") in aliases)
+        ]
+        if g_key == "cat":
+            all_known = [al for a in animal_tiers_def for al in a["aliases"]]
+            extra = [
+                st for st in heatmap_matrix
+                if st.get(ability_field) not in all_known and st.get("animal_group") not in all_known
+            ]
+            grp_students.extend(extra)
+
         graded_students = [st for st in grp_students if st["is_graded"]]
 
         grp_targets = []
@@ -1995,18 +2128,19 @@ def get_assignment_analysis(assignment_id):
                 "bottlenecks": bottlenecks_list,
                 "top_bottleneck": top_bn,
                 "failed_students": failed_in_grp,
-                "suggested_plan_name": f"Nhóm {cfg['name']} - Rèn {t_code}: {top_bn}"
+                "suggested_plan_name": f"Nhóm {a_def['name']} - Rèn {t_code}: {top_bn}"
             })
 
         competency_groups.append({
             "group_key": g_key,
-            "name": cfg["name"],
-            "symbol": cfg["symbol"],
-            "color": cfg["color"],
-            "badge_color": cfg["badge_color"],
-            "bg_color": cfg["bg_color"],
-            "border_color": cfg["border_color"],
-            "desc": cfg["desc"],
+            "name": a_def["name"],
+            "symbol": a_def["symbol"],
+            "tier_label": a_def["tier_label"],
+            "color": a_def["color"],
+            "badge_color": a_def["badge_color"],
+            "bg_color": a_def["bg_color"],
+            "border_color": a_def["border_color"],
+            "desc": a_def["desc"],
             "student_count": len(grp_students),
             "students": grp_students,
             "targets": grp_targets
@@ -2094,9 +2228,9 @@ def get_learning_bottlenecks(assignment_id=None):
     return bottlenecks
 
 # --- Remediation Plans & Historical Reassessments ---
-def create_remediation_plan(assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task="", start_date="", notes=""):
+def create_remediation_plan(assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task="", start_date="", notes="", questions=None):
     """
-    Creates a temporary intervention / remediation group for students struggling with a bottleneck.
+    Creates an intervention / remediation practice group for students, with optional questions.
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -2111,10 +2245,17 @@ def create_remediation_plan(assignment_id, target_code, target_name, skill_name,
             sids_list = [int(s.strip()) for s in student_ids.split(",") if s.strip().isdigit()]
 
     sids_str = json.dumps(sids_list)
+    q_str = "[]"
+    if questions is not None:
+        if isinstance(questions, str):
+            q_str = questions
+        else:
+            q_str = json.dumps(questions, ensure_ascii=False)
+
     cursor.execute("""
-        INSERT INTO remediation_plans (assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
-    """, (assignment_id, str(target_code).strip(), str(target_name).strip(), str(skill_name).strip(), str(group_name).strip(), sids_str, str(supplementary_task).strip(), start_date, str(notes).strip()))
+        INSERT INTO remediation_plans (assignment_id, target_code, target_name, skill_name, group_name, student_ids, supplementary_task, start_date, status, notes, questions)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+    """, (assignment_id, str(target_code).strip(), str(target_name).strip(), str(skill_name).strip(), str(group_name).strip(), sids_str, str(supplementary_task).strip(), start_date, str(notes).strip(), q_str))
     plan_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -2137,6 +2278,10 @@ def get_remediation_plan_by_id(plan_id):
         p["reassessments"] = json.loads(p.get("reassessments") or "[]")
     except Exception:
         p["reassessments"] = []
+    try:
+        p["questions"] = json.loads(p.get("questions") or "[]")
+    except Exception:
+        p["questions"] = []
 
     students_map = {s["id"]: s for s in get_students()}
     p["students"] = [students_map[sid] for sid in p["student_ids"] if sid in students_map]
@@ -2169,6 +2314,10 @@ def get_remediation_plans(assignment_id=None, status=None):
             r["reassessments"] = json.loads(r.get("reassessments") or "[]")
         except Exception:
             r["reassessments"] = []
+        try:
+            r["questions"] = json.loads(r.get("questions") or "[]")
+        except Exception:
+            r["questions"] = []
         r["students"] = [students_map[sid] for sid in r["student_ids"] if sid in students_map]
         plans.append(r)
     return plans

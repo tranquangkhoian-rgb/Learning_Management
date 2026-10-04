@@ -86,6 +86,28 @@ class LMSApp {
     this.loadTeams();
     this.startLiveSync();
 
+    // Cross-tab synchronization via localStorage events
+    window.addEventListener("storage", async (e) => {
+      if (e.key === "lms_teams" || e.key === "lms_teams_updated") {
+        await this.loadTeams();
+        await this.loadStudents();
+        this.updateGradeGroupCounts();
+        this.renderGradeStudentList();
+        if (this.currentTab === "pane-teams") this.renderTeams();
+        if (this.loadStudentsList) this.loadStudentsList();
+      } else if (e.key === "lms_students" || e.key === "lms_students_updated") {
+        await this.loadStudents();
+        this.updateGradeGroupCounts();
+        this.renderGradeStudentList();
+        if (this.loadStudentsList) this.loadStudentsList();
+      } else if (e.key === "lms_assignments" || e.key === "lms_assignments_updated" || e.key === "lms_events") {
+        await this.loadAssignments();
+        this.loadHomeworkList();
+        await this.loadGradeSubmissions();
+        this.renderGradeStudentList();
+      }
+    });
+
     // Check authentication session
     await this.checkAuthSession();
 
@@ -226,7 +248,13 @@ class LMSApp {
     } catch {
       this.assignments = window.ClientDB.getAssignments();
     }
-    document.getElementById("stat-total-assignments").innerText = this.assignments.length;
+    if (Array.isArray(this.assignments)) {
+      this.assignments.forEach((a, idx) => {
+        a.stt = idx + 1;
+      });
+    }
+    const statEl = document.getElementById("stat-total-assignments");
+    if (statEl) statEl.innerText = this.assignments.length;
     this.populateDropdowns();
   }
 
@@ -236,9 +264,10 @@ class LMSApp {
     const trackingSelect = document.getElementById("tracking-assignment-select");
     const profileSelect = document.getElementById("profile-student-select");
 
-    const asgOptions = this.assignments.map(a => 
-      `<option value="${a.id}">[${a.subject || "Bài tập"}] ${a.title} (Hạn: ${a.due_date || "-"})</option>`
-    ).join("");
+    const asgOptions = this.assignments.map((a, idx) => {
+      const stt = a.stt || (idx + 1);
+      return `<option value="${a.id}">[Bài ${stt}] #${a.id} • [${a.subject || "Bài tập"}] ${a.title} (Hạn: ${a.due_date || "-"})</option>`;
+    }).join("");
 
     kioskSelect.innerHTML = asgOptions;
     gradeSelect.innerHTML = asgOptions;
@@ -276,9 +305,11 @@ class LMSApp {
     this.updateKioskDueHint();
   }
 
-  onGradeAssignmentChange() {
+  async onGradeAssignmentChange() {
     this.currentAssignmentId = document.getElementById("grade-assignment-select").value;
     this.updateGradeAssignmentGoalsBanner();
+    await this.loadGradeSubmissions(this.currentAssignmentId);
+    this.renderGradeStudentList();
     if (this.currentlyGradingStudent) {
       this.openGradingForStudent(this.currentlyGradingStudent);
     }
@@ -1015,7 +1046,7 @@ class LMSApp {
   }
 
   // --- Tab Navigation & Kiosk Lockdown ---
-  switchTab(paneId) {
+  async switchTab(paneId) {
     if (this.isTeacherLocked && paneId !== "pane-kiosk") {
       this.openPinModal(() => this.switchTab(paneId));
       return;
@@ -1035,19 +1066,22 @@ class LMSApp {
     const target = document.getElementById(paneId);
     if (target) target.classList.add("active");
 
-    const tabBtn = Array.from(document.querySelectorAll(".nav-tab")).find(b => b.getAttribute("onclick").includes(paneId));
+    const tabBtn = Array.from(document.querySelectorAll(".nav-tab")).find(b => b.getAttribute("onclick") && b.getAttribute("onclick").includes(paneId));
     if (tabBtn) tabBtn.classList.add("active");
 
     if (paneId === "pane-kiosk") {
       this.startKioskCamera();
     } else if (paneId === "pane-grade") {
       this.startGradeCamera();
+      await this.loadTeams();
+      await this.loadGradeSubmissions();
       this.updateGradeGroupCounts();
       this.renderGradeStudentList();
     } else if (paneId === "pane-homework") {
+      await this.loadAssignments();
       this.loadHomeworkList();
     } else if (paneId === "pane-teams") {
-      this.loadTeams();
+      await this.loadTeams();
     } else if (paneId === "pane-tracking") {
       this.loadTrackingMatrix();
     } else if (paneId === "pane-analytics") {
@@ -1059,6 +1093,7 @@ class LMSApp {
       this.populateGrowthStudentDropdown();
       this.loadStudentGrowthProfile();
     } else if (paneId === "pane-students") {
+      await this.loadTeams();
       this.loadStudentsList();
       this.loadStudentProfile();
     } else if (paneId === "pane-library") {
@@ -1284,6 +1319,17 @@ class LMSApp {
       alert(`Không tìm thấy học sinh với mã "${code}"!`);
       return;
     }
+
+    const subInfo = this.currentGradeSubmissionsMap ? this.currentGradeSubmissionsMap.get(st.id) : null;
+    if (subInfo && !subInfo.hasSubmitted) {
+      if (this.gradeScanner) this.gradeScanner.playErrorBeep();
+      const asg = (this.assignments || []).find(a => a.id == this.currentAssignmentId);
+      const asgTitle = asg ? asg.title : "bài tập này";
+      if (!confirm(`⚠️ Học sinh ${st.full_name} (${st.code}) CHƯA NỘP "${asgTitle}"!\n\nThầy/cô có chắc muốn chấm bài cho em này không?`)) {
+        return;
+      }
+    }
+
     if (this.gradeScanner) this.gradeScanner.playSuccessBeep();
     this.openGradingForStudent(st);
   }
@@ -1303,6 +1349,58 @@ class LMSApp {
     if (btnMulti) btnMulti.classList.toggle("active", mode === "multi");
     if (multiActionBar) multiActionBar.style.display = mode === "multi" ? "flex" : "none";
 
+    this.renderGradeStudentList();
+  }
+
+  async loadGradeSubmissions(assignmentId) {
+    const asgId = assignmentId || document.getElementById("grade-assignment-select")?.value || this.currentAssignmentId;
+    if (!asgId) return;
+
+    try {
+      let data;
+      if (this.serverAvailable) {
+        const res = await fetch(`/api/tracking/${asgId}`);
+        if (res.ok) data = await res.json();
+      }
+      if (!data && window.ClientDB) {
+        data = window.ClientDB.getTrackingMatrix(asgId);
+      }
+
+      const matrix = (data && (data.matrix || data.rows)) || [];
+      this.currentGradeSubmissionsMap = new Map();
+      let submittedCount = 0;
+
+      matrix.forEach(row => {
+        const sid = row.student_id || row.id;
+        const hasSubmitted = (row.submit_count && row.submit_count > 0) || (row.status && row.status !== "Chưa nộp");
+        if (hasSubmitted) submittedCount++;
+        this.currentGradeSubmissionsMap.set(sid, {
+          hasSubmitted: !!hasSubmitted,
+          submitCount: row.submit_count || 0,
+          status: row.status || "Chưa nộp",
+          isLate: !!row.is_late
+        });
+      });
+
+      const subCountEl = document.getElementById("grade-submitted-count");
+      const allCountEl = document.getElementById("grade-all-students-count");
+      if (subCountEl) subCountEl.innerText = submittedCount;
+      if (allCountEl) allCountEl.innerText = (this.students || []).length;
+    } catch (e) {
+      console.warn("Could not load grade submissions map:", e);
+    }
+  }
+
+  setGradeFilterSubmittedOnly(val) {
+    this.gradeFilterSubmittedOnly = !!val;
+    const btnSub = document.getElementById("btn-grade-filter-submitted");
+    const btnAll = document.getElementById("btn-grade-filter-all");
+    if (btnSub) {
+      btnSub.className = this.gradeFilterSubmittedOnly ? "btn btn-xs btn-primary" : "btn btn-xs btn-outline";
+    }
+    if (btnAll) {
+      btnAll.className = !this.gradeFilterSubmittedOnly ? "btn btn-xs btn-primary" : "btn btn-xs btn-outline";
+    }
     this.renderGradeStudentList();
   }
 
@@ -1333,7 +1431,7 @@ class LMSApp {
       const teams = this.teams || [];
       let opts = '<option value="">-- Chọn nhóm tùy chỉnh của cô --</option>';
       teams.forEach(t => {
-        const count = Array.isArray(t.members) ? t.members.length : (Array.isArray(t.member_ids) ? t.member_ids.length : 0);
+        const count = Array.isArray(t.members) ? t.members : (Array.isArray(t.member_ids) ? t.member_ids.length : 0);
         opts += `<option value="${t.id}">${t.icon || "⭐"} ${t.name} (${count} em)</option>`;
       });
       teamSel.innerHTML = opts;
@@ -1369,8 +1467,20 @@ class LMSApp {
     const teamFilter = this.gradeTeamFilter;
     const animalFilter = this.gradeAnimalFilter;
 
+    // Default to only showing students who submitted (unless toggled to All)
+    if (this.gradeFilterSubmittedOnly === undefined) {
+      this.gradeFilterSubmittedOnly = true;
+    }
+
     // Filter students
     let filtered = (this.students || []).filter(s => {
+      // 1. Submitted-only filter
+      if (this.gradeFilterSubmittedOnly) {
+        const subInfo = this.currentGradeSubmissionsMap ? this.currentGradeSubmissionsMap.get(s.id) : null;
+        if (!subInfo || !subInfo.hasSubmitted) {
+          return false;
+        }
+      }
       if (query) {
         const matchName = (s.full_name || "").toLowerCase().includes(query);
         const matchCode = (s.code || "").toLowerCase().includes(query);
@@ -1393,7 +1503,7 @@ class LMSApp {
     });
 
     if (filtered.length === 0) {
-      gradeBox.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 16px;">Không tìm thấy học sinh phù hợp</div>`;
+      gradeBox.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 16px;">${this.gradeFilterSubmittedOnly ? 'Chưa có học sinh nào nộp bài tập này (hoặc đã lọc hết)' : 'Không tìm thấy học sinh phù hợp'}</div>`;
       return;
     }
 
@@ -1425,6 +1535,12 @@ class LMSApp {
       const abItem = abMap[abGroupKey] || abMap["cat"];
       const abBadge = `<span style="font-size: 11px; padding: 1px 5px; border-radius: 6px; background: ${abItem.col}18; color: ${abItem.col}; border: 1px solid ${abItem.col}40;" title="Nhóm Năng Lực ${isViet ? 'Tiếng Việt' : 'Toán'}: ${abItem.name}">${abItem.sym}</span>`;
 
+      // Submission badge
+      const subInfo = this.currentGradeSubmissionsMap ? this.currentGradeSubmissionsMap.get(s.id) : null;
+      const subBadge = (subInfo && subInfo.hasSubmitted)
+        ? (subInfo.isLate ? `<span class="badge" style="background: #FEF3C7; color: #B45309; font-size: 10px; padding: 1px 4px;">⏰ Nộp trễ</span>` : `<span class="badge badge-green" style="font-size: 10px; padding: 1px 4px;">✅ Đã nộp</span>`)
+        : `<span class="badge" style="background: #F1F5F9; color: #94A3B8; font-size: 10px; padding: 1px 4px;">Chưa nộp</span>`;
+
       // Find teams s belongs to
       const stTeams = (this.teams || []).filter(t => {
         const mList = Array.isArray(t.members) ? t.members : [];
@@ -1434,37 +1550,22 @@ class LMSApp {
       });
       const teamTags = stTeams.map(t => `<span style="font-size: 10px; background: ${t.color}20; color: ${t.color}; border: 1px solid ${t.color}50; border-radius: 4px; padding: 1px 4px; margin-left: 4px;">${t.icon || "⭐"} ${t.name}</span>`).join("");
 
-      if (mode === "multi") {
-        return `
-          <div class="grade-student-item ${isSelected ? 'selected' : ''}" onclick="app.toggleGradeStudentSelect(${s.id}, event)">
-            <div class="st-item-left">
-              <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleGradeStudentSelect(${s.id}, event)">
-              <span style="font-size: 15px;">${genderIcon}</span>
-              <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
-              ${abBadge}
-              <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
-            </div>
-            <div class="st-item-right">
-              ${teamTags}
-            </div>
+      return `
+        <div class="grade-student-item ${(isSelected || isSingleActive) ? (isSelected ? 'selected' : 'active-single') : ''}" onclick="app.onGradeStudentItemClick(${s.id}, event)">
+          <div class="st-item-left" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" class="grade-st-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); app.toggleGradeStudentCheckbox(${s.id}, this.checked)" title="Đánh dấu để chấm điểm đồng loạt">
+            <span style="font-size: 15px;">${genderIcon}</span>
+            <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
+            ${subBadge}
+            ${abBadge}
+            <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
           </div>
-        `;
-      } else {
-        return `
-          <div class="grade-student-item ${isSingleActive ? 'active-single' : ''}" onclick="app.openGradingForStudentById(${s.id})">
-            <div class="st-item-left">
-              <span style="font-size: 15px;">${genderIcon}</span>
-              <span><strong>${s.order_num}.</strong> ${s.full_name} (${s.code})</span>
-              ${abBadge}
-              <span class="color-bullet" style="background: ${grpColor};" title="${grpName}"></span>
-            </div>
-            <div class="st-item-right">
-              ${teamTags}
-              <button type="button" class="btn btn-outline btn-xs" style="font-size: 11px; padding: 2px 6px;">Chấm</button>
-            </div>
+          <div class="st-item-right" style="display: flex; align-items: center; gap: 6px;">
+            ${teamTags}
+            <button type="button" class="btn btn-outline btn-xs" onclick="event.stopPropagation(); app.openGradingForStudentById(${s.id})" style="font-size: 11px; padding: 2px 7px;">Chấm</button>
           </div>
-        `;
-      }
+        </div>
+      `;
     }).join("");
 
     const selCountEl = document.getElementById("grade-selected-count");
@@ -1473,24 +1574,52 @@ class LMSApp {
     }
   }
 
-  toggleGradeStudentSelect(studentId, evt) {
+  onGradeStudentItemClick(studentId, evt) {
+    if (this.selectedGradeStudentIds && this.selectedGradeStudentIds.size > 0) {
+      const isChecked = this.selectedGradeStudentIds.has(studentId);
+      this.toggleGradeStudentCheckbox(studentId, !isChecked);
+    } else {
+      this.openGradingForStudentById(studentId);
+    }
+  }
+
+  toggleGradeStudentCheckbox(studentId, isChecked) {
     if (!this.selectedGradeStudentIds) {
       this.selectedGradeStudentIds = new Set();
     }
-    if (this.selectedGradeStudentIds.has(studentId)) {
-      this.selectedGradeStudentIds.delete(studentId);
-    } else {
+    if (isChecked) {
       this.selectedGradeStudentIds.add(studentId);
+    } else {
+      this.selectedGradeStudentIds.delete(studentId);
     }
-    this.renderGradeStudentList();
-    if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
-      const selectedStudents = (this.students || []).filter(s => this.selectedGradeStudentIds.has(s.id));
-      if (selectedStudents.length > 0) {
-        this.openGradingForMultipleStudents(selectedStudents, false);
+
+    const count = this.selectedGradeStudentIds.size;
+    const bar = document.getElementById("grade-multi-action-bar");
+    const countEl = document.getElementById("grade-selected-count");
+    if (countEl) countEl.innerText = count;
+
+    if (count > 0) {
+      this.gradeSelectionMode = "multi";
+      if (bar) bar.style.display = "flex";
+      const matched = (this.students || []).filter(s => this.selectedGradeStudentIds.has(s.id));
+      if (count > 1) {
+        this.openGradingForMultipleStudents(matched, false, `Đã chọn (${count} em)`);
       } else {
+        this.openGradingForStudentById(studentId);
+      }
+    } else {
+      this.gradeSelectionMode = "single";
+      if (bar) bar.style.display = "none";
+      if (this.currentlyGradingBatchStudents) {
         this.cancelGrading();
       }
     }
+    this.renderGradeStudentList();
+  }
+
+  toggleGradeStudentSelect(studentId, evt) {
+    const isChecked = this.selectedGradeStudentIds ? this.selectedGradeStudentIds.has(studentId) : false;
+    this.toggleGradeStudentCheckbox(studentId, !isChecked);
   }
 
   selectAllGradeStudents() {
@@ -1498,41 +1627,85 @@ class LMSApp {
     if (!this.selectedGradeStudentIds) {
       this.selectedGradeStudentIds = new Set();
     }
-    (this.students || []).forEach(s => this.selectedGradeStudentIds.add(s.id));
+    this.selectedGradeStudentIds.clear();
+
+    const query = this.gradeStudentSearchQuery || "";
+    const teamFilter = this.gradeTeamFilter;
+    const animalFilter = this.gradeAnimalFilter;
+
+    let filtered = (this.students || []).filter(s => {
+      if (this.gradeFilterSubmittedOnly) {
+        const subInfo = this.currentGradeSubmissionsMap ? this.currentGradeSubmissionsMap.get(s.id) : null;
+        if (!subInfo || !subInfo.hasSubmitted) return false;
+      }
+      if (query) {
+        const matchName = (s.full_name || "").toLowerCase().includes(query);
+        const matchCode = (s.code || "").toLowerCase().includes(query);
+        if (!matchName && !matchCode) return false;
+      }
+      if (animalFilter && (s.animal_group || "orange_cat") !== animalFilter) return false;
+      if (teamFilter) {
+        const team = (this.teams || []).find(t => t.id == teamFilter);
+        if (team) {
+          const mList = Array.isArray(team.members) ? team.members : [];
+          const mIds = Array.isArray(team.member_ids) ? team.member_ids : [];
+          const inTeam = mList.some(m => m && (m.id == s.id || m.code == s.code)) ||
+                         mIds.some(mid => mid == s.id || mid == s.code);
+          if (!inTeam) return false;
+        }
+      }
+      return true;
+    });
+
+    filtered.forEach(s => this.selectedGradeStudentIds.add(s.id));
+    const bar = document.getElementById("grade-multi-action-bar");
+    const countEl = document.getElementById("grade-selected-count");
+    if (countEl) countEl.innerText = filtered.length;
+    if (bar) bar.style.display = "flex";
+
     this.renderGradeStudentList();
-    const allStudents = [...(this.students || [])];
-    this.openGradingForMultipleStudents(allStudents, true, "Cả Lớp 3A7");
+    if (filtered.length > 0) {
+      this.openGradingForMultipleStudents(filtered, false, `Tất cả (${filtered.length} em)`);
+    }
   }
 
   deselectAllGradeStudents() {
     if (this.selectedGradeStudentIds) {
       this.selectedGradeStudentIds.clear();
     }
+    const bar = document.getElementById("grade-multi-action-bar");
+    const countEl = document.getElementById("grade-selected-count");
+    if (countEl) countEl.innerText = 0;
+    if (bar) bar.style.display = "none";
+    this.gradeSelectionMode = "single";
+    this.cancelGrading();
     this.renderGradeStudentList();
-    if (this.currentlyGradingBatchStudents && this.currentlyGradingBatchStudents.length > 0) {
-      this.cancelGrading();
-    }
   }
 
-  selectGradeColorGroupBulk(colorOrName) {
+  selectGradeColorGroupBulk(colorOrName, groupNameParam) {
     this.setGradeSelectionMode("multi");
     if (!this.selectedGradeStudentIds) {
       this.selectedGradeStudentIds = new Set();
     }
     this.selectedGradeStudentIds.clear();
-    const target = (colorOrName || "").toLowerCase();
+    const target = (colorOrName || "").toLowerCase().trim();
+    const gTarget = (groupNameParam || "").toLowerCase().trim();
+
     const matched = (this.students || []).filter(s => {
-      const c = (s.group_color || "").toLowerCase();
-      const n = (s.group_name || "").toLowerCase();
-      return c === target || n === target || (s.animal_group || "").toLowerCase() === target;
+      const c = (s.group_color || "").toLowerCase().trim();
+      const n = (s.group_name || "").toLowerCase().trim();
+      const h = (s.homeroom_group || "").toLowerCase().trim();
+      return (target && (c === target || n === target || h === target)) ||
+             (gTarget && (n === gTarget || h === gTarget));
     });
+
     matched.forEach(s => this.selectedGradeStudentIds.add(s.id));
     this.renderGradeStudentList();
     if (matched.length > 0) {
-      const gName = matched[0].group_name || colorOrName;
+      const gName = groupNameParam || matched[0].group_name || colorOrName;
       this.openGradingForMultipleStudents(matched, true, `${gName}`);
     } else {
-      alert(`Hiện tại chưa có học sinh nào trong nhóm màu này!`);
+      alert(`Hiện tại chưa có học sinh nào trong nhóm này!`);
     }
   }
 
@@ -2104,7 +2277,8 @@ class LMSApp {
   }
 
   setQuickScore(val) {
-    document.getElementById("grade-score-input").value = val;
+    const input = document.getElementById("grade-score-input");
+    if (input) input.value = val;
     if (val >= 8) {
       this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Đã đạt']"), "Đã đạt");
     } else if (val >= 5) {
@@ -2112,6 +2286,15 @@ class LMSApp {
     } else {
       this.selectGradeStatus(document.querySelector(".grade-status-option[data-status='Cần nộp lại']"), "Cần nộp lại");
     }
+
+    document.querySelectorAll(".quick-scores .score-chip").forEach(chip => {
+      const chipVal = parseFloat(chip.getAttribute("data-score") || chip.innerText.trim());
+      if (Math.abs(chipVal - parseFloat(val)) < 0.01) {
+        chip.classList.add("active");
+      } else {
+        chip.classList.remove("active");
+      }
+    });
   }
 
   selectGradeStatus(el, status) {
@@ -2706,7 +2889,10 @@ class LMSApp {
       return;
     }
     const curVal = sel.value;
-    sel.innerHTML = assignments.map(a => `<option value="${a.id}">#${a.id} • ${a.title} (${a.subject || 'Toán'})</option>`).join("");
+    sel.innerHTML = assignments.map((a, idx) => {
+      const stt = a.stt || (idx + 1);
+      return `<option value="${a.id}">[Bài ${stt}] #${a.id} • ${a.title} (${a.subject || 'Toán'})</option>`;
+    }).join("");
     if (curVal && assignments.some(a => a.id == curVal)) {
       sel.value = curVal;
     } else if (this.currentAssignmentId && assignments.some(a => a.id == this.currentAssignmentId)) {
@@ -2961,15 +3147,86 @@ class LMSApp {
       badgeEl.innerHTML = `Môn: <strong>${subjTitle}</strong> • Bài: <em>${asg.title || ''}</em>`;
     }
 
-    if (!groups || groups.length === 0) {
-      container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 30px;">Chưa có dữ liệu phân tích nhóm năng lực cho bài này.</div>';
-      return;
-    }
+    const animalTierConfigs = [
+      {
+        key: "dolphin",
+        symbol: "🐬",
+        name: "Cá Heo Thông Minh (Dolphins)",
+        desc: "Tiếp thu nhanh, thông minh, tư duy xuất sắc (Smart)",
+        color: "#0284C7",
+        bg_color: "#F0F9FF",
+        border_color: "#BAE6FD"
+      },
+      {
+        key: "monkey",
+        symbol: "🐒",
+        name: "Khỉ Nhanh Nhẹn (Monkeys)",
+        desc: "Khá giỏi, phản xạ nhanh, nắm bắt tốt (Kinda Smart)",
+        color: "#D97706",
+        bg_color: "#FFFBEB",
+        border_color: "#FDE68A"
+      },
+      {
+        key: "cat",
+        symbol: "🐱",
+        name: "Mèo Chăm Chỉ (Cats)",
+        desc: "Trung bình khá, chăm chỉ, đạt mức cơ bản (Average)",
+        color: "#EA580C",
+        bg_color: "#FFF7ED",
+        border_color: "#FED7AA"
+      },
+      {
+        key: "ant",
+        symbol: "🐢",
+        name: "Rùa & Ốc Sên (Turtles & Snails)",
+        desc: "Cần rèn luyện thêm, tiếp thu chậm, cần cô kèm cặp (Need Practice)",
+        color: "#DC2626",
+        bg_color: "#FEF2F2",
+        border_color: "#FECACA"
+      }
+    ];
 
-    container.innerHTML = groups.map(g => {
+    let displayGroups = animalTierConfigs.map(tier => {
+      const found = groups.find(g => {
+        const gk = (g.group_key || "").toLowerCase();
+        if (tier.key === "ant") return gk === "ant" || gk === "turtle_snail";
+        if (tier.key === "cat") return gk === "cat" || gk === "orange_cat";
+        return gk === tier.key;
+      });
+      return {
+        group_key: tier.key,
+        symbol: (found && found.symbol) || tier.symbol,
+        name: (found && found.name) || tier.name,
+        desc: (found && found.desc) || tier.desc,
+        color: (found && found.color) || tier.color,
+        bg_color: (found && found.bg_color) || tier.bg_color,
+        border_color: (found && found.border_color) || tier.border_color,
+        students: (found && found.students && found.students.length > 0) ? found.students : [],
+        student_count: (found && found.student_count) || 0,
+        targets: (found && found.targets) || []
+      };
+    });
+
+    // Populate students if not provided
+    displayGroups.forEach(g => {
+      if (!g.students || g.students.length === 0) {
+        g.students = (this.students || []).filter(s => {
+          let sGrp = s.animal_group || "cat";
+          if (s.subject_animals && s.subject_animals[subjTitle]) {
+            sGrp = s.subject_animals[subjTitle].group || sGrp;
+          }
+          if (g.group_key === "ant") return sGrp === "ant" || sGrp === "turtle_snail";
+          if (g.group_key === "cat") return sGrp === "cat" || sGrp === "orange_cat";
+          return sGrp === g.group_key;
+        });
+        g.student_count = g.students.length;
+      }
+    });
+
+    container.innerHTML = displayGroups.map(g => {
       const gTargets = g.targets || [];
       const targetsHtml = gTargets.length === 0
-        ? `<div style="font-size: 12px; color: var(--text-muted);">Không có mục tiêu nào được gán cho bài tập này.</div>`
+        ? `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; padding: 4px 0;">Không có mục tiêu nào được gán cho bài tập này.</div>`
         : gTargets.map(t => {
             const hasFailed = (t.failed_count || 0) > 0;
             const statusBadge = hasFailed
@@ -3009,28 +3266,127 @@ class LMSApp {
             `;
           }).join('');
 
+      const studentsHtml = (!g.students || g.students.length === 0)
+        ? `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; background: #FFFFFF; border-radius: 8px; border: 1px dashed #CBD5E1;">Chưa có học sinh nào trong nhóm này</div>`
+        : `
+          <div style="display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; padding-right: 2px;">
+            ${g.students.map(s => `
+              <div class="competency-student-row">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                  <span style="font-size: 14px;">${s.gender === 'Nữ' ? '👧' : '👦'}</span>
+                  <span style="font-size: 12.5px; font-weight: 700; color: #1E293B; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                    ${s.order_num ? s.order_num + '.' : ''} ${s.full_name}
+                  </span>
+                  <span style="font-size: 11px; color: #64748B;">(${s.code})</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                  <select class="competency-animal-select" style="background: ${g.color}12; color: ${g.color}; border: 1px solid ${g.color}40;"
+                    title="Chuyển học sinh sang con vật/nhóm năng lực khác"
+                    onchange="app.changeStudentAnimalFromCompetency(${s.id}, this.value, '${subjTitle}', ${asgId})">
+                    <option value="dolphin" ${g.group_key === 'dolphin' ? 'selected' : ''}>🐬 Cá Heo</option>
+                    <option value="monkey" ${g.group_key === 'monkey' ? 'selected' : ''}>🐒 Khỉ Con</option>
+                    <option value="cat" ${g.group_key === 'cat' ? 'selected' : ''}>🐱 Mèo Chăm</option>
+                    <option value="ant" ${g.group_key === 'ant' ? 'selected' : ''}>🐢 Rùa & Ốc</option>
+                  </select>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
       return `
         <div class="competency-card" style="border-color: ${g.border_color || '#CBD5E1'}; background: ${g.bg_color || '#FFFFFF'};">
           <div class="competency-card-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 24px;">${g.symbol || '🐾'}</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 28px;">${g.symbol || '🐾'}</span>
               <div>
-                <strong style="font-size: 16px; color: ${g.color || '#1E293B'};">${g.name}</strong>
-                <div style="font-size: 11px; color: #64748B;">${g.desc || ''}</div>
+                <strong style="font-size: 15.5px; color: ${g.color || '#1E293B'}; display: block;">${g.name}</strong>
+                <div style="font-size: 11.5px; color: #64748B;">${g.desc || ''}</div>
               </div>
             </div>
-            <div style="text-align: right;">
+            <div style="text-align: right; flex-shrink: 0;">
               <span class="badge" style="background: ${g.color}15; color: ${g.color}; border: 1px solid ${g.color}40; font-size: 12px; font-weight: 800;">
-                ${g.student_count || 0} học sinh
+                ${g.students.length} học sinh
               </span>
             </div>
           </div>
           <div>
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span>🐾 Danh sách học sinh (${g.students.length}):</span>
+              <span style="font-size: 11px; color: #64748B; font-weight: normal;">(Đổi con vật để đổi nhóm)</span>
+            </div>
+            ${studentsHtml}
+          </div>
+          <div style="border-top: 1px solid #E2E8F0; padding-top: 10px; margin-top: 4px;">
+            <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+              🎯 Phân Tích Mục Tiêu (MT) Của Nhóm:
+            </div>
             ${targetsHtml}
           </div>
         </div>
       `;
     }).join('');
+  }
+
+  async changeStudentAnimalFromCompetency(studentId, newAnimalKey, subject = "Toán", asgId = null) {
+    const symMap = {
+      dolphin: { sym: "🐬", ttl: "Cá Heo" },
+      monkey: { sym: "🐒", ttl: "Khỉ Con" },
+      cat: { sym: "🐱", ttl: "Mèo Con" },
+      orange_cat: { sym: "🐱", ttl: "Mèo Con" },
+      ant: { sym: "🐢", ttl: "Rùa & Ốc Sên" },
+      turtle_snail: { sym: "🐢", ttl: "Rùa & Ốc Sên" }
+    };
+    const item = symMap[newAnimalKey] || symMap["cat"];
+
+    try {
+      if (this.serverAvailable) {
+        await fetch(`/api/students/${studentId}/subject-animal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: subject,
+            animal_group: newAnimalKey,
+            animal_symbol: item.sym,
+            animal_title: item.ttl
+          })
+        });
+        await fetch(`/api/students/${studentId}/animal-group`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            animal_group: newAnimalKey,
+            animal_symbol: item.sym,
+            animal_title: item.ttl
+          })
+        });
+      }
+      if (window.ClientDB) {
+        window.ClientDB.updateStudentSubjectAnimal(studentId, subject, newAnimalKey, item.sym, item.ttl);
+        window.ClientDB.updateStudentAnimalGroup(studentId, newAnimalKey, item.sym, item.ttl);
+      }
+
+      // Update in-memory student
+      const st = (this.students || []).find(s => s.id == studentId);
+      if (st) {
+        st.animal_group = newAnimalKey;
+        st.animal_symbol = item.sym;
+        st.animal_title = item.ttl;
+        if (!st.subject_animals) st.subject_animals = {};
+        st.subject_animals[subject] = { group: newAnimalKey, symbol: item.sym, title: item.ttl };
+      }
+
+      localStorage.setItem("lms_students_updated", Date.now().toString());
+
+      // Refresh views
+      await this.loadAssignmentAnalysis();
+      this.updateGradeGroupCounts();
+      if (this.renderGradeStudentList) this.renderGradeStudentList();
+      if (this.loadStudentsList) this.loadStudentsList();
+    } catch (e) {
+      console.error("Error changing student competency animal:", e);
+      alert("Lỗi khi chuyển nhóm năng lực: " + e.message);
+    }
   }
 
   createRemediationFromCompetency(asgId, targetCode, planName, studentIds) {
@@ -3235,6 +3591,25 @@ class LMSApp {
           `;
         }).join("");
 
+        const questionsList = Array.isArray(p.questions) ? p.questions : [];
+        const questionsTotalScore = questionsList.reduce((acc, q) => acc + (parseFloat(q.max_score) || 0), 0);
+        const questionsHtml = questionsList.length > 0 ? `
+          <div style="margin-top: 10px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 8px 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 800; font-size: 12px; color: #166534;">📝 Câu hỏi luyện tập của nhóm (${questionsList.length} câu):</span>
+              <span class="badge" style="background: #DCFCE7; color: #166534; font-size: 11px;">Tổng: ${questionsTotalScore} đ</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              ${questionsList.map(q => `
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #15803D; background: #FFFFFF; padding: 4px 8px; border-radius: 6px; border: 1px solid #DCFCE7;">
+                  <span><strong>${q.label || ('C' + q.num)}:</strong> ${q.name}</span>
+                  <span style="font-weight: 700; color: #166534;">${q.max_score} đ</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : '';
+
         return `
           <div class="remediation-plan-card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
@@ -3259,6 +3634,8 @@ class LMSApp {
               </div>
             </div>
 
+            ${questionsHtml}
+
             ${timelineHtml ? `
               <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
                 <div style="font-size: 11px; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 4px;">
@@ -3273,6 +3650,103 @@ class LMSApp {
     } catch (e) {
       console.error("Error loading remediation plans:", e);
     }
+  }
+
+  filterRemStudentsSearch() {
+    const q = (document.getElementById("rem-create-student-search")?.value || "").toLowerCase().trim();
+    document.querySelectorAll(".rem-create-st-item").forEach(item => {
+      const text = item.innerText.toLowerCase();
+      if (!q || text.includes(q)) {
+        item.style.display = "flex";
+      } else {
+        item.style.display = "none";
+      }
+    });
+  }
+
+  selectAllRemStudents() {
+    document.querySelectorAll(".rem-create-st-check").forEach(cb => {
+      const parent = cb.closest(".rem-create-st-item");
+      if (!parent || parent.style.display !== "none") {
+        cb.checked = true;
+      }
+    });
+    this.updateRemCreateSelectedCount();
+  }
+
+  deselectAllRemStudents() {
+    document.querySelectorAll(".rem-create-st-check").forEach(cb => {
+      const parent = cb.closest(".rem-create-st-item");
+      if (!parent || parent.style.display !== "none") {
+        cb.checked = false;
+      }
+    });
+    this.updateRemCreateSelectedCount();
+  }
+
+  updateRemCreateSelectedCount() {
+    const count = document.querySelectorAll(".rem-create-st-check:checked").length;
+    const el = document.getElementById("rem-create-selected-count");
+    if (el) el.innerText = count;
+  }
+
+  setRemQuestionPreset(count) {
+    const container = document.getElementById("rem-create-questions-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    let scores = [];
+    if (count === 2) scores = [5.0, 5.0];
+    else if (count === 3) scores = [3.5, 3.5, 3.0];
+    else if (count === 4) scores = [2.5, 2.5, 2.5, 2.5];
+    else if (count === 5) scores = [2.0, 2.0, 2.0, 2.0, 2.0];
+    else {
+      scores = Array(count).fill(Math.round((10.0 / count) * 10) / 10);
+    }
+
+    const tCode = document.getElementById("rem-create-target-code")?.value || "MT1";
+    const skill = document.getElementById("rem-create-skill")?.value || "Rèn luyện kỹ năng";
+
+    for (let i = 0; i < count; i++) {
+      this.addNewRemQuestionRow(`Câu ${i + 1}: Bài tập rèn ${skill || tCode}`, scores[i] || 2.0);
+    }
+    this.calcRemCreateTotalScore();
+  }
+
+  addNewRemQuestionRow(name = "", score = 2.5, skill = "") {
+    const container = document.getElementById("rem-create-questions-container");
+    if (!container) return;
+    const qCount = container.querySelectorAll(".rem-create-q-row").length + 1;
+    const defaultName = name || `Câu ${qCount}: Bài tập rèn luyện`;
+    const defaultScore = score !== undefined ? score : 2.5;
+
+    const row = document.createElement("div");
+    row.className = "rem-create-q-row";
+    row.style.cssText = "display: flex; gap: 8px; align-items: center; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; padding: 6px 10px;";
+    row.innerHTML = `
+      <span class="rem-q-num-badge" style="font-size: 11px; font-weight: 800; background: #166534; color: white; padding: 2px 7px; border-radius: 6px; white-space: nowrap;">C${qCount}</span>
+      <input type="text" class="form-control rem-q-name-input" value="${defaultName}" placeholder="Nội dung/Yêu cầu câu hỏi..." style="font-size: 12px; padding: 4px 8px; flex: 2;">
+      <div style="display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+        <span style="font-size: 11px; color: #64748B;">Điểm:</span>
+        <input type="number" class="form-control rem-q-score-input" value="${defaultScore}" min="0.25" max="10" step="0.25" oninput="app.calcRemCreateTotalScore()" style="width: 60px; font-size: 12px; font-weight: 700; text-align: center; padding: 4px 6px;">
+        <span style="font-size: 11px; color: #166534; font-weight: 700;">đ</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-xs" onclick="this.closest('.rem-create-q-row').remove(); app.calcRemCreateTotalScore();" style="color: #DC2626; border-color: #FECACA; padding: 2px 6px;" title="Xóa câu này">🗑️</button>
+    `;
+    container.appendChild(row);
+    this.calcRemCreateTotalScore();
+  }
+
+  calcRemCreateTotalScore() {
+    const inputs = document.querySelectorAll(".rem-q-score-input");
+    let total = 0;
+    inputs.forEach(inp => {
+      total += parseFloat(inp.value) || 0;
+    });
+    total = Math.round(total * 100) / 100;
+    const scoreEl = document.getElementById("rem-create-calc-total-score");
+    if (scoreEl) scoreEl.innerText = total.toFixed(1);
+    return total;
   }
 
   openRemediationCreateModal(asgId, targetCode, targetName, skill, studentIds) {
@@ -3290,13 +3764,17 @@ class LMSApp {
       container.innerHTML = (this.students || []).map(st => {
         const isChecked = sidsSet.has(st.id);
         return `
-          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-            <input type="checkbox" class="rem-create-st-check" value="${st.id}" ${isChecked ? 'checked' : ''}>
-            <span><strong>${st.order_num}.</strong> ${st.full_name}</span>
+          <label class="rem-create-st-item" style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 3px 6px; border-radius: 6px; background: #F8FAFC;">
+            <input type="checkbox" class="rem-create-st-check" value="${st.id}" ${isChecked ? 'checked' : ''} onchange="app.updateRemCreateSelectedCount()">
+            <span><strong>${st.order_num}.</strong> ${st.full_name} (${st.code})</span>
           </label>
         `;
       }).join("");
     }
+    this.updateRemCreateSelectedCount();
+
+    // Default questions
+    this.setRemQuestionPreset(3);
 
     document.getElementById("remediation-create-modal").style.display = "flex";
   }
@@ -3322,6 +3800,22 @@ class LMSApp {
       return;
     }
 
+    // Collect questions
+    const qRows = document.querySelectorAll(".rem-create-q-row");
+    const questions = Array.from(qRows).map((row, idx) => {
+      const name = (row.querySelector(".rem-q-name-input")?.value || `Câu ${idx + 1}`).trim();
+      const score = parseFloat(row.querySelector(".rem-q-score-input")?.value || 0) || 2.5;
+      return {
+        num: idx + 1,
+        label: `C${idx + 1}`,
+        name: name,
+        max_score: score,
+        target: targetCode || "MT1",
+        target_name: targetName || "",
+        skill: skillName || ""
+      };
+    });
+
     try {
       let data;
       if (this.serverAvailable) {
@@ -3336,12 +3830,13 @@ class LMSApp {
             group_name: groupName,
             student_ids: studentIds,
             supplementary_task: supplementaryTask,
-            start_date: startDate
+            start_date: startDate,
+            questions: questions
           })
         });
         data = await res.json();
       } else {
-        data = window.ClientDB.createRemediationPlan(asgId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask, startDate);
+        data = window.ClientDB.createRemediationPlan(asgId, targetCode, targetName, skillName, groupName, studentIds, supplementaryTask, startDate, "", questions);
       }
 
       if (!data || data.error) {
@@ -3349,7 +3844,7 @@ class LMSApp {
         return;
       }
 
-      alert(`✅ Đã tạo thành công nhóm rèn: "${groupName}" cho ${studentIds.length} học sinh!`);
+      alert(`✅ Đã tạo thành công nhóm rèn: "${groupName}" cho ${studentIds.length} học sinh với ${questions.length} câu hỏi luyện tập!`);
       this.closeRemediationCreateModal();
       this.refreshBottlenecksView();
     } catch (e) {
@@ -3373,11 +3868,50 @@ class LMSApp {
       `).join("");
     }
 
-    document.getElementById("reass-score-input").value = "8.5";
-    document.getElementById("reass-max-input").value = "10";
-    document.getElementById("reass-note-input").value = "Đã nắm vững quy trình, giải đúng toàn bộ bài rèn bổ trợ";
+    const qSec = document.getElementById("reass-questions-section");
+    const qList = document.getElementById("reass-questions-list");
+    const questions = Array.isArray(plan.questions) ? plan.questions : [];
+    if (qSec && qList) {
+      if (questions.length > 0) {
+        qSec.style.display = "block";
+        const totalQScore = questions.reduce((a, q) => a + (parseFloat(q.max_score) || 0), 0);
+        document.getElementById("reass-max-input").value = totalQScore > 0 ? totalQScore : 10;
+        document.getElementById("reass-score-input").value = totalQScore > 0 ? totalQScore : 8.5;
 
+        qList.innerHTML = questions.map((q, idx) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid #E2E8F0; font-size: 12px;">
+            <span><strong>${q.label || ('C' + (idx + 1))}:</strong> ${q.name} (${q.max_score} đ)</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="number" class="form-control reass-q-score-input" value="${q.max_score}" min="0" max="${q.max_score}" step="0.25" style="width: 55px; font-size: 11px; padding: 2px 4px; text-align: center;" oninput="app.calcReassQuestionsTotal()">
+              <span style="font-size: 11px; color: #64748B;">/ ${q.max_score} đ</span>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        qSec.style.display = "none";
+        document.getElementById("reass-max-input").value = "10";
+        document.getElementById("reass-score-input").value = "8.5";
+      }
+    }
+
+    document.getElementById("reass-note-input").value = "Đã nắm vững quy trình, giải đúng bài rèn bổ trợ";
     document.getElementById("reassessment-modal").style.display = "flex";
+  }
+
+  calcReassQuestionsTotal() {
+    let sum = 0;
+    document.querySelectorAll(".reass-q-score-input").forEach(inp => {
+      sum += parseFloat(inp.value) || 0;
+    });
+    sum = Math.round(sum * 100) / 100;
+    const scoreInp = document.getElementById("reass-score-input");
+    if (scoreInp) scoreInp.value = sum;
+    const maxVal = parseFloat(document.getElementById("reass-max-input")?.value || 10);
+    const pct = maxVal > 0 ? (sum / maxVal) : 0;
+    const passRadio = document.querySelector('input[name="reass-status"][value="Đã đạt"]');
+    const failRadio = document.querySelector('input[name="reass-status"][value="Cần rèn tiếp"]');
+    if (pct >= 0.7 && passRadio) passRadio.checked = true;
+    else if (failRadio) failRadio.checked = true;
   }
 
   closeReassessmentModal() {
@@ -3385,7 +3919,14 @@ class LMSApp {
   }
 
   onReassStudentChange() {
-    // Student changed in modal
+    // Reset question inputs to max
+    const questions = (this.currentReassessmentPlan && Array.isArray(this.currentReassessmentPlan.questions)) ? this.currentReassessmentPlan.questions : [];
+    if (questions.length > 0) {
+      document.querySelectorAll(".reass-q-score-input").forEach((inp, idx) => {
+        if (questions[idx]) inp.value = questions[idx].max_score;
+      });
+      this.calcReassQuestionsTotal();
+    }
   }
 
   async submitReassessment() {
@@ -3868,12 +4409,13 @@ class LMSApp {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy bài tập nào.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">Không tìm thấy bài tập nào.</td></tr>`;
       return;
     }
 
     const now = new Date();
-    tbody.innerHTML = list.map(a => {
+    tbody.innerHTML = list.map((a, idx) => {
+      const stt = a.stt || (idx + 1);
       const due = a.due_date ? new Date(a.due_date.replace(" ", "T")) : null;
       const isOpen = !due || due >= now;
       const statusBadge = isOpen
@@ -3882,7 +4424,8 @@ class LMSApp {
 
       return `
         <tr>
-          <td><strong>#${a.id}</strong></td>
+          <td style="text-align: center; font-weight: 700; color: #64748B;">${stt}</td>
+          <td><span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 800;">#${a.id}</span></td>
           <td><strong>${a.title}</strong></td>
           <td><span class="badge badge-blue">${a.subject || "Bài tập"}</span></td>
           <td>${a.assigned_date || "-"}</td>
@@ -4189,6 +4732,35 @@ class LMSApp {
     if (elB) elB.innerText = countBlue;
     if (elG) elG.innerText = countGreen;
     if (elY) elY.innerText = countYellow;
+
+    // Dynamically render quick chips container with exact synced group colors and names
+    const container = document.getElementById("grade-color-quick-chips-container");
+    if (container) {
+      const groupMap = new Map();
+      list.forEach(s => {
+        const gName = (s.homeroom_group || s.group_name || "Nhóm 1").trim();
+        const gColor = s.group_color || "#3B82F6";
+        if (!groupMap.has(gName)) {
+          groupMap.set(gName, { name: gName, color: gColor, count: 0 });
+        }
+        const g = groupMap.get(gName);
+        g.count++;
+        if (s.group_color) g.color = s.group_color;
+      });
+
+      if (groupMap.size > 0) {
+        container.innerHTML = Array.from(groupMap.values()).map(g => {
+          const safeColor = g.color || "#3B82F6";
+          const safeName = g.name.replace(/"/g, "&quot;");
+          return `
+            <button type="button" class="chip-color-filter" style="border: 1px solid ${safeColor}; background: ${safeColor}18; color: ${safeColor}; font-weight: 700; border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: transform 0.15s ease;" onclick="app.selectGradeColorGroupBulk('${safeColor}', '${safeName}')">
+              <span class="color-bullet" style="background: ${safeColor}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+              ${safeName} (${g.count})
+            </button>
+          `;
+        }).join("");
+      }
+    }
   }
 
   setStudentAnimalFilter(tier, el) {
@@ -4252,14 +4824,33 @@ class LMSApp {
     const bulkSelect = document.getElementById("student-bulk-target-group");
     const list = this.students || [];
 
+    // Dynamically discover actual group colors from students list
+    const actualGroupMap = new Map();
+    list.forEach(s => {
+      const g = (s.homeroom_group || s.group_name || "").trim();
+      if (g) {
+        if (!actualGroupMap.has(g)) {
+          actualGroupMap.set(g, s.group_color || "#3B82F6");
+        } else if (s.group_color) {
+          actualGroupMap.set(g, s.group_color);
+        }
+      }
+    });
+
     const HOMEROOM_CONFIG = [
-      { key: "Nhóm 1", name: "Nhóm 1", color: "#EF4444" },
-      { key: "Nhóm 2", name: "Nhóm 2", color: "#3B82F6" },
-      { key: "Nhóm 3", name: "Nhóm 3", color: "#10B981" },
-      { key: "Nhóm 4", name: "Nhóm 4", color: "#F59E0B" },
-      { key: "Nhóm 5", name: "Nhóm 5", color: "#8B5CF6" },
-      { key: "Nhóm 6", name: "Nhóm 6", color: "#F97316" }
+      { key: "Nhóm 1", name: "Nhóm 1", color: actualGroupMap.get("Nhóm 1") || "#EF4444" },
+      { key: "Nhóm 2", name: "Nhóm 2", color: actualGroupMap.get("Nhóm 2") || "#3B82F6" },
+      { key: "Nhóm 3", name: "Nhóm 3", color: actualGroupMap.get("Nhóm 3") || "#10B981" },
+      { key: "Nhóm 4", name: "Nhóm 4", color: actualGroupMap.get("Nhóm 4") || "#F59E0B" },
+      { key: "Nhóm 5", name: "Nhóm 5", color: actualGroupMap.get("Nhóm 5") || "#8B5CF6" },
+      { key: "Nhóm 6", name: "Nhóm 6", color: actualGroupMap.get("Nhóm 6") || "#F97316" }
     ];
+
+    actualGroupMap.forEach((color, name) => {
+      if (!HOMEROOM_CONFIG.some(h => h.key === name)) {
+        HOMEROOM_CONFIG.push({ key: name, name: name, color: color });
+      }
+    });
 
     const ABILITY_CONFIG = [
       { key: "dolphin", name: "Cá Heo", symbol: "🐬", color: "#0284C7" },
@@ -4709,22 +5300,34 @@ class LMSApp {
       }
 
       if (window.ClientDB) {
-        window.ClientDB.updateStudentColorGroup(sid, name, color);
+        window.ClientDB.updateStudentColorGroup(sid, name, color, true);
       }
 
-      st.group_name = name;
-      st.group_color = color;
+      // Sync color and group name to all students in this group in memory
+      (this.students || []).forEach(s => {
+        if (s.id == sid) {
+          s.group_name = name;
+          s.group_color = color;
+          s.homeroom_group = name;
+        } else if (s.group_name === name || s.homeroom_group === name) {
+          s.group_color = color;
+        }
+      });
 
       if (this.trackingMatrix) {
-        const trRow = this.trackingMatrix.find(r => r.student_id == sid || r.code == st.code);
-        if (trRow) {
-          trRow.group_name = name;
-          trRow.group_color = color;
-        }
+        this.trackingMatrix.forEach(r => {
+          if (r.student_id == sid) {
+            r.group_name = name;
+            r.group_color = color;
+          } else if (r.group_name === name) {
+            r.group_color = color;
+          }
+        });
       }
 
       this.closeAssignColorGroupModal();
       this.updateStudentColorGroupCounters();
+      this.renderStudentFilterBar();
       this.filterStudentsList();
       if (typeof this.filterTrackingTable === "function") {
         this.filterTrackingTable();
@@ -4742,7 +5345,7 @@ class LMSApp {
       toast.style.fontSize = "13px";
       toast.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
       toast.style.zIndex = "9999";
-      toast.innerText = `✅ Đã lưu ${st.full_name} vào ${name}!`;
+      toast.innerText = `✅ Đã lưu và đồng bộ "${name}" (${color}) cho các bạn cùng nhóm!`;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2500);
     } catch (e) {
@@ -7869,7 +8472,8 @@ class LMSApp {
             body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds, max_capacity: maxCapacity })
           });
           if (!res.ok) throw new Error("Cập nhật nhóm thất bại!");
-        } else {
+        }
+        if (window.ClientDB) {
           window.ClientDB.updateTeam(this.currentEditingTeamId, name, color, icon, image, motto, memberIds, maxCapacity);
         }
         alert(`✅ Đã cập nhật thành công nhóm "${name}"!`);
@@ -7881,14 +8485,21 @@ class LMSApp {
             body: JSON.stringify({ name, color, icon, image, motto, member_ids: memberIds, max_capacity: maxCapacity })
           });
           if (!res.ok) throw new Error("Tạo nhóm thất bại!");
-        } else {
+        }
+        if (window.ClientDB) {
           window.ClientDB.createTeam(name, color, icon, image, motto, memberIds, maxCapacity);
         }
         alert(`✅ Đã thành lập thành công nhóm "${name}" (${memberIds.length} thành viên)!`);
       }
 
       this.closeTeamModal();
+      localStorage.setItem("lms_teams_updated", Date.now().toString());
       await this.loadTeams();
+      await this.loadStudents();
+      this.updateGradeGroupCounts();
+      this.renderGradeStudentList();
+      this.renderTeams();
+      if (this.loadStudentsList) this.loadStudentsList();
     } catch (e) {
       alert("Lỗi: " + e.message);
     }
@@ -7905,11 +8516,18 @@ class LMSApp {
       if (this.serverAvailable) {
         const res = await fetch(`/api/teams/${teamId}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Xóa nhóm thất bại!");
-      } else {
+      }
+      if (window.ClientDB) {
         window.ClientDB.deleteTeam(teamId);
       }
       alert(`🗑️ Đã xóa nhóm "${title}" thành công!`);
+      localStorage.setItem("lms_teams_updated", Date.now().toString());
       await this.loadTeams();
+      await this.loadStudents();
+      this.updateGradeGroupCounts();
+      this.renderGradeStudentList();
+      this.renderTeams();
+      if (this.loadStudentsList) this.loadStudentsList();
     } catch (e) {
       alert("Lỗi khi xóa nhóm: " + e.message);
     }

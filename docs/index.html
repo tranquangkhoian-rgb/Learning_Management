@@ -519,7 +519,7 @@
                   <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">
                     🎨 Chọn theo Nhóm màu (Color Groups):
                   </div>
-                  <div class="grade-color-quick-chips grade-animal-quick-chips" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <div class="grade-color-quick-chips grade-animal-quick-chips" id="grade-color-quick-chips-container" style="display: flex; gap: 6px; flex-wrap: wrap;">
                     <button type="button" class="chip-color-filter" style="border: 1px solid #EF4444; background: #FEF2F2; color: #B91C1C; font-weight: 700; border-radius: 20px; padding: 3px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="app.selectGradeColorGroupBulk('#EF4444')"><span class="color-bullet" style="background: #EF4444;"></span> Đỏ (<span id="grade-count-red">7</span>)</button>
                     <button type="button" class="chip-color-filter" style="border: 1px solid #3B82F6; background: #EFF6FF; color: #1D4ED8; font-weight: 700; border-radius: 20px; padding: 3px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="app.selectGradeColorGroupBulk('#3B82F6')"><span class="color-bullet" style="background: #3B82F6;"></span> Xanh Dương (<span id="grade-count-blue">7</span>)</button>
                     <button type="button" class="chip-color-filter" style="border: 1px solid #10B981; background: #ECFDF5; color: #047857; font-weight: 700; border-radius: 20px; padding: 3px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="app.selectGradeColorGroupBulk('#10B981')"><span class="color-bullet" style="background: #10B981;"></span> Xanh Lá (<span id="grade-count-green">7</span>)</button>
@@ -542,7 +542,20 @@
                     <button type="button" class="btn btn-outline btn-sm" onclick="app.selectGradeTeamBulkCurrent()" style="white-space: nowrap; font-size: 12px; font-weight: 700;">
                       ⚡ Chọn Nhóm Này
                     </button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="app.switchTab('pane-teams')" style="white-space: nowrap; font-size: 12px; font-weight: 700;" title="Quản lý và tạo nhóm mới">
+                      ➕ Quản Lý Nhóm
+                    </button>
                   </div>
+                </div>
+
+                <!-- Submission Status Filter (Đã nộp bài vs Tất cả) -->
+                <div style="display: flex; gap: 6px; align-items: center; margin-top: 8px; margin-bottom: 8px; background: #F8FAFC; padding: 6px 8px; border-radius: 8px; border: 1px solid #E2E8F0;">
+                  <button type="button" id="btn-grade-filter-submitted" class="btn btn-xs btn-primary" onclick="app.setGradeFilterSubmittedOnly(true)" style="font-weight: 700; border-radius: 12px; font-size: 11px;">
+                    ✅ Chỉ Hiện Đã Nộp (<span id="grade-submitted-count">0</span>)
+                  </button>
+                  <button type="button" id="btn-grade-filter-all" class="btn btn-xs btn-outline" onclick="app.setGradeFilterSubmittedOnly(false)" style="font-weight: 700; border-radius: 12px; font-size: 11px;">
+                    👥 Tất Cả Học Sinh (<span id="grade-all-students-count">29</span>)
+                  </button>
                 </div>
 
                 <!-- Search & Quick Selection Row -->
@@ -770,15 +783,26 @@
               <div class="form-group">
                 <label class="form-label">Điểm số cả bài (Hệ thống tự động cộng dồn hoặc cô có thể điều chỉnh):</label>
                 <input type="number" id="grade-score-input" class="form-control" style="font-size: 20px; font-weight: 800; text-align: center; color: var(--primary);" min="0" max="100" step="0.25" placeholder="Nhập điểm...">
-                <div class="quick-scores">
-                  <div class="score-chip" onclick="app.setQuickScore(10)">10</div>
-                  <div class="score-chip" onclick="app.setQuickScore(9.5)">9.5</div>
-                  <div class="score-chip" onclick="app.setQuickScore(9)">9</div>
-                  <div class="score-chip" onclick="app.setQuickScore(8.5)">8.5</div>
-                  <div class="score-chip" onclick="app.setQuickScore(8)">8</div>
-                  <div class="score-chip" onclick="app.setQuickScore(7)">7</div>
-                  <div class="score-chip" onclick="app.setQuickScore(6)">6</div>
-                  <div class="score-chip" onclick="app.setQuickScore(5)">5</div>
+                <div class="quick-scores" id="grade-quick-scores-bar" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+                  <div class="score-chip" data-score="10" onclick="app.setQuickScore(10)">10</div>
+                  <div class="score-chip" data-score="9.5" onclick="app.setQuickScore(9.5)">9.5</div>
+                  <div class="score-chip" data-score="9" onclick="app.setQuickScore(9)">9</div>
+                  <div class="score-chip" data-score="8.5" onclick="app.setQuickScore(8.5)">8.5</div>
+                  <div class="score-chip" data-score="8" onclick="app.setQuickScore(8)">8</div>
+                  <div class="score-chip" data-score="7.5" onclick="app.setQuickScore(7.5)">7.5</div>
+                  <div class="score-chip" data-score="7" onclick="app.setQuickScore(7)">7</div>
+                  <div class="score-chip" data-score="6.5" onclick="app.setQuickScore(6.5)">6.5</div>
+                  <div class="score-chip" data-score="6" onclick="app.setQuickScore(6)">6</div>
+                  <div class="score-chip" data-score="5.5" onclick="app.setQuickScore(5.5)">5.5</div>
+                  <div class="score-chip" data-score="5" onclick="app.setQuickScore(5)">5</div>
+                  <div class="score-chip" data-score="4.5" onclick="app.setQuickScore(4.5)">4.5</div>
+                  <div class="score-chip" data-score="4" onclick="app.setQuickScore(4)">4</div>
+                  <div class="score-chip" data-score="3.5" onclick="app.setQuickScore(3.5)">3.5</div>
+                  <div class="score-chip" data-score="3" onclick="app.setQuickScore(3)">3</div>
+                  <div class="score-chip" data-score="2.5" onclick="app.setQuickScore(2.5)">2.5</div>
+                  <div class="score-chip" data-score="2" onclick="app.setQuickScore(2)">2</div>
+                  <div class="score-chip" data-score="1.5" onclick="app.setQuickScore(1.5)">1.5</div>
+                  <div class="score-chip" data-score="1" onclick="app.setQuickScore(1)">1</div>
                 </div>
               </div>
 
@@ -881,7 +905,8 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 50px;">ID</th>
+                <th style="width: 50px; text-align: center;">STT</th>
+                <th style="width: 70px;">Mã Bài</th>
                 <th>Tên Bài Tập</th>
                 <th style="width: 130px;">Môn Học</th>
                 <th style="width: 110px;">Ngày Giao</th>
@@ -2096,12 +2121,12 @@
 
 
   <!-- ====================================================================
-       MODAL: TẠO NHÓM RÈN (TỰ ĐỘNG GOM TỪ ĐIỂM NGHẼN)
+       MODAL: TẠO NHÓM RÈN & CÂU HỎI (CAN THIỆP SƯ PHẠM)
        ==================================================================== -->
   <div id="remediation-create-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-card" style="max-width: 640px;">
+    <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3 class="modal-title" style="color: #991B1B;">➕ Tạo Nhóm Rèn Bổ Trợ (Can Thiệp)</h3>
+        <h3 class="modal-title" style="color: #991B1B;">➕ Tạo Nhóm Luyện Tập & Cài Đặt Câu Hỏi</h3>
         <button class="modal-close" onclick="app.closeRemediationCreateModal()">&times;</button>
       </div>
       <div>
@@ -2109,8 +2134,8 @@
         <input type="hidden" id="rem-create-target-code">
 
         <div class="form-group">
-          <label class="form-label" for="rem-create-group-name">Tên Nhóm Rèn:</label>
-          <input type="text" id="rem-create-group-name" class="form-control" placeholder="Ví dụ: Rèn cộng có nhớ — Nhóm lại hàng chục">
+          <label class="form-label" for="rem-create-group-name">Tên Nhóm Luyện Tập / Rèn:</label>
+          <input type="text" id="rem-create-group-name" class="form-control" placeholder="Ví dụ: Nhóm rèn Toán: Phép cộng có nhớ — Nhóm lại hàng chục">
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
@@ -2118,27 +2143,67 @@
             <input type="text" id="rem-create-target-name" class="form-control" placeholder="Ví dụ: MT2: Cộng có nhớ">
           </div>
           <div class="form-group">
-            <label class="form-label" for="rem-create-skill">Kĩ Năng Quan Sát:</label>
+            <label class="form-label" for="rem-create-skill">Kĩ Năng Quan Sát / Rèn Luyện:</label>
             <input type="text" id="rem-create-skill" class="form-control" placeholder="Ví dụ: Nhóm lại hàng chục">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="rem-create-task">Bài Rèn Bổ Trợ (Cô tải lên hoặc chọn bài tương đương):</label>
-          <input type="text" id="rem-create-task" class="form-control" placeholder="Ví dụ: Phiếu rèn luyện cộng có nhớ số 2.2 bổ trợ">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="rem-create-task">Tên Phiếu / Bài Rèn Bổ Trợ:</label>
+            <input type="text" id="rem-create-task" class="form-control" placeholder="Ví dụ: Phiếu rèn luyện cộng có nhớ số 2.2 bổ trợ">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="rem-create-date">Ngày Bắt Đầu Rèn:</label>
+            <input type="date" id="rem-create-date" class="form-control">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="rem-create-date">Ngày Bắt Đầu Rèn:</label>
-          <input type="date" id="rem-create-date" class="form-control">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Danh Sách Học Sinh Cần Rèn (Đã tự động chọn từ điểm nghẽn):</label>
-          <div id="rem-create-students-container" style="max-height: 160px; overflow-y: auto; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+
+        <!-- Student Multi-Selection for Practice Group -->
+        <div class="form-group" style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1E293B;">
+              👥 Chọn học sinh vào nhóm rèn luyện (<span id="rem-create-selected-count" style="color: #2563EB;">0</span> em được chọn):
+            </label>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="text" id="rem-create-student-search" placeholder="🔍 Tìm tên/mã..." oninput="app.filterRemStudentsSearch()" class="form-control" style="font-size: 11px; padding: 3px 8px; width: 130px;">
+              <button type="button" class="btn btn-outline btn-xs" onclick="app.selectAllRemStudents()" style="font-size: 11px; white-space: nowrap;">Chọn tất cả</button>
+              <button type="button" class="btn btn-outline btn-xs" onclick="app.deselectAllRemStudents()" style="font-size: 11px; white-space: nowrap;">Bỏ chọn</button>
+            </div>
+          </div>
+          <div id="rem-create-students-container" style="max-height: 140px; overflow-y: auto; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <!-- Checkboxes of students -->
           </div>
         </div>
+
+        <!-- Question Builder: Create Practice Questions for the Group -->
+        <div class="form-group" style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 12px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div>
+              <label class="form-label" style="margin-bottom: 0; font-weight: 800; color: #166534;">
+                📝 Cài đặt câu hỏi luyện tập cho nhóm:
+              </label>
+              <div style="font-size: 11px; color: #15803D;">
+                Tạo các câu hỏi / bài tập cụ thể cho nhóm này rèn. Tổng điểm: <strong id="rem-create-calc-total-score" style="color: #166534; font-size: 13px;">10.0</strong> điểm
+              </div>
+            </div>
+            <div class="quick-question-presets" style="display: flex; gap: 4px;">
+              <span class="preset-chip" onclick="app.setRemQuestionPreset(2)">2 câu</span>
+              <span class="preset-chip" onclick="app.setRemQuestionPreset(3)">3 câu</span>
+              <span class="preset-chip" onclick="app.setRemQuestionPreset(4)">4 câu</span>
+              <span class="preset-chip" onclick="app.setRemQuestionPreset(5)">5 câu</span>
+            </div>
+          </div>
+          <div id="rem-create-questions-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding: 4px;">
+            <!-- Dynamic question rows for remediation plan -->
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="app.addNewRemQuestionRow()" style="margin-top: 8px; font-size: 12px; font-weight: 700; border-color: #86EFAC; color: #166534; background: #FFFFFF;">
+            ➕ Thêm câu hỏi luyện tập
+          </button>
+        </div>
+
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <button class="btn btn-outline" onclick="app.closeRemediationCreateModal()">Hủy</button>
-          <button class="btn btn-primary" onclick="app.submitCreateRemediationPlan()">Tạo Nhóm Rèn</button>
+          <button class="btn btn-primary" onclick="app.submitCreateRemediationPlan()" style="font-weight: 800;">💾 Tạo Nhóm Rèn & Câu Hỏi</button>
         </div>
       </div>
     </div>
@@ -2166,6 +2231,15 @@
             <!-- Options of students in plan -->
           </select>
         </div>
+        <div id="reass-questions-section" style="display: none; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 10px; margin-bottom: 12px;">
+          <div style="font-weight: 700; font-size: 12px; color: #1E293B; margin-bottom: 6px;">
+            📝 Đánh giá từng câu hỏi rèn luyện của nhóm:
+          </div>
+          <div id="reass-questions-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto;">
+            <!-- Dynamic question rows for reassessment -->
+          </div>
+        </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label class="form-label" for="reass-score-input">Điểm Đạt Được:</label>
